@@ -21,7 +21,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 RUN npm install -g corepack && corepack enable \
-    && pnpm install --frozen-lockfile --prod \
+    && pnpm install --frozen-lockfile --prod --ignore-scripts \
     && rm -rf /root/.npm /root/.cache /root/.local/share/pnpm
 
 COPY --from=build /app/dist ./dist
