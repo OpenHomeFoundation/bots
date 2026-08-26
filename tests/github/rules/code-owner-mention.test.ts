@@ -171,7 +171,7 @@ describe("mention-code-owners", () => {
       },
     });
 
-    expect(runRule(rule, context)).rejects.toThrow("No CODEOWNERS file");
+    await expect(runRule(rule, context)).rejects.toThrow("No CODEOWNERS file");
   });
 
   it("returns undefined when integration is not in CODEOWNERS", async () => {
