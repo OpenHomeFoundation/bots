@@ -1,5 +1,6 @@
 import type { CommandContext } from "../engine/model/command-context.js";
 import type { Command, RuleOutput } from "../engine/types.js";
+import { UsageError } from "../engine/usage-error.js";
 
 /**
  * Users see a check's title on the dashboard, not its section ID — resolve
@@ -10,7 +11,7 @@ function resolveSectionId(context: CommandContext, title: string): string {
     (rule) => rule.statusSections ?? [],
   );
   const claim = claims.find((c) => c.title.toLowerCase() === title.trim().toLowerCase());
-  if (!claim) throw new Error(`unknown dashboard check "${title}"`);
+  if (!claim) throw new UsageError(`unknown dashboard check "${title}"`);
   return claim.id;
 }
 
@@ -29,7 +30,7 @@ export const ignore: Command = {
   permission: "author",
 
   async handle(context): Promise<RuleOutput> {
-    if (context.args.length !== 2) throw new Error('usage: ignore "<check name>" "<reason>"');
+    if (context.args.length !== 2) throw new UsageError('usage: ignore "<check name>" "<reason>"');
     const [name, reason] = context.args;
     return { overrides: [{ id: resolveSectionId(context, name), ignore: { reason } }] };
   },
@@ -44,7 +45,7 @@ export const unignore: Command = {
   permission: "author",
 
   async handle(context): Promise<RuleOutput> {
-    if (context.args.length !== 1) throw new Error('usage: unignore "<check name>"');
+    if (context.args.length !== 1) throw new UsageError('usage: unignore "<check name>"');
     return { overrides: [{ id: resolveSectionId(context, context.args[0]), ignore: null }] };
   },
 };

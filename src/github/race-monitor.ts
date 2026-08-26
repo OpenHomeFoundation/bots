@@ -44,3 +44,8 @@ export async function logRace<T>(
     }, 100);
   }
 }
+
+/** Test hook: forget in-flight dispatches so cases don't see each other's. */
+export function resetRaceMonitor(): void {
+  inFlight.clear();
+}

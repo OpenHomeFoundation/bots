@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { loadFixtures, runFixture } from "./harness.js";
 
 /**
@@ -22,6 +23,9 @@ describe("discord fixture snapshots", () => {
     describe(guildDir, () => {
       for (const fixture of loadFixtures(join(FIXTURES_ROOT, guildDir))) {
         it(fixture.name, async () => {
+          // Error-path fixtures (unknown command, handler failure) declare
+          // their expected log via the state sidecar.
+          if (fixture.state.expectsErrorLog) expectLoggedErrors();
           expect(await runFixture(fixture)).toMatchSnapshot();
         });
       }

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchIntegrationManifest } from "../../../src/github/helpers/integration-manifest.js";
+import { expectLoggedErrors } from "../../helpers/log-guard.js";
 
 const HUE = { domain: "hue", name: "Philips Hue", quality_scale: "platinum" };
 
@@ -77,6 +78,7 @@ describe("fetchIntegrationManifest", () => {
   });
 
   it("does not pin a miss when the fetch itself fails", async () => {
+    expectLoggedErrors(); // the transient-failure warn is the path under test
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {

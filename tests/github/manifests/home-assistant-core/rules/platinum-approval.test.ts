@@ -17,6 +17,8 @@ describe("platinum-approval", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
+    // Default: manifest not on dev (a clean miss); tests override per case.
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
   });
 
   afterEach(() => {

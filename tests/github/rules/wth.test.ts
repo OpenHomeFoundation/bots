@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
 import { wth } from "../../../src/github/rules/wth.js";
+import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { createMockContext, runRule } from "../helpers/mock-context.js";
 
 describe("wth", () => {
@@ -92,6 +93,7 @@ describe("wth", () => {
   });
 
   it("handles fetch errors gracefully", async () => {
+    expectLoggedErrors(); // the fetch-failure warn is the path under test
     fetchMock.mockRejectedValue(new Error("network error"));
 
     const context = createMockContext({

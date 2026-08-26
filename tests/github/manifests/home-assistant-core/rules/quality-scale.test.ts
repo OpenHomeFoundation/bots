@@ -9,6 +9,10 @@ describe("quality-scale", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
+    // Default: manifest not on dev (a clean miss); tests override per case.
+    // Without this, an unconfigured call resolves undefined and the reader
+    // logs "fetch failed" for what the test means as "no manifest".
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
   });
 
   afterEach(() => {

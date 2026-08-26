@@ -1,4 +1,5 @@
 import type { Command } from "../engine/types.js";
+import { UsageError } from "../engine/usage-error.js";
 
 export function addLabel(manageable: readonly string[]): Command {
   const valid = new Set(manageable);
@@ -10,10 +11,10 @@ export function addLabel(manageable: readonly string[]): Command {
     permission: "code_owner",
 
     async handle(context) {
-      if (context.args.length !== 1) throw new Error('usage: add-label "<label>"');
+      if (context.args.length !== 1) throw new UsageError('usage: add-label "<label>"');
       const label = context.args[0];
       if (!valid.has(label)) {
-        throw new Error(`Label "${label}" is not manageable via commands`);
+        throw new UsageError(`Label "${label}" is not manageable via commands`);
       }
       return { effects: [{ type: "addLabels", labels: [label] }] };
     },

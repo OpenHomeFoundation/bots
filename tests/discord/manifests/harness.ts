@@ -18,6 +18,7 @@ export interface DiscordFixtureState {
   /** URL substring → body served by the fetch mock; other URLs 404. */
   remote?: Record<string, unknown>;
   pinned?: PinnedMessage[];
+  expectsErrorLog?: boolean;
 }
 
 export interface DiscordFixture {

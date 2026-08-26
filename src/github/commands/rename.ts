@@ -1,4 +1,5 @@
 import type { Command } from "../engine/types.js";
+import { UsageError } from "../engine/usage-error.js";
 
 export const rename: Command = {
   name: "rename",
@@ -8,7 +9,7 @@ export const rename: Command = {
   permission: "code_owner",
 
   async handle(context) {
-    if (context.args.length !== 1) throw new Error('usage: rename "<new title>"');
+    if (context.args.length !== 1) throw new UsageError('usage: rename "<new title>"');
     return { effects: [{ type: "setTitle", title: context.args[0] }] };
   },
 };

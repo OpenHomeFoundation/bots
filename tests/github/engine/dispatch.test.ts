@@ -8,6 +8,7 @@ import {
 } from "../../../src/github/engine/status/render.js";
 import type { RegistryConfig, Rule, RuleOutput } from "../../../src/github/engine/types.js";
 import { log } from "../../../src/log.js";
+import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { createFakeGitHub, createMockContext } from "../helpers/mock-context.js";
 
 const testRule: Rule = {
@@ -159,6 +160,7 @@ describe("dispatch", () => {
   });
 
   it("does not remove a label that was also added", async () => {
+    expectLoggedErrors(); // the add/remove conflict warns by design
     const github = createFakeGitHub();
     const conflictRule: Rule = {
       name: "conflict",

@@ -11,6 +11,7 @@ import { updateBranch } from "../../../src/github/commands/update-branch.js";
 import { dispatchCommand } from "../../../src/github/engine/dispatch.js";
 import { renderStatus } from "../../../src/github/engine/status/render.js";
 import type { Rule } from "../../../src/github/engine/types.js";
+import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { expectReaction, makeCommandContext, registryWith } from "../helpers/command.js";
 import { createFakeGitHub, type FakeGitHub } from "../helpers/mock-context.js";
 
@@ -160,6 +161,7 @@ describe("update-branch", () => {
   });
 
   it("surfaces update failures as a comment", async () => {
+    expectLoggedErrors(); // "applyEffects: operation failed" is the path under test
     const github = createFakeGitHub();
     github.pulls.updateBranch.mockRejectedValue({
       response: { data: { message: "merge conflict between base and head" } },

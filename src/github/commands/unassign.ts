@@ -1,4 +1,5 @@
 import type { Command, Effect } from "../engine/types.js";
+import { UsageError } from "../engine/usage-error.js";
 import { fetchIntegrationManifest } from "../helpers/integration-manifest.js";
 
 export const unassign: Command = {
@@ -10,7 +11,7 @@ export const unassign: Command = {
   permission: "author_or_code_owner",
 
   async handle(context) {
-    if (context.args.length !== 1) throw new Error('usage: unassign "<domain>"');
+    if (context.args.length !== 1) throw new UsageError('usage: unassign "<domain>"');
     const domain = context.args[0];
     const manifest = await fetchIntegrationManifest(domain);
     const owners = await context.expandTeams(manifest?.codeowners ?? []);

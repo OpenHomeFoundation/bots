@@ -1,4 +1,5 @@
 import type { Command } from "../engine/types.js";
+import { UsageError } from "../engine/usage-error.js";
 
 export function removeLabel(manageable: readonly string[]): Command {
   const valid = new Set(manageable);
@@ -10,13 +11,13 @@ export function removeLabel(manageable: readonly string[]): Command {
     permission: "code_owner",
 
     async handle(context) {
-      if (context.args.length !== 1) throw new Error('usage: remove-label "<label>"');
+      if (context.args.length !== 1) throw new UsageError('usage: remove-label "<label>"');
       const label = context.args[0];
       if (!valid.has(label)) {
-        throw new Error(`Label "${label}" is not manageable via commands`);
+        throw new UsageError(`Label "${label}" is not manageable via commands`);
       }
       if (!(await context.target.labels()).includes(label)) {
-        throw new Error(`Label "${label}" is not set`);
+        throw new UsageError(`Label "${label}" is not set`);
       }
       return { effects: [{ type: "removeLabels", labels: [label] }] };
     },

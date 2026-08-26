@@ -5,6 +5,8 @@ import { dispatchCommand } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import { isBotCommand, parseCommands } from "../../../src/github/engine/model/command-context.js";
 import type { Command, Rule } from "../../../src/github/engine/types.js";
+import { UsageError } from "../../../src/github/engine/usage-error.js";
+import { log } from "../../../src/log.js";
 import {
   expectReaction,
   makeCommandContext as makeContext,
@@ -173,7 +175,8 @@ describe("dispatchCommand", () => {
     expectReaction(github, "+1");
   });
 
-  it("reacts -1 when the handler throws", async () => {
+  it("reacts -1 when the handler throws and logs the failure", async () => {
+    const logErrorSpy = vi.spyOn(log, "error").mockImplementation(() => {});
     const command = noopCommand({ handle: vi.fn().mockRejectedValue(new Error("boom")) });
     const { context, github } = makeContext("/ha-bot ping", {
       registry: registryWith(command),
@@ -181,6 +184,33 @@ describe("dispatchCommand", () => {
 
     await dispatchCommand(context);
     expectReaction(github, "-1");
+
+    expect(logErrorSpy).toHaveBeenCalledWith(
+      "command failed",
+      expect.objectContaining({ command: "ping", error: "Error: boom" }),
+    );
+    logErrorSpy.mockRestore();
+  });
+
+  it("treats a UsageError as a rejection, not a failure", async () => {
+    const logInfoSpy = vi.spyOn(log, "info").mockImplementation(() => {});
+    const command = noopCommand({
+      handle: vi.fn().mockRejectedValue(new UsageError('usage: ping "<arg>"')),
+    });
+    const { context, github } = makeContext("/ha-bot ping", {
+      registry: registryWith(command),
+    });
+
+    await dispatchCommand(context);
+    expectReaction(github, "-1");
+
+    // Info-level "command rejected", like the pre-run rejections; the global
+    // log guard fails this test if "command failed" fires at error level.
+    expect(logInfoSpy).toHaveBeenCalledWith(
+      "command rejected",
+      expect.objectContaining({ command: "ping", reason: 'usage: ping "<arg>"' }),
+    );
+    logInfoSpy.mockRestore();
   });
 
   it("ignores bot senders entirely", async () => {

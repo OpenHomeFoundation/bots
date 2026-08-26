@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GuildRegistry } from "../../../src/discord/engine/dispatch.js";
 import { dispatchDiscordEvent } from "../../../src/discord/engine/dispatch.js";
 import type { DiscordEffect, Listener, SlashCommand } from "../../../src/discord/engine/types.js";
+import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import {
   autocompleteEvent,
   commandEvent,
@@ -36,11 +37,13 @@ describe("dispatchDiscordEvent", () => {
   });
 
   it("answers unknown commands ephemerally", async () => {
+    expectLoggedErrors(); // unknown command warns by design
     const effects = await dispatchDiscordEvent(registry(), commandEvent("nope"), stubReader());
     expect(effects).toEqual([{ type: "reply", content: "Unknown command", ephemeral: true }]);
   });
 
   it("does not find another guild's commands", async () => {
+    expectLoggedErrors(); // resolves as unknown command, which warns
     const command: SlashCommand = { name: "hello", description: "", handle: async () => [reply] };
     const effects = await dispatchDiscordEvent(
       registry([command]),
@@ -68,6 +71,7 @@ describe("dispatchDiscordEvent", () => {
   });
 
   it("turns a handler error into an ephemeral reply", async () => {
+    expectLoggedErrors(); // the handler failure is the path under test
     const command: SlashCommand = {
       name: "boom",
       description: "",
@@ -94,6 +98,7 @@ describe("dispatchDiscordEvent", () => {
   });
 
   it("routes autocomplete and answers errors with no choices", async () => {
+    expectLoggedErrors(); // the autocomplete failure is the path under test
     const command: SlashCommand = {
       name: "lookup",
       description: "",
@@ -128,6 +133,7 @@ describe("dispatchDiscordEvent", () => {
   });
 
   it("isolates listener failures from other listeners", async () => {
+    expectLoggedErrors(); // the listener failure is the path under test
     const broken: Listener = {
       name: "broken",
       description: "",

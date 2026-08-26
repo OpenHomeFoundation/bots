@@ -9,6 +9,7 @@ import { emptyRuleState, parseState } from "./status/render.js";
 import type { SectionOverride, StatusSection } from "./status/types.js";
 import { locateStatusComment, syncDashboard, updateCommitStatus } from "./status-sync.js";
 import type { Command, Effect, RegistryConfig, Rule, RuleOutput } from "./types.js";
+import { UsageError } from "./usage-error.js";
 
 export function matchRules(context: RuleContext): Rule[] {
   const repoRules = context.registry.repositories[context.repo.fullName] ?? [];
@@ -496,12 +497,24 @@ export async function dispatchCommand(
       }
       anyRan = true;
     } catch (err) {
-      log.error("command failed", {
-        repository: context.repo.fullName,
-        number: context.number,
-        command: command.name,
-        error: String(err),
-      });
+      if (err instanceof UsageError) {
+        // The handler rejected the user's input — normal operation, like the
+        // pre-run rejections above, not a fault.
+        log.info("command rejected", {
+          repository: context.repo.fullName,
+          number: context.number,
+          command: command.name,
+          sender: context.sender.login,
+          reason: err.message,
+        });
+      } else {
+        log.error("command failed", {
+          repository: context.repo.fullName,
+          number: context.number,
+          command: command.name,
+          error: String(err),
+        });
+      }
       anyFailed = true;
     }
   }
