@@ -1,7 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "node",
-  "include-v-in-tag": false,
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
   "draft": true,
@@ -16,6 +15,7 @@
     { "type": "ci", "section": "🧰 Maintenance" },
     { "type": "test", "section": "🧰 Maintenance" }
   ],
+  "include-component-in-tag": false,
   "packages": {
     ".": { "initial-version": "0.1.0" }
   }
