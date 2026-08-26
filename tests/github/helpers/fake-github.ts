@@ -440,6 +440,10 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
     throw new Error(`fake GitHub: unstubbed route ${method} ${url.pathname}`);
   };
 
-  const octokit = new Octokit({ request: { fetch: fakeFetch } });
+  const noop = (): void => {};
+  const octokit = new Octokit({
+    request: { fetch: fakeFetch },
+    log: { debug: noop, info: noop, warn: noop, error: noop },
+  });
   return { ...endpoints, octokit, requests, comments, world };
 }
