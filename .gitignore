@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build & test output
+dist/
+coverage/
+
+# Environment
+.env
+.env.*
+!.env.example
+mise.local.toml
+
+# Raw captured fixtures (curated ones live in fixtures/<repo>/)
+tests/github/manifests/fixtures/_captured/
+tests/discord/fixtures/_captured/

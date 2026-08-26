@@ -1,0 +1,24 @@
+name: Release Please
+
+# Maintains a release PR from the conventional commits on main (squash-merged
+# PR titles). Merging it bumps package.json, updates CHANGELOG.md, tags, and
+# cuts a *draft* GitHub release — publishing that draft stays a human act so
+# the `release: published` deploy in release.yml is triggered by a user, not
+# by GITHUB_TOKEN (whose events don't start workflows).
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update the release PR / cut a draft release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0

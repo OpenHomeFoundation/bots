@@ -1,0 +1,70 @@
+name: Sync PR templates
+
+# Keep fixture bodies coupled to the upstream PR templates: vendor the live
+# template, re-render the fixture bodies from it, refresh the expected-effect
+# files, and open a PR when anything changed — its diff shows the template
+# change, the regenerated bodies, and the effect fallout in one place. A
+# removed or reworded checkbox that a fixture ticks fails the render step,
+# turning the scheduled run red instead of silently drifting.
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        # Installs the Node and pnpm versions pinned in .mise.toml.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      - name: Locate pnpm store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Vendor the upstream PR templates
+        run: mise run sync-templates
+
+      - name: Detect template changes
+        id: template
+        # Stop early when the vendored template is unchanged
+        run: echo "changed=$(git diff --quiet && echo false || echo true)" >> "$GITHUB_OUTPUT"
+
+      - name: Refresh expected effects
+        if: steps.template.outputs.changed == 'true'
+        run: UPDATE_FIXTURES=1 mise run test
+
+      - name: Open a pull request
+        if: steps.template.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: bot/sync-pr-templates
+          delete-branch: true
+          commit-message: Sync fixture bodies with the upstream PR template
+          title: Sync fixture bodies with the upstream PR template
+          body: >-
+            The upstream PR template changed. This PR vendors the new template,
+            re-renders the fixture bodies from it, and refreshes the expected
+            effects — review that diff for behavioral fallout (e.g. a
+            type-of-change label disappearing means a rule no longer matches
+            the reworded checkbox).

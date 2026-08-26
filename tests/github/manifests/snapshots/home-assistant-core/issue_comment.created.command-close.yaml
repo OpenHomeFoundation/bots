@@ -1,0 +1,4 @@
+statuses: []
+effects:
+  - type: setState
+    state: closed

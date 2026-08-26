@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices", "group:allNonMajor"],
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions bumps into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Update Node everywhere (Dockerfile + mise.toml) in one PR",
+      "matchDepNames": ["node"],
+      "groupName": "node"
+    }
+  ]
+}

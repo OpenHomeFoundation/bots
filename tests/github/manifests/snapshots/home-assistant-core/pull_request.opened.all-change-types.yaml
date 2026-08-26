@@ -1,0 +1,49 @@
+statuses:
+  - id: new-integration-validation
+    title: New integration validation
+    status: pass
+    message: Validation passed.
+  - id: docs-missing
+    title: Documentation
+    status: fail
+    message: Missing documentation PR
+  - id: merge-conflict
+    title: Merge conflicts
+    status: pass
+    message: No merge conflicts.
+  - id: merge-target
+    title: Merge target
+    status: pass
+    message: This PR targets `dev`.
+  - id: review-comments
+    title: Review comments
+    status: skip
+    message: No inline review comments yet.
+  - id: code-owner-approval
+    title: Code owner approval
+    status: skip
+    message: Not a platinum integration — no code-owner approval required.
+  - id: type-of-change
+    title: Type of change
+    status: pass
+    message: "Type of change: `bugfix`, `dependency`, `new-integration`, `new-feature`, `deprecation`, `breaking-change`, `code-quality`"
+effects:
+  - type: addLabels
+    labels:
+      - "integration: awesome"
+  - type: addLabels
+    labels:
+      - "Quality Scale: bronze"
+  - type: addLabels
+    labels:
+      - bugfix
+      - dependency
+      - new-integration
+      - new-feature
+      - deprecation
+      - breaking-change
+      - code-quality
+  - type: addLabels
+    labels:
+      - has-tests
+      - new-integration

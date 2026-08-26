@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")/.."
+
+script/bootstrap
+
+# biome check covers both lint and format:check
+pnpm run lint
+pnpm run typecheck
+pnpm run test
+pnpm run build
