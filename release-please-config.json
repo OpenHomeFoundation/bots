@@ -17,6 +17,6 @@
     { "type": "test", "section": "🧰 Maintenance" }
   ],
   "packages": {
-    ".": {}
+    ".": { "initial-version": "0.1.0" }
   }
 }
