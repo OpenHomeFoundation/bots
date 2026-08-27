@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: "${{ github.workflow }}"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -26,9 +26,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Stamp the version from the release tag
-        run: npm pkg set version="$GITHUB_REF_NAME"
-
       - name: Log in to the GitHub Container Registry
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
@@ -36,26 +33,43 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/ohf-bots
+          tags: type=semver,pattern={{version}}
+          flavor: latest=false
+
       - name: Build and push the container image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
-          tags: "ghcr.io/${{ github.repository_owner }}/ohf-bots:${{ github.ref_name }}"
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Update the Terraform variable set
         if: env.TFC_TOKEN != '' && env.TFC_VARSET_ID != ''
+        shell: bash
+        env:
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          variable_id=$(curl -sSL \
+          variable_id=$(curl -sSL --fail-with-body \
             --header "Authorization: Bearer ${TFC_TOKEN}" \
             --header "Content-Type: application/vnd.api+json" \
             --request GET \
             "https://app.terraform.io/api/v2/varsets/${TFC_VARSET_ID}" \
-            | jq -r '.data.relationships.vars.data[0] | .id')
+            | jq -r '.data.relationships.vars.data[0].id // empty')
 
-          curl -sSL \
+          if [ -z "${variable_id}" ]; then
+            echo "::error::Could not resolve a variable id from the varset"
+            exit 1
+          fi
+
+          curl -sSL --fail-with-body \
             --header "Authorization: Bearer ${TFC_TOKEN}" \
             --header "Content-Type: application/vnd.api+json" \
             --request PATCH \
-            --data "{\"data\": {\"type\": \"vars\", \"attributes\": {\"value\": \"${GITHUB_REF_NAME}\"}}}" \
+            --data "{\"data\": {\"type\": \"vars\", \"attributes\": {\"value\": \"${IMAGE_VERSION}\"}}}" \
             "https://app.terraform.io/api/v2/varsets/${TFC_VARSET_ID}/relationships/vars/${variable_id}"
