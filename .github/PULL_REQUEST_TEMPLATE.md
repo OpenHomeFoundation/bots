@@ -57,9 +57,9 @@
 
 - [ ] I understand the code I am submitting and can explain how it works.
 - [ ] The code change is tested and works locally.
-- [ ] Local tests pass (`just test`). **Your PR cannot be merged unless tests pass.**
-- [ ] Lint and type checks pass (`just lint`).
-- [ ] The code has been formatted (`just format`).
+- [ ] Local tests pass (`mise run test`). **Your PR cannot be merged unless tests pass.**
+- [ ] Lint and type checks pass (`mise run check`).
+- [ ] The code has been formatted (`mise run format`).
 - [ ] Tests have been added to verify that the new code works.
 - [ ] There is no commented out or debug code in this PR.
 - [ ] Any generated code has been carefully reviewed for correctness and compliance with project standards.
