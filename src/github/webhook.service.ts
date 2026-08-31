@@ -30,11 +30,10 @@ export class WebhookService {
       throw new BadRequestException("Invalid JSON");
     }
     const action = (raw.action as string) ?? "";
-    const rawEventType = `${event}.${action}`;
+    const rawEventType = action ? `${event}.${action}` : event;
 
     // Skip events without repository scope
     if (!raw.repository || typeof raw.repository !== "object") {
-      log.info("webhook: skipped", { eventType: rawEventType, reason: "no repository scope" });
       return "OK";
     }
 
@@ -47,13 +46,7 @@ export class WebhookService {
     // Skip self-webhooks
     if (selfWebhook) return "OK";
 
-    // Skip and log webhooks we don't have a rule for
     if (!known) {
-      log.info("webhook: skipped", {
-        eventType: rawEventType,
-        repository: (raw.repository as { full_name?: string }).full_name,
-        reason: "no rule handles this event type",
-      });
       return "OK";
     }
 
