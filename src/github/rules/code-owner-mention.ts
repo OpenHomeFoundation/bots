@@ -22,6 +22,18 @@ type HandledEvent =
 // (owners without repo access), so comment presence is the only reliable state.
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
+// The legacy bot's CodeOwnersMention comments carry no marker, so they're
+// recognized by their template prose instead — the raw markdown including the
+// link opener, which no human types verbatim. The current template (and thus
+// every new mention comment) contains the same phrase, so this alone would
+// suffice; the marker stays as the primary, prose-independent signal.
+export const LEGACY_MENTION_SENTINEL = "you are listed as a [code owner](";
+
+/** Whether this comment is a code-owner mention (current or legacy deploy). */
+export function isMentionComment(body: string | null | undefined): boolean {
+  return !!body && (body.includes(MENTION_MARKER) || body.includes(LEGACY_MENTION_SENTINEL));
+}
+
 // Layout and prose live in the template; this rule only builds the view.
 // The marker is written literally there but grepped for here — fail at load
 // if a template edit breaks the pair (one-ping detection depends on it).
@@ -110,7 +122,7 @@ export function mentionCodeOwners(config: {
     }
 
     const comments = await ctx.target.issueComments();
-    if (comments.some((c) => c.body?.includes(MENTION_MARKER))) return;
+    if (comments.some((c) => isMentionComment(c.body))) return;
 
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
     const assignees = (await ctx.target.assigneeLogins()).map((a) => a.toLowerCase());

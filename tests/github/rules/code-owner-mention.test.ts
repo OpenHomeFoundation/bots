@@ -128,6 +128,49 @@ describe("mention-code-owners", () => {
     expect(result).toBeUndefined();
   });
 
+  it("does not post again when the legacy bot already mentioned owners", async () => {
+    const github = createFakeGitHub();
+    const codeowners = `homeassistant/components/hue/* @balloob`;
+
+    github.repos.getContent.mockResolvedValue({
+      data: { content: btoa(codeowners) },
+    });
+    // Verbatim shape of the legacy CodeOwnersMention comment: template prose
+    // only, no marker (the legacy bot never stamped one).
+    github.issues.listComments.mockResolvedValue({
+      data: [
+        {
+          user: { login: "home-assistant[bot]" },
+          body:
+            "\nHey there @balloob, mind taking a look at this pull request as it has been " +
+            "labeled with an integration (`hue`) you are listed as a " +
+            "[code owner](https://github.com/home-assistant/core/blob/8b1e4d2/CODEOWNERS#L742) " +
+            "for? Thanks!\n\n<details>\n<summary>Code owner commands</summary>\n\n\n" +
+            "Code owners of `hue` can trigger bot actions by commenting:\n\n" +
+            "- `@home-assistant close` Closes the issue.\n\n</details>\n\n",
+        },
+      ],
+    });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: hue" },
+        issue: {
+          user: { login: "reporter" },
+          assignees: [],
+          body: "",
+          labels: [{ name: "integration: hue" }],
+        },
+      },
+    });
+
+    const result = await runRule(rule, context);
+    expect(result).toBeUndefined();
+  });
+
   it("does not mention or assign the PR author", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @reporter`;
