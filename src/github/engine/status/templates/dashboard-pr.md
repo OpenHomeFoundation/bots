@@ -1,4 +1,4 @@
-<!-- ha-bot-dashboard -->
+<!-- ohf-bot-dashboard -->
 
 👋 Hi! Thanks for contributing to **{{friendlyName}}**.
 

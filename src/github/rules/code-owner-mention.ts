@@ -20,7 +20,7 @@ type HandledEvent =
 // mentioned, and no further mention comments are posted — even if new
 // integrations or code owners show up later. Assignment can fail silently
 // (owners without repo access), so comment presence is the only reliable state.
-export const MENTION_MARKER = "<!-- ha-bot-mention -->";
+export const MENTION_MARKER = "<!-- ohf-bot-mention -->";
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
 // recognized by their template prose instead — the raw markdown including the

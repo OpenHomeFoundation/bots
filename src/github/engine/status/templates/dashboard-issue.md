@@ -1,4 +1,4 @@
-<!-- ha-bot-dashboard -->
+<!-- ohf-bot-dashboard -->
 
 {{#author}}👋 Hi @{{author}}!{{/author}}{{^author}}👋 Hi!{{/author}} Thanks for reporting an issue to **{{friendlyName}}**.
 
