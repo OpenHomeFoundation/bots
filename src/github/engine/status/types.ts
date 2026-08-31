@@ -13,7 +13,7 @@ export interface StatusSection {
   status: SectionStatus;
   message: string;
   /**
-   * Author waiver (`/<slug> ignore`). Persisted in the section state embedded
+   * Author waiver (`@<slug> ignore`). Persisted in the section state embedded
    * in the status comment, so it sticks across re-emissions: a rule
    * re-reporting `fail` on a later push stays waived until an explicit
    * `unignore`. Only affects how `fail`/`pending` present and aggregate.

@@ -14,12 +14,12 @@ export enum EventType {
   PULL_REQUEST_UNLABELED = "pull_request.unlabeled",
 
   /**
-   * Synthetic PR event to reevaluate a rule (cron sweep, `/<slug> update`).
+   * Synthetic PR event to reevaluate a rule (cron sweep, `@<slug> update`).
    */
   ON_DEMAND = "on_demand",
 
   /**
-   * Synthetic issue counterpart of ON_DEMAND (`/<slug> update` on an issue).
+   * Synthetic issue counterpart of ON_DEMAND (`@<slug> update` on an issue).
    */
   ISSUES_ON_DEMAND = "issues.on_demand",
 }

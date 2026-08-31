@@ -12,8 +12,8 @@ export const envSchema = z.object({
   BOT_SLUG: z.string().default("home-assistant"),
 
   // Comment-command prefix — the bot reacts to comments starting with
-  // `/${COMMAND_SLUG} <command>`.
-  COMMAND_SLUG: z.string().default("ha-bot"),
+  // `@${COMMAND_SLUG} <command>`.
+  COMMAND_SLUG: z.string().default("home-assistant"),
 
   // Discord bot token. The gateway only starts when this is set —
   // absence means "no Discord", not a misconfiguration.

@@ -34,7 +34,7 @@ export interface RepoManifest {
   rules: Rule[];
   /** Enable the PR dashboard on this repo */
   dashboard?: boolean;
-  /** Comment commands (`/<slug> <name>`) available on this repo. */
+  /** Comment commands (`@<slug> <name>`) available on this repo. */
   commands?: Command[];
   /**
    * CODEOWNERS path of an integration domain (e.g. `hue` →

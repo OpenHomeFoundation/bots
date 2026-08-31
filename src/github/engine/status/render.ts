@@ -62,7 +62,7 @@ export type StatusTarget = "pull_request" | "issue";
 export interface StatusExtras {
   /** Target author login, mentioned in the issue greeting. */
   author?: string;
-  /** Comment-command prefix; defaults to `ha-bot`. */
+  /** Comment-command prefix; defaults to `home-assistant`. */
   commandSlug?: string;
   /** The repo's registered commands, listed in the collapsed help. */
   commands?: readonly CommandHelpEntry[];
@@ -117,7 +117,7 @@ export function renderStatus(
   target: StatusTarget = "pull_request",
   extras: StatusExtras = {},
 ): string {
-  const slug = extras.commandSlug ?? "ha-bot";
+  const slug = extras.commandSlug ?? "home-assistant";
   const blocks = extras.blocks ?? {};
   const display = sections.map(displaySection);
   const passing = display.filter((s) => s.status === "pass");

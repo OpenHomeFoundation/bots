@@ -54,7 +54,7 @@ function asCodeOwner(body: string, github?: FakeGitHub) {
 
 describe("close / reopen", () => {
   it("closes the item", async () => {
-    const { context, github } = asCodeOwner("/ha-bot close");
+    const { context, github } = asCodeOwner("@home-assistant close");
     await dispatchCommand(context);
     expect(github.issues.update).toHaveBeenCalledWith(
       expect.objectContaining({ issue_number: 1, state: "closed" }),
@@ -63,7 +63,7 @@ describe("close / reopen", () => {
   });
 
   it("reopens the item", async () => {
-    const { context, github } = asCodeOwner("/ha-bot reopen");
+    const { context, github } = asCodeOwner("@home-assistant reopen");
     await dispatchCommand(context);
     expect(github.issues.update).toHaveBeenCalledWith(
       expect.objectContaining({ issue_number: 1, state: "open" }),
@@ -74,7 +74,7 @@ describe("close / reopen", () => {
 
 describe("rename", () => {
   it("sets a quoted multi-word title", async () => {
-    const { context, github } = asCodeOwner('/ha-bot rename "Awesome new title"');
+    const { context, github } = asCodeOwner('@home-assistant rename "Awesome new title"');
     await dispatchCommand(context);
     expect(github.issues.update).toHaveBeenCalledWith(
       expect.objectContaining({ issue_number: 1, title: "Awesome new title" }),
@@ -83,7 +83,7 @@ describe("rename", () => {
   });
 
   it("rejects an unquoted title", async () => {
-    const { context, github } = asCodeOwner("/ha-bot rename Awesome new title");
+    const { context, github } = asCodeOwner("@home-assistant rename Awesome new title");
     await dispatchCommand(context);
     expect(github.issues.update).not.toHaveBeenCalled();
     expectReaction(github, "-1");
@@ -92,7 +92,7 @@ describe("rename", () => {
 
 describe("add-label / remove-label", () => {
   it("adds an allowlisted label", async () => {
-    const { context, github } = asCodeOwner('/ha-bot add-label "needs-more-information"');
+    const { context, github } = asCodeOwner('@home-assistant add-label "needs-more-information"');
     await dispatchCommand(context);
     expect(github.issues.addLabels).toHaveBeenCalledWith(
       expect.objectContaining({ labels: ["needs-more-information"] }),
@@ -101,7 +101,7 @@ describe("add-label / remove-label", () => {
   });
 
   it("rejects labels outside the allowlist", async () => {
-    const { context, github } = asCodeOwner('/ha-bot add-label "second-opinion-wanted"');
+    const { context, github } = asCodeOwner('@home-assistant add-label "second-opinion-wanted"');
     await dispatchCommand(context);
     expect(github.issues.addLabels).not.toHaveBeenCalled();
     expectReaction(github, "-1");
@@ -110,7 +110,7 @@ describe("add-label / remove-label", () => {
   it("removes a present allowlisted label", async () => {
     const command = removeLabel(["needs-more-information"]);
     const { context, github } = makeCommandContext(
-      '/ha-bot remove-label "needs-more-information"',
+      '@home-assistant remove-label "needs-more-information"',
       {
         github: createFakeGitHub({ members: ["testuser"] }),
         registry: registryWith(command),
@@ -129,7 +129,7 @@ describe("mark-draft", () => {
   it("converts a non-draft PR to draft via GraphQL", async () => {
     const github = createFakeGitHub();
     github.pulls.get.mockResolvedValue({ data: { draft: false, node_id: "PR_NODE" } });
-    const { context } = asCodeOwner("/ha-bot mark-draft", github);
+    const { context } = asCodeOwner("@home-assistant mark-draft", github);
 
     await dispatchCommand(context);
     expect(github.graphql).toHaveBeenCalledWith(
@@ -142,7 +142,7 @@ describe("mark-draft", () => {
   it("does not touch a PR already in draft", async () => {
     const github = createFakeGitHub();
     github.pulls.get.mockResolvedValue({ data: { draft: true, node_id: "PR_NODE" } });
-    const { context } = asCodeOwner("/ha-bot mark-draft", github);
+    const { context } = asCodeOwner("@home-assistant mark-draft", github);
 
     await dispatchCommand(context);
     expect(github.graphql).not.toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe("mark-draft", () => {
 
 describe("update-branch", () => {
   it("updates the branch", async () => {
-    const { context, github } = asCodeOwner("/ha-bot update-branch");
+    const { context, github } = asCodeOwner("@home-assistant update-branch");
     await dispatchCommand(context);
     expect(github.pulls.updateBranch).toHaveBeenCalledWith(
       expect.objectContaining({ pull_number: 1 }),
@@ -166,7 +166,7 @@ describe("update-branch", () => {
     github.pulls.updateBranch.mockRejectedValue({
       response: { data: { message: "merge conflict between base and head" } },
     });
-    const { context } = asCodeOwner("/ha-bot update-branch", github);
+    const { context } = asCodeOwner("@home-assistant update-branch", github);
 
     await dispatchCommand(context);
     expect(github.issues.createComment).toHaveBeenCalledWith(
@@ -217,7 +217,7 @@ describe("ignore / unignore", () => {
   it("ignore waives the named check in the status comment", async () => {
     const github = withStatusComment({});
     const { context } = makeCommandContext(
-      '/ha-bot ignore "Merge conflicts" "Will rebase before merge"',
+      '@home-assistant ignore "Merge conflicts" "Will rebase before merge"',
       { github, registry: registryWith(ignore, [claimingRule]) },
     );
 
@@ -230,7 +230,7 @@ describe("ignore / unignore", () => {
 
   it("unignore restores a waived check", async () => {
     const github = withStatusComment({ ignored: { reason: "Will rebase before merge" } });
-    const { context } = makeCommandContext('/ha-bot unignore "Merge conflicts"', {
+    const { context } = makeCommandContext('@home-assistant unignore "Merge conflicts"', {
       github,
       registry: registryWith(unignore, [claimingRule]),
     });
@@ -245,7 +245,7 @@ describe("ignore / unignore", () => {
 
   it("rejects an unknown check name", async () => {
     const github = withStatusComment({});
-    const { context } = makeCommandContext('/ha-bot ignore "No such check" "reason"', {
+    const { context } = makeCommandContext('@home-assistant ignore "No such check" "reason"', {
       github,
       registry: registryWith(ignore, [claimingRule]),
     });
@@ -284,7 +284,7 @@ describe("update", () => {
         },
       },
     });
-    const { context } = makeCommandContext("/ha-bot update", {
+    const { context } = makeCommandContext("@home-assistant update", {
       github,
       registry: registryWith(update),
     });

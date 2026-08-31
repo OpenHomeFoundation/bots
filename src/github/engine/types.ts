@@ -142,7 +142,7 @@ export interface Rule {
 }
 
 /**
- * A comment command (`/<slug> <name> [args]`). Like rules, commands return
+ * A comment command (`@<slug> <name> [args]`). Like rules, commands return
  * a {@link RuleOutput} instead of mutating GitHub directly. The declared constraints
  * (args, scope, permission) are enforced by the dispatcher, which answers
  * with a 👍/👎 reaction on the comment.

@@ -30,7 +30,7 @@ const env: Env = {
   SENTRY_DSN: "",
   ENVIRONMENT: "test",
   BOT_SLUG: "ha-bot",
-  COMMAND_SLUG: "ha-bot",
+  COMMAND_SLUG: "home-assistant",
   PORT: 0,
 };
 

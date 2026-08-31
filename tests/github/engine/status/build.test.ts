@@ -20,7 +20,7 @@ function input(overrides: Partial<StatusInput> = {}): StatusInput {
     data: {},
     previous: null,
     knownSectionIds: new Set(["a", "b", "merge-conflict"]),
-    help: { commandSlug: "ha-bot", commands: [] },
+    help: { commandSlug: "home-assistant", commands: [] },
     ...overrides,
   };
 }

@@ -18,9 +18,9 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Whether any line of the comment addresses the bot (`/<slug> …`). */
+/** Whether any line of the comment addresses the bot (`@<slug> …`). */
 export function isBotCommand(commentBody: string, slug: string): boolean {
-  return new RegExp(`^/${escapeRegExp(slug)}\\b`, "im").test(commentBody);
+  return new RegExp(`^@${escapeRegExp(slug)}\\b`, "im").test(commentBody);
 }
 
 export interface CommandInvocation {
@@ -45,13 +45,13 @@ function parseArgs(rest: string | undefined): Pick<CommandInvocation, "args" | "
 }
 
 /**
- * Every command in the comment, one per line that starts with `/<slug>`.
+ * Every command in the comment, one per line that starts with `@<slug>`.
  * Surrounding prose lines are ignored, so commands can be mixed with text
  * and several commands can be stacked in one comment.
  */
 export function parseCommands(commentBody: string, slug: string): CommandInvocation[] {
   const re = new RegExp(
-    `^/${escapeRegExp(slug)}\\s+([\\w-]+)(?:[^\\S\\n]+(\\S[^\\n]*?))?[^\\S\\n]*$`,
+    `^@${escapeRegExp(slug)}\\s+([\\w-]+)(?:[^\\S\\n]+(\\S[^\\n]*?))?[^\\S\\n]*$`,
     "gim",
   );
   return [...commentBody.matchAll(re)].map((match) => ({

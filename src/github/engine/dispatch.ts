@@ -488,7 +488,7 @@ async function react(context: CommandContext, content: "+1" | "-1"): Promise<voi
  * The command counterpart of dispatch(): validate each invocation in the
  * comment against its command's declared constraints, run the handlers in
  * order, and apply the collected outputs. A comment can carry several
- * commands (one per `/<slug>` line) mixed with prose. The invoking comment
+ * commands (one per `@<slug>` line) mixed with prose. The invoking comment
  * gets a 👍 when every invocation ran and a 👎 when any was rejected or
  * failed. Returns the applied outputs, undefined when nothing ran.
  */
