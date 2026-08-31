@@ -1,3 +1,4 @@
+import { update } from "../commands/update.js";
 import { EventType } from "../engine/event.js";
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
@@ -35,6 +36,6 @@ const intentsLanguage: Rule = {
 
 export const homeAssistantIntents: RepoManifest = {
   slug: HomeAssistantRepository.INTENTS,
-  dashboard: true,
   rules: [intentsLanguage, ...homeAssistantOrgRules],
+  commands: [update],
 };
