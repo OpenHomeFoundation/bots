@@ -7,6 +7,7 @@ import type { RepoManifest } from "./types.js";
 
 export const homeAssistantFrontend: RepoManifest = {
   slug: HomeAssistantRepository.FRONTEND,
+  dashboard: true,
   rules: [
     // Docs
     docsParenting,

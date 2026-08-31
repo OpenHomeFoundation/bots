@@ -8,6 +8,7 @@ import type { RepoManifest } from "./types.js";
 
 export const esphome: RepoManifest = {
   slug: ESPHomeRepository.ESPHOME,
+  dashboard: true,
   rules: [mergeConflict, draftOnChangesRequested, readyForReview],
   commands: [update, ignore, unignore],
 };

@@ -284,6 +284,7 @@ describe("platinum-approval", () => {
     // domain from the changed files and the scale from the manifest itself.
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": [integrationDomain, qualityScale, platinumApproval] },
+      dashboards: { "home-assistant/core": true },
     };
     const context = createMockContext({
       registry: config,

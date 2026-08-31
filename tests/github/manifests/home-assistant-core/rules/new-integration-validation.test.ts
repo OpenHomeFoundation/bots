@@ -142,6 +142,7 @@ describe("new-integration-validation", () => {
     // added __init__.py and the loop re-dispatches this rule with it.
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": [fileShape, newIntegrationValidation] },
+      dashboards: { "home-assistant/core": true },
     };
     const context = createMockContext({
       registry: config,

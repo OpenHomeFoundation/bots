@@ -57,6 +57,7 @@ function build(): RegistryConfig {
   const repositories: Record<string, Rule[]> = {};
   const commands: Record<string, Command[]> = {};
   const integrationPaths: Record<string, (domain: string) => string> = {};
+  const dashboards: Record<string, boolean> = {};
   for (const manifest of MANIFESTS) {
     validate(manifest.slug, manifest.rules, manifest.commands ?? []);
     for (const slug of [manifest.slug, ...(manifest.aliases ?? [])]) {
@@ -66,9 +67,10 @@ function build(): RegistryConfig {
       repositories[slug] = manifest.rules;
       commands[slug] = manifest.commands ?? [];
       if (manifest.integrationPath) integrationPaths[slug] = manifest.integrationPath;
+      if (manifest.dashboard) dashboards[slug] = true;
     }
   }
-  return { repositories, commands, integrationPaths };
+  return { repositories, commands, integrationPaths, dashboards };
 }
 
 /**

@@ -291,7 +291,7 @@ describe("dispatch", () => {
     logExceptionSpy.mockRestore();
   });
 
-  it("applies no rule effects when no rules match, but still baselines the dashboard on opened", async () => {
+  it("stays silent on opened when the repo has no dashboard greeting", async () => {
     const github = createFakeGitHub();
     const config: RegistryConfig = {
       repositories: {},
@@ -305,7 +305,61 @@ describe("dispatch", () => {
     await dispatch(context);
 
     expect(github.issues.addLabels).not.toHaveBeenCalled();
-    // Opened dispatches create the placeholder up front and write the
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+    expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
+  });
+
+  it("on a dashboard-less repo, drops status rows but still applies effects", async () => {
+    const github = createFakeGitHub();
+    const rule: Rule = {
+      name: "status-and-label",
+      description: "",
+      statusSections: [{ id: "x", title: "x" }],
+      events: {
+        [EventType.PULL_REQUEST_OPENED]: async () => ({
+          statuses: [{ id: "x", title: "x", status: "fail", message: "nope" }],
+          effects: [{ type: "addLabels", labels: ["cla-needed"] }],
+        }),
+      },
+    };
+    const config: RegistryConfig = {
+      repositories: { "home-assistant/core": [rule] },
+    };
+    const context = createMockContext({
+      registry: config,
+      eventType: EventType.PULL_REQUEST_OPENED,
+      github,
+    });
+
+    await dispatch(context);
+
+    expect(github.issues.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["cla-needed"] }),
+    );
+    // The dashboard can never materialize: no comment, no aggregate commit
+    // status, and no draft-on-failure (the failing row was dropped).
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+    expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
+    expect(github.graphql).not.toHaveBeenCalled();
+    expectLoggedErrors(); // the drop warns by design — it flags a manifest bug
+  });
+
+  it("baselines the dashboard on opened for greeting repos, even with no matching rules", async () => {
+    const github = createFakeGitHub();
+    const config: RegistryConfig = {
+      repositories: {},
+      dashboards: { "home-assistant/core": true },
+    };
+    const context = createMockContext({
+      registry: config,
+      eventType: EventType.PULL_REQUEST_OPENED,
+      github,
+    });
+
+    await dispatch(context);
+
+    expect(github.issues.addLabels).not.toHaveBeenCalled();
+    // Greeting dispatches create the placeholder up front and write the
     // aggregate commit status even with no matching rules.
     expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
       expect.objectContaining({ state: "success" }),
@@ -394,6 +448,7 @@ describe("dispatch", () => {
       };
       const config: RegistryConfig = {
         repositories: { "home-assistant/core": [rule] },
+        dashboards: { "home-assistant/core": true },
       };
       const context = createMockContext({
         registry: config,
@@ -458,7 +513,10 @@ describe("dispatch", () => {
       const github = createFakeGitHub();
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
-      const config: RegistryConfig = { repositories: { "home-assistant/core": [claimsX] } };
+      const config: RegistryConfig = {
+        repositories: { "home-assistant/core": [claimsX] },
+        dashboards: { "home-assistant/core": true },
+      };
       const context = createMockContext({
         registry: config,
         eventType: EventType.PULL_REQUEST_READY_FOR_REVIEW,
@@ -532,7 +590,10 @@ describe("dispatch", () => {
       const github = createFakeGitHub();
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
-      const config: RegistryConfig = { repositories: { "home-assistant/core": [claimsX] } };
+      const config: RegistryConfig = {
+        repositories: { "home-assistant/core": [claimsX] },
+        dashboards: { "home-assistant/core": true },
+      };
       const context = createMockContext({
         registry: config,
         eventType: EventType.PULL_REQUEST_LABELED,
@@ -556,7 +617,10 @@ describe("dispatch", () => {
       const github = createFakeGitHub();
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
-      const config: RegistryConfig = { repositories: { "home-assistant/core": [claimsX] } };
+      const config: RegistryConfig = {
+        repositories: { "home-assistant/core": [claimsX] },
+        dashboards: { "home-assistant/core": true },
+      };
       const context = createMockContext({
         registry: config,
         eventType: EventType.PULL_REQUEST_LABELED,
@@ -635,6 +699,7 @@ describe("dispatch", () => {
       };
       const config: RegistryConfig = {
         repositories: { "home-assistant/core": [rule] },
+        dashboards: { "home-assistant/core": true },
       };
       const context = createMockContext({
         registry: config,
@@ -745,6 +810,7 @@ describe("dispatch", () => {
       };
       const config: RegistryConfig = {
         repositories: { "home-assistant/core": [rule] },
+        dashboards: { "home-assistant/core": true },
       };
       const context = createMockContext({
         registry: config,
@@ -795,6 +861,7 @@ describe("dispatch", () => {
       };
       const config: RegistryConfig = {
         repositories: { "home-assistant/core": [rule] },
+        dashboards: { "home-assistant/core": true },
       };
       const context = createMockContext({
         registry: config,
@@ -864,6 +931,7 @@ describe("dispatch", () => {
       };
       const config: RegistryConfig = {
         repositories: { "home-assistant/core": [rule] },
+        dashboards: { "home-assistant/core": true },
       };
       const context = createMockContext({
         registry: config,
@@ -909,6 +977,7 @@ describe("dispatch", () => {
       };
       const config: RegistryConfig = {
         repositories: { "home-assistant/core": [rule] },
+        dashboards: { "home-assistant/core": true },
       };
       const context = createMockContext({
         registry: config,
@@ -1096,7 +1165,10 @@ describe("dashboard placeholder on opened", () => {
       },
     };
     const context = createMockContext({
-      registry: { repositories: { "home-assistant/core": [observer] } },
+      registry: {
+        repositories: { "home-assistant/core": [observer] },
+        dashboards: { "home-assistant/core": true },
+      },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
     });
@@ -1115,7 +1187,10 @@ describe("dashboard placeholder on opened", () => {
     });
 
     const context = createMockContext({
-      registry: { repositories: { "home-assistant/core": [] } },
+      registry: {
+        repositories: { "home-assistant/core": [] },
+        dashboards: { "home-assistant/core": true },
+      },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
     });
@@ -1126,6 +1201,21 @@ describe("dashboard placeholder on opened", () => {
     const body = github.issues.updateComment.mock.lastCall?.[0].body as string;
     expect(body).toContain("Thanks for contributing");
     expect(body).not.toContain("Evaluating rules");
+  });
+
+  it("never posts the placeholder on opened for non-greeting repos", async () => {
+    const github = createFakeGitHub();
+
+    const context = createMockContext({
+      registry: { repositories: { "home-assistant/core": [testRule] } },
+      eventType: EventType.PULL_REQUEST_OPENED,
+      github,
+    });
+
+    await dispatch(context);
+
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+    expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
   });
 });
 
@@ -1160,7 +1250,10 @@ describe("rule state persisted in the status comment", () => {
 
   function makeContext(github: ReturnType<typeof createFakeGitHub>, rules: Rule[]) {
     return createMockContext({
-      registry: { repositories: { "home-assistant/core": rules } },
+      registry: {
+        repositories: { "home-assistant/core": rules },
+        dashboards: { "home-assistant/core": true },
+      },
       eventType: EventType.PULL_REQUEST_SYNCHRONIZE,
       github,
     });

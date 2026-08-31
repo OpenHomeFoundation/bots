@@ -35,5 +35,6 @@ const intentsLanguage: Rule = {
 
 export const homeAssistantIntents: RepoManifest = {
   slug: HomeAssistantRepository.INTENTS,
+  dashboard: true,
   rules: [intentsLanguage, ...homeAssistantOrgRules],
 };

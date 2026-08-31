@@ -6,6 +6,7 @@ import { changeType } from "./rules/change-type.js";
 
 export const homeAssistantSupervisor: RepoManifest = {
   slug: HomeAssistantRepository.SUPERVISOR,
+  dashboard: true,
   rules: [changeType, ...homeAssistantOrgRules],
   commands: [update, ignore, unignore],
 };

@@ -34,7 +34,10 @@ async function apply(
     // placeholder up front, which would show up in every mapping test here.
     events: { [EventType.PULL_REQUEST_SYNCHRONIZE]: async () => output },
   };
-  const config: RegistryConfig = { repositories: { "home-assistant/core": [rule] } };
+  const config: RegistryConfig = {
+    repositories: { "home-assistant/core": [rule] },
+    dashboards: { "home-assistant/core": true },
+  };
   await dispatch(
     createMockContext({
       registry: config,
@@ -211,6 +214,57 @@ describe("effect → GitHub API mapping", () => {
     );
 
     expect(github.graphql).not.toHaveBeenCalled();
+  });
+
+  it("commentOnce → issues.createComment with the marker prepended", async () => {
+    const github = createFakeGitHub();
+    github.issues.listComments.mockResolvedValue({ data: [] });
+    await apply(
+      { effects: [{ type: "commentOnce", marker: "<!-- my-marker -->", body: "Please sign." }] },
+      { github },
+    );
+
+    expect(github.issues.createComment).toHaveBeenCalledWith({
+      ...REPO,
+      issue_number: 1,
+      body: "<!-- my-marker -->\nPlease sign.",
+    });
+  });
+
+  it("commentOnce is a no-op when a marker-tagged comment already exists", async () => {
+    const github = createFakeGitHub();
+    github.issues.listComments.mockResolvedValue({
+      data: [{ id: 7, body: "<!-- my-marker -->\nPlease sign." }],
+    });
+    await apply(
+      { effects: [{ type: "commentOnce", marker: "<!-- my-marker -->", body: "Please sign." }] },
+      { github },
+    );
+
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+  });
+
+  it("commitStatus → repos.createCommitStatus on the PR head with the rule's context", async () => {
+    const github = await apply({
+      effects: [
+        {
+          type: "commitStatus",
+          context: "cla-bot",
+          state: "failure",
+          description: "At least one contributor needs to sign the CLA.",
+          targetUrl: "https://example.com/sign",
+        },
+      ],
+    });
+
+    expect(github.repos.createCommitStatus).toHaveBeenCalledWith({
+      ...REPO,
+      sha: "abc123",
+      context: "cla-bot",
+      state: "failure",
+      description: "At least one contributor needs to sign the CLA.",
+      target_url: "https://example.com/sign",
+    });
   });
 
   it("statuses → placeholder, dashboard body, and ha-bot commit status on the head sha", async () => {

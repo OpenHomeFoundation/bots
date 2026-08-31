@@ -59,6 +59,7 @@ export function registryWith(command: Command, rules: Rule[] = []): RegistryConf
     integrationPaths: {
       "home-assistant/core": (domain) => `homeassistant/components/${domain}/*`,
     },
+    dashboards: { "home-assistant/core": true },
   };
 }
 

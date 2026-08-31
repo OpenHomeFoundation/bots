@@ -25,6 +25,8 @@ function claContext(opts: {
   eventType?: EventType;
   label?: string;
   repository?: string;
+  /** Repo has a dashboard (modern mode). Defaults to true; false = legacy mode. */
+  dashboard?: boolean;
 }) {
   const github = createFakeGitHub();
   github.pulls.listCommits.mockResolvedValue({ data: opts.commits });
@@ -32,6 +34,10 @@ function claContext(opts: {
   return createMockContext({
     eventType: opts.eventType ?? EventType.PULL_REQUEST_OPENED,
     github,
+    registry: {
+      repositories: {},
+      dashboards: (opts.dashboard ?? true) ? { [fullName]: true } : {},
+    },
     payload: {
       action: opts.eventType === EventType.PULL_REQUEST_LABELED ? "labeled" : "opened",
       ...(opts.label ? { label: { name: opts.label } } : {}),
@@ -88,6 +94,31 @@ describe("cla", () => {
     expect(result?.labels).toEqual(["cla-error"]);
   });
 
+  it("posts the unlinked-commits walkthrough comment alongside the dashboard row", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const result = await runRule(
+      rule,
+      claContext({
+        commits: [{ sha: "deadbeef123", author: null, commit: { author: { email: "x@y.z" } } }],
+      }),
+    );
+
+    const comment = result?.effects.find((e) => e.type === "commentOnce");
+    expect(comment).toMatchObject({ marker: "<!-- cla-bot-unlinked-comment -->" });
+    const body = (comment as { body: string }).body;
+    expect(body).toContain("Hello @testuser");
+    expect(body).toContain("deadbee");
+    expect(body).toContain('git commit --amend --author="Author Name <email@address.com>"');
+    expect(body).toContain("changing-author-info");
+  });
+
+  it("does not post the walkthrough for unsigned-author failures", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const result = await runRule(rule, claContext({ commits: [userCommit("b1", "bob")] }));
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.effects.find((e) => e.type === "commentOnce")).toBeUndefined();
+  });
+
   it("passes without cla-signed when all commits are from bots", async () => {
     const rule = claCheck(() => fakeStore([]));
     const result = await runRule(
@@ -138,5 +169,78 @@ describe("cla", () => {
     const rule = claCheck(() => undefined);
     const result = await runRule(rule, claContext({ commits: [userCommit("a1", "alice")] }));
     expect(result).toBeUndefined();
+  });
+});
+
+describe("cla legacy mode (repo without a dashboard)", () => {
+  it("emits no status rows — the dashboard must never materialize", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const result = await runRule(
+      rule,
+      claContext({ commits: [userCommit("b1", "bob")], dashboard: false }),
+    );
+    expect(result?.sections).toEqual([]);
+    expect(result?.output.blocks).toBeUndefined();
+  });
+
+  it("gates merging with a failing cla-bot commit status and explains in a one-time comment", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const result = await runRule(
+      rule,
+      claContext({ commits: [userCommit("b1", "bob")], dashboard: false }),
+    );
+
+    expect(result?.effects).toContainEqual({
+      type: "commitStatus",
+      context: "cla-bot",
+      state: "failure",
+      description: "At least one contributor needs to sign the CLA.",
+      targetUrl: expect.stringContaining("cla_sign_start"),
+    });
+    const comment = result?.effects.find((e) => e.type === "commentOnce");
+    expect(comment).toMatchObject({ marker: "<!-- cla-bot-comment -->" });
+    expect((comment as { body: string }).body).toContain("@bob");
+    expect(result?.labels).toEqual(["cla-needed"]);
+  });
+
+  it("reports unlinked commits with the walkthrough comment and a failing status", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const result = await runRule(
+      rule,
+      claContext({
+        commits: [{ sha: "deadbeef123", author: null, commit: { author: { email: "x@y.z" } } }],
+        dashboard: false,
+      }),
+    );
+
+    expect(result?.effects).toContainEqual(
+      expect.objectContaining({
+        type: "commitStatus",
+        state: "failure",
+        description: "Commit(s) are missing a linked GitHub user.",
+      }),
+    );
+    const comment = result?.effects.find((e) => e.type === "commentOnce");
+    expect(comment).toMatchObject({ marker: "<!-- cla-bot-unlinked-comment -->" });
+    expect((comment as { body: string }).body).toContain("Hello @testuser");
+    expect(result?.labels).toEqual(["cla-error"]);
+  });
+
+  it("flips the cla-bot status to success without commenting when everyone signed", async () => {
+    const rule = claCheck(() => fakeStore(["alice"]));
+    const result = await runRule(
+      rule,
+      claContext({ commits: [userCommit("a1", "alice")], dashboard: false }),
+    );
+
+    expect(result?.effects).toContainEqual({
+      type: "commitStatus",
+      context: "cla-bot",
+      state: "success",
+      description: "Everyone involved has signed the CLA.",
+      targetUrl: undefined,
+    });
+    expect(result?.effects.find((e) => e.type === "commentOnce")).toBeUndefined();
+    expect(result?.labels).toEqual(["cla-signed"]);
   });
 });

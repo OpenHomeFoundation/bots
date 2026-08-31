@@ -36,6 +36,7 @@ const MANAGEABLE_LABELS = ["needs-more-information"];
 
 export const homeAssistantIo: RepoManifest = {
   slug: HomeAssistantRepository.HOME_ASSISTANT_IO,
+  dashboard: true,
   integrationPath: integrationDocPath,
   rules: [
     // Integrations

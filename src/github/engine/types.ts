@@ -43,7 +43,25 @@ export type Effect =
   // Most rules should not require this: The engine already converts
   // the PR to draft when its checks fail
   | { type: "convertToDraft" }
-  | { type: "updateBranch" };
+  | { type: "updateBranch" }
+  /**
+   * Post `body` unless a comment carrying `marker` already exists on the
+   * thread. The marker (an HTML comment) is prepended to the body, so the
+   * comment identifies itself for future dedupe.
+   */
+  | { type: "commentOnce"; marker: string; body: string }
+  /**
+   * A rule-owned commit status on the PR head. For rules that gate merging
+   * on repos without a dashboard, where the engine's aggregate `ha-bot`
+   * status never gets written. `context` must not be `ha-bot`.
+   */
+  | {
+      type: "commitStatus";
+      context: string;
+      state: "success" | "failure" | "pending";
+      description: string;
+      targetUrl?: string;
+    };
 // Cross-engine notification, disabled until the Discord engine goes live:
 // a GitHub rule states a fact ({ type: "notify", topic, data }) and the
 // message engine owns which channel it goes to and how it renders. To
@@ -151,4 +169,6 @@ export interface RegistryConfig {
   commands?: Record<string, Command[]>;
   /** Per-repo CODEOWNERS path for an integration domain (code-owner checks). */
   integrationPaths?: Record<string, (domain: string) => string>;
+  /** Repos (by slug, aliases included) where a dashboard should be created */
+  dashboards?: Record<string, boolean>;
 }

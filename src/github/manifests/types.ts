@@ -32,6 +32,8 @@ export interface RepoManifest {
   aliases?: string[];
   /** Every rule that runs on this repo, in display order. */
   rules: Rule[];
+  /** Enable the PR dashboard on this repo */
+  dashboard?: boolean;
   /** Comment commands (`/<slug> <name>`) available on this repo. */
   commands?: Command[];
   /**

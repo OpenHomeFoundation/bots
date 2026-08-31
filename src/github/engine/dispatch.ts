@@ -166,6 +166,12 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       case "updateBranch":
         ops.push(() => updateBranchOrExplain(context));
         break;
+      case "commentOnce":
+        ops.push(() => commentOnce(context, effect.marker, effect.body));
+        break;
+      case "commitStatus":
+        ops.push(() => writeRuleCommitStatus(context, effect));
+        break;
     }
   }
 
@@ -216,6 +222,35 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       log.warn("applyEffects: operation failed", { error: String(outcome.reason) });
     }
   }
+}
+
+/** Post the marker-tagged comment unless the thread already carries one. */
+async function commentOnce(context: RuleContext, marker: string, body: string): Promise<void> {
+  const comments = await context.github.paginate(
+    context.github.issues.listComments,
+    context.issueParams({ per_page: 100 }),
+  );
+  if (comments.some((c) => c.body?.includes(marker))) return;
+  await context.github.issues.createComment(context.issueParams({ body: `${marker}\n${body}` }));
+}
+
+/** Write a rule-owned commit status on the PR head. */
+async function writeRuleCommitStatus(
+  context: RuleContext,
+  effect: Extract<Effect, { type: "commitStatus" }>,
+): Promise<void> {
+  if (context.target.kind !== "pull_request") return;
+  const sha = await context.target.headSha();
+  if (!sha) return;
+  await context.github.repos.createCommitStatus(
+    context.repoParams({
+      sha,
+      state: effect.state,
+      description: effect.description,
+      context: effect.context,
+      target_url: effect.targetUrl,
+    }),
+  );
 }
 
 /** Update the PR branch; surface API failures (conflicts, …) to the thread. */
@@ -274,14 +309,17 @@ async function runMatchedRules(
 
 export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   const knownSectionIds = collectKnownStatusSectionIds(context);
-  const opened = context.eventType === EventType.PULL_REQUEST_OPENED;
+  const dashboardEnabled = context.registry.dashboards?.[context.repo.fullName] ?? false;
+  const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;
 
-  // The dispatch's single status-comment read. Opened dispatches create the
+  // The dispatch's single status-comment read. Greeting dispatches create the
   // placeholder up front so it is the PR's earliest comment; a fresh
   // placeholder starts from empty persisted state, skipping the parse.
-  let comment = await locateStatusComment(context.github, context.issueParams(), {
-    createIfMissing: opened,
-  });
+  let comment = dashboardEnabled
+    ? await locateStatusComment(context.github, context.issueParams(), {
+        createIfMissing: greeting,
+      })
+    : null;
   let previous = comment ? (comment.fresh ? emptyRuleState() : parseState(comment.body)) : null;
 
   const ruleNames = new Set(
@@ -292,6 +330,15 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   const output = await runMatchedRules(context, data);
   output.dataChanged ||= swept;
 
+  // Status rows only render on the dashboard
+  if (!dashboardEnabled && output.statuses.size > 0) {
+    log.warn("dispatch: dropping status rows — repo has no dashboard", {
+      repository: context.repo.fullName,
+      number: context.number,
+      sections: [...output.statuses.keys()],
+    });
+  }
+
   // A dispatch that shows something for the first time creates the
   // placeholder late — find-or-create, since a concurrent dispatch may have
   // raced us — so the status comment still lands above any comment effects
@@ -299,22 +346,23 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   // a status comment; there'd be nothing to act on.
   const showsAnything =
     output.statuses.size > 0 || [...output.blocks.values()].some((args) => args !== null);
-  if (!comment && showsAnything) {
+  if (dashboardEnabled && !comment && showsAnything) {
     comment = await locateStatusComment(context.github, context.issueParams(), {
       createIfMissing: true,
     });
     if (comment && !comment.fresh) previous = parseState(comment.body);
   }
 
-  // Opened dispatches sync unconditionally: the placeholder must become the
+  // Greeting dispatches sync unconditionally: the placeholder must become the
   // greeting dashboard even when no rule emitted anything.
   const syncNeeded =
-    opened ||
-    comment?.fresh ||
-    output.statuses.size > 0 ||
-    output.overrides.length > 0 ||
-    output.blocks.size > 0 ||
-    output.dataChanged;
+    dashboardEnabled &&
+    (greeting ||
+      comment?.fresh ||
+      output.statuses.size > 0 ||
+      output.overrides.length > 0 ||
+      output.blocks.size > 0 ||
+      output.dataChanged);
 
   // The dashboard write and the side effects are independent — run them
   // concurrently. Neither may sink the other: applyEffects logs per-op
@@ -521,18 +569,30 @@ export async function dispatchCommand(
 
   if (anyOutputs) {
     const knownSectionIds = collectKnownStatusSectionIds(context);
+    const dashboardEnabled = context.registry.dashboards?.[context.repo.fullName] ?? false;
+
+    if (!dashboardEnabled && collected.statuses.size > 0) {
+      log.warn("dispatchCommand: dropping status rows — repo has no dashboard", {
+        repository: context.repo.fullName,
+        number: context.number,
+        sections: [...collected.statuses.keys()],
+      });
+    }
 
     // Commands never create the status comment — waiver changes alone have
     // nothing to act on. But the dashboard rewrite embeds the whole persisted
     // blob, so locate and parse it so the rule state data rides along.
-    const comment = await locateStatusComment(context.github, context.issueParams(), {
-      createIfMissing: false,
-    });
+    const comment = dashboardEnabled
+      ? await locateStatusComment(context.github, context.issueParams(), {
+          createIfMissing: false,
+        })
+      : null;
     const previous = comment ? parseState(comment.body) : null;
     collected.data = previous?.data ?? {};
 
     const syncNeeded =
-      collected.statuses.size > 0 || collected.overrides.length > 0 || collected.blocks.size > 0;
+      dashboardEnabled &&
+      (collected.statuses.size > 0 || collected.overrides.length > 0 || collected.blocks.size > 0);
 
     const [dashboard] = await Promise.all([
       syncNeeded

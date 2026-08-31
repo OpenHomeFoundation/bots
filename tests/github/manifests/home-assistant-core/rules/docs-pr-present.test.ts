@@ -119,6 +119,7 @@ describe("docs-missing handler", () => {
 
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": [fileShape, docsPrPresent] },
+      dashboards: { "home-assistant/core": true },
     };
     const context = createMockContext({
       registry: config,
