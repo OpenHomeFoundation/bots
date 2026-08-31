@@ -1,5 +1,7 @@
 import type { Provider } from "@nestjs/common";
 import { createAppAuth } from "@octokit/auth-app";
+import { retry } from "@octokit/plugin-retry";
+import { throttling } from "@octokit/plugin-throttling";
 import { Octokit } from "@octokit/rest";
 import { ENV, type Env } from "../env.js";
 import { log } from "../log.js";
@@ -20,10 +22,19 @@ const octokitLog = {
   error: noop,
 };
 
+const ThrottledOctokit = Octokit.plugin(throttling, retry);
+
+const MAX_RATE_LIMIT_RETRIES = 2;
+const MAX_RETRY_AFTER_SECONDS = 60;
+
+function shouldRetryRateLimited(retryAfter: number, retryCount: number): boolean {
+  return retryCount < MAX_RATE_LIMIT_RETRIES && retryAfter <= MAX_RETRY_AFTER_SECONDS;
+}
+
 export const octokitProvider: Provider = {
   provide: OCTOKIT,
   useFactory: (env: Env): Octokit => {
-    const octokit = new Octokit({
+    const octokit = new ThrottledOctokit({
       authStrategy: createAppAuth,
       auth: {
         appId: Number(env.GITHUB_APP_ID),
@@ -31,6 +42,26 @@ export const octokitProvider: Provider = {
         privateKey: env.GITHUB_PRIVATE_KEY,
       },
       log: octokitLog,
+      throttle: {
+        onRateLimit: (retryAfter, options, _octokit, retryCount) => {
+          log.warn("GitHub rate limit hit", {
+            retryAfter,
+            retryCount,
+            method: options.method,
+            url: options.url,
+          });
+          return shouldRetryRateLimited(retryAfter, retryCount);
+        },
+        onSecondaryRateLimit: (retryAfter, options, _octokit, retryCount) => {
+          log.warn("GitHub secondary rate limit hit", {
+            retryAfter,
+            retryCount,
+            method: options.method,
+            url: options.url,
+          });
+          return shouldRetryRateLimited(retryAfter, retryCount);
+        },
+      },
     });
     trackGithubQuota(octokit);
     return octokit;
