@@ -1,4 +1,5 @@
 import { cla } from "../../cla/rule.js";
+import { update } from "../commands/update.js";
 import type { Rule } from "../engine/types.js";
 import { draftOnChangesRequested } from "../rules/draft-on-changes-requested.js";
 import { hacktoberfest } from "../rules/hacktoberfest.js";
@@ -53,4 +54,4 @@ const DEDICATED_MANIFESTS = new Set<string>([
  */
 export const homeAssistantOrgManifests: RepoManifest[] = Object.values(HomeAssistantRepository)
   .filter((slug) => !DEDICATED_MANIFESTS.has(slug))
-  .map((slug) => ({ slug, rules: homeAssistantOrgRules }));
+  .map((slug) => ({ slug, rules: homeAssistantOrgRules, commands: [update] }));
