@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   displaySection,
   isStatusComment,
-  parseSections,
   parseState,
   placeholderBody,
   renderStatus,
@@ -262,9 +261,9 @@ describe("status renderer", () => {
     it("embeds all state as a single JSON blob", () => {
       const result = renderStatus(sections, REPO);
 
-      expect(result).toContain("<!-- ha-bot-state:");
+      expect(result).toContain("<!-- ohf-bot-state:");
       // Exactly one persistence marker, no per-section markers.
-      expect(result.match(/<!-- ha-bot-state:/g)).toHaveLength(1);
+      expect(result.match(/<!-- ohf-bot-state:/g)).toHaveLength(1);
       expect(result).not.toContain("<!-- section:");
       const parsed = parseState(result);
       expect(parsed.sections.map((s) => s.id)).toEqual(["cla", "required-labels"]);
@@ -276,7 +275,7 @@ describe("status renderer", () => {
         REPO,
       );
       // The raw blob must not contain a literal `-->` from the message.
-      const tail = result.slice(result.indexOf("<!-- ha-bot-state:"));
+      const tail = result.slice(result.indexOf("<!-- ohf-bot-state:"));
       expect(tail.match(/-->/g)).toHaveLength(1); // only the marker's own suffix
       expect(parseState(result).sections[0].message).toBe("value --> broken");
     });
@@ -330,14 +329,10 @@ describe("status renderer", () => {
       });
     });
 
-    it("falls back to legacy per-marker comments", () => {
-      const legacy =
-        '<!-- ha-bot-dashboard -->\n<!-- section:cla:{"id":"cla","title":"CLA","status":"pass","message":"ok"} -->';
-      expect(parseState(legacy).sections).toEqual([
-        { id: "cla", title: "CLA", status: "pass", message: "ok" },
-      ]);
-      // parseSections is still the legacy reader behind the fallback.
-      expect(parseSections("just a regular comment")).toEqual([]);
+    it("ignores per-marker comments without a state blob", () => {
+      const perMarker =
+        '<!-- ohf-bot-dashboard -->\n<!-- section:cla:{"id":"cla","title":"CLA","status":"pass","message":"ok"} -->';
+      expect(parseState(perMarker).sections).toEqual([]);
     });
   });
 

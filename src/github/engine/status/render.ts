@@ -12,15 +12,10 @@ import {
 
 // The sentinel identifies the bot's status comment among all issue comments.
 // The whole persisted state round-trips through a single JSON blob in the
-// `ha-bot-state` HTML comment at the comment's tail.
-const SENTINEL = "<!-- ha-bot-dashboard -->";
-const STATE_PREFIX = "<!-- ha-bot-state:";
+// `ohf-bot-state` HTML comment at the comment's tail.
+const SENTINEL = "<!-- ohf-bot-dashboard -->";
+const STATE_PREFIX = "<!-- ohf-bot-state:";
 const MARKER_SUFFIX = " -->";
-
-// Legacy per-entry markers (pre-blob deploys). Still parsed so waivers on
-// already-open PRs survive the switch; never written anymore.
-const SECTION_PREFIX = "<!-- section:";
-const BLOCK_PREFIX = "<!-- block:";
 
 // Greeting names by org. Falls back to the raw `owner/repo` slug.
 const FRIENDLY_ORG_NAMES: Record<string, string> = {
@@ -184,11 +179,9 @@ function normalizeState(parsed: unknown): RuleState {
 }
 
 /**
- * The persisted state embedded in a status comment. Reads the single
- * `ha-bot-state` blob; falls back to the legacy per-marker format so waivers
- * on PRs opened before the switch survive their first re-render. Any parse
- * failure yields an empty state — the bot repopulates on the next evaluation
- * rather than throwing.
+ * The persisted state embedded in a status comment — the single
+ * `ohf-bot-state` blob. A missing blob or any parse failure yields an empty
+ * state — the bot repopulates on the next evaluation rather than throwing.
  */
 export function parseState(body: string): RuleState {
   for (const raw of body.split("\n")) {
@@ -202,48 +195,5 @@ export function parseState(body: string): RuleState {
       }
     }
   }
-  const sections = parseSections(body);
-  const blocks = parseBlocks(body);
-  return { version: RULE_STATE_VERSION, sections, blocks, data: {} };
-}
-
-export function parseSections(body: string): StatusSection[] {
-  const sections: StatusSection[] = [];
-  for (const line of body.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith(SECTION_PREFIX) && trimmed.endsWith(MARKER_SUFFIX)) {
-      const content = trimmed.slice(SECTION_PREFIX.length, -MARKER_SUFFIX.length);
-      const colonIndex = content.indexOf(":");
-      if (colonIndex !== -1) {
-        try {
-          sections.push(JSON.parse(content.slice(colonIndex + 1)));
-        } catch (err) {
-          log.warn("parseSections: malformed section data", { error: String(err) });
-        }
-      }
-    }
-  }
-
-  return sections;
-}
-
-/** The persisted block states embedded in a status comment body. */
-export function parseBlocks(body: string): Record<string, unknown> {
-  const blocks: Record<string, unknown> = {};
-  for (const line of body.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith(BLOCK_PREFIX) && trimmed.endsWith(MARKER_SUFFIX)) {
-      const content = trimmed.slice(BLOCK_PREFIX.length, -MARKER_SUFFIX.length);
-      const colonIndex = content.indexOf(":");
-      if (colonIndex !== -1) {
-        try {
-          blocks[content.slice(0, colonIndex)] = JSON.parse(content.slice(colonIndex + 1));
-        } catch (err) {
-          log.warn("parseBlocks: malformed block data", { error: String(err) });
-        }
-      }
-    }
-  }
-
-  return blocks;
+  return emptyRuleState();
 }

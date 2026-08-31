@@ -40,7 +40,7 @@ effects:
       - balloob
   - type: comment
     body: |-
-      <!-- ha-bot-mention -->
+      <!-- ohf-bot-mention -->
 
       Hey there @balloob, mind taking a look at this pull request as it has been labeled with an integration (`hue`) you are listed as a [code owner](https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L1) for? Thanks!
       <details><summary>Code owner commands</summary>

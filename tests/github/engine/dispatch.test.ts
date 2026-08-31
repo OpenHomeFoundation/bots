@@ -24,6 +24,15 @@ const noBotRule: Rule = {
   events: { [EventType.PULL_REQUEST_OPENED]: async () => undefined },
 };
 
+/** A pre-existing status comment carrying the given persisted sections. */
+const commentWithSections = (sections: unknown[]) =>
+  `<!-- ohf-bot-dashboard -->\n<!-- ohf-bot-state:${JSON.stringify({
+    version: 1,
+    sections,
+    blocks: {},
+    data: {},
+  })} -->`;
+
 describe("matchRules", () => {
   it("matches repo rule with correct event type", () => {
     const config: RegistryConfig = {
@@ -496,7 +505,7 @@ describe("dispatch", () => {
       const section = { id: "x", title: "x", status, message: "msg" };
       return {
         id: 1,
-        body: `<!-- ha-bot-dashboard -->\n<!-- section:x:${JSON.stringify(section)} -->`,
+        body: commentWithSections([section]),
       };
     }
 
@@ -655,16 +664,10 @@ describe("dispatch", () => {
           {
             id: 555,
             html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
-            body: [
-              "<!-- ha-bot-dashboard -->",
-              `<!-- section:merge-conflict:${JSON.stringify(waivedFailing)} -->`,
-              `<!-- section:other:${JSON.stringify({
-                id: "other",
-                title: "Other",
-                status: "pass",
-                message: "ok",
-              })} -->`,
-            ].join("\n"),
+            body: commentWithSections([
+              waivedFailing,
+              { id: "other", title: "Other", status: "pass", message: "ok" },
+            ]),
           },
         ],
       });
@@ -772,25 +775,10 @@ describe("dispatch", () => {
           {
             id: 555,
             html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
-            body: [
-              "<!-- ha-bot-dashboard -->",
-              "<!-- section:still-live:" +
-                JSON.stringify({
-                  id: "still-live",
-                  title: "Live",
-                  status: "pass",
-                  message: "ok",
-                }) +
-                " -->",
-              "<!-- section:gone-rule:" +
-                JSON.stringify({
-                  id: "gone-rule",
-                  title: "Stale",
-                  status: "fail",
-                  message: "should be swept",
-                }) +
-                " -->",
-            ].join("\n"),
+            body: commentWithSections([
+              { id: "still-live", title: "Live", status: "pass", message: "ok" },
+              { id: "gone-rule", title: "Stale", status: "fail", message: "should be swept" },
+            ]),
           },
         ],
       });
@@ -1177,7 +1165,7 @@ describe("dashboard placeholder on opened", () => {
 
     expect(commentsWhenRuleRan).toHaveBeenCalledWith(1);
     const body = github.issues.createComment.mock.calls[0][0].body as string;
-    expect(body).toContain("<!-- ha-bot-dashboard -->");
+    expect(body).toContain("<!-- ohf-bot-dashboard -->");
   });
 
   it("an empty opened dispatch upgrades the placeholder to the greeting dashboard", async () => {

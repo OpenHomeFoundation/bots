@@ -5,7 +5,7 @@ import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../engine/types.js";
 
-export const DRAFT_ON_CHANGES_REQUESTED_MARKER = "<!-- ha-bot-draft-on-changes-requested -->";
+export const DRAFT_ON_CHANGES_REQUESTED_MARKER = "<!-- ohf-bot-draft-on-changes-requested -->";
 
 // The legacy bot's ReviewDrafter marker — never written anymore, but still
 // recognized so PRs it commented on don't get a second comment.
