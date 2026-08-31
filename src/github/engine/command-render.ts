@@ -17,7 +17,7 @@ export interface CommandHelpEntry {
   description: string;
   permission: CommandPermission;
   /**
-   * Sample invocation without the `/<slug> ` prefix (e.g. `rename "A better
+   * Sample invocation without the `@<slug> ` prefix (e.g. `rename "A better
    * title"`), shown in rendered command help for arg-taking commands.
    */
   example?: string;
@@ -47,7 +47,7 @@ export interface CommandHelpView {
   description: string;
   /** "" or " *(author)*" / " *(code owners)*". */
   permissionNote: string;
-  /** "" or " — e.g. `/<slug> <example>`" for arg-taking commands. */
+  /** "" or " — e.g. `@<slug> <example>`" for arg-taking commands. */
   exampleSuffix: string;
 }
 
@@ -65,7 +65,7 @@ export function commandViews(
       name: c.name,
       description: c.description,
       permissionNote: PERMISSION_NOTES[c.permission],
-      exampleSuffix: c.example ? ` — e.g. \`/${slug} ${c.example}\`` : "",
+      exampleSuffix: c.example ? ` — e.g. \`@${slug} ${c.example}\`` : "",
     }));
 }
 

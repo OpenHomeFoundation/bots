@@ -24,45 +24,50 @@ const noopCommand = (overrides: Partial<Command> = {}): Command => ({
 
 describe("parseCommands", () => {
   it("extracts the name and lowercases it", () => {
-    expect(parseCommands("/ha-bot UPDATE", "ha-bot")).toEqual([{ name: "update", args: [] }]);
+    expect(parseCommands("@home-assistant UPDATE", "home-assistant")).toEqual([
+      { name: "update", args: [] },
+    ]);
   });
 
   it("extracts quoted arguments without their quotes", () => {
-    expect(parseCommands('/ha-bot rename "Awesome new title"', "ha-bot")).toEqual([
+    expect(parseCommands('@home-assistant rename "Awesome new title"', "home-assistant")).toEqual([
       { name: "rename", args: ["Awesome new title"] },
     ]);
     expect(
-      parseCommands('/ha-bot ignore "Merge conflicts" "Broken rule, no conflicts"', "ha-bot"),
+      parseCommands(
+        '@home-assistant ignore "Merge conflicts" "Broken rule, no conflicts"',
+        "home-assistant",
+      ),
     ).toEqual([{ name: "ignore", args: ["Merge conflicts", "Broken rule, no conflicts"] }]);
   });
 
   it("flags unquoted argument text as malformed", () => {
-    expect(parseCommands("/ha-bot rename Awesome new title", "ha-bot")).toEqual([
+    expect(parseCommands("@home-assistant rename Awesome new title", "home-assistant")).toEqual([
       { name: "rename", args: [], malformed: true },
     ]);
-    expect(parseCommands('/ha-bot ignore "Merge conflicts" trailing', "ha-bot")).toEqual([
-      { name: "ignore", args: ["Merge conflicts"], malformed: true },
-    ]);
+    expect(
+      parseCommands('@home-assistant ignore "Merge conflicts" trailing', "home-assistant"),
+    ).toEqual([{ name: "ignore", args: ["Merge conflicts"], malformed: true }]);
   });
 
   it("matches on any line of the comment but not mid-line", () => {
-    expect(parseCommands("thanks!\n/ha-bot close", "ha-bot")).toEqual([
+    expect(parseCommands("thanks!\n@home-assistant close", "home-assistant")).toEqual([
       { name: "close", args: [] },
     ]);
-    expect(parseCommands("see /ha-bot close", "ha-bot")).toEqual([]);
+    expect(parseCommands("see @home-assistant close", "home-assistant")).toEqual([]);
   });
 
   it("does not swallow following lines into the argument", () => {
-    expect(parseCommands('/ha-bot rename "New title"\nmore text', "ha-bot")).toEqual([
-      { name: "rename", args: ["New title"] },
-    ]);
+    expect(
+      parseCommands('@home-assistant rename "New title"\nmore text', "home-assistant"),
+    ).toEqual([{ name: "rename", args: ["New title"] }]);
   });
 
   it("parses several commands from one comment, in order, with prose between", () => {
     expect(
       parseCommands(
-        'looks good!\n/ha-bot rename "New title"\nsome explanation\n/ha-bot close',
-        "ha-bot",
+        'looks good!\n@home-assistant rename "New title"\nsome explanation\n@home-assistant close',
+        "home-assistant",
       ),
     ).toEqual([
       { name: "rename", args: ["New title"] },
@@ -71,16 +76,17 @@ describe("parseCommands", () => {
   });
 
   it("returns an empty list without a command name", () => {
-    expect(parseCommands("/ha-bot", "ha-bot")).toEqual([]);
-    expect(parseCommands("hello world", "ha-bot")).toEqual([]);
+    expect(parseCommands("@home-assistant", "home-assistant")).toEqual([]);
+    expect(parseCommands("hello world", "home-assistant")).toEqual([]);
   });
 });
 
 describe("isBotCommand", () => {
   it("matches only line-leading mentions", () => {
-    expect(isBotCommand("/ha-bot update", "ha-bot")).toBe(true);
-    expect(isBotCommand("see /ha-bot below", "ha-bot")).toBe(false);
-    expect(isBotCommand("@ha-bot update", "ha-bot")).toBe(false);
+    expect(isBotCommand("@home-assistant update", "home-assistant")).toBe(true);
+    expect(isBotCommand("see @home-assistant below", "home-assistant")).toBe(false);
+    expect(isBotCommand("/home-assistant update", "home-assistant")).toBe(false);
+    expect(isBotCommand("@ha-bot update", "home-assistant")).toBe(false);
   });
 });
 
@@ -89,7 +95,7 @@ describe("dispatchCommand", () => {
     const command = noopCommand({
       handle: vi.fn().mockResolvedValue({ effects: [{ type: "setState", state: "closed" }] }),
     });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command),
     });
 
@@ -102,7 +108,7 @@ describe("dispatchCommand", () => {
   });
 
   it("reacts -1 for an unknown command", async () => {
-    const { context, github } = makeContext("/ha-bot bogus", {
+    const { context, github } = makeContext("@home-assistant bogus", {
       registry: registryWith(noopCommand()),
     });
 
@@ -112,7 +118,7 @@ describe("dispatchCommand", () => {
 
   it("reacts -1 when a required argument is missing", async () => {
     const command = noopCommand({ args: "required" });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command),
     });
 
@@ -123,7 +129,7 @@ describe("dispatchCommand", () => {
 
   it("reacts -1 when a PR-only command targets an issue", async () => {
     const command = noopCommand({ scope: "pull_request" });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command),
       issue: { pull_request: undefined },
     });
@@ -137,7 +143,7 @@ describe("dispatchCommand", () => {
     const command = noopCommand({ permission: "author" });
     const github = createFakeGitHub();
     github.orgs.checkMembershipForUser.mockRejectedValue({ status: 404 });
-    const { context } = makeContext("/ha-bot ping", {
+    const { context } = makeContext("@home-assistant ping", {
       github,
       registry: registryWith(command),
       sender: { login: "stranger", type: "User" },
@@ -152,7 +158,7 @@ describe("dispatchCommand", () => {
     const command = noopCommand({ permission: "author" });
     const github = createFakeGitHub();
     github.orgs.checkMembershipForUser.mockRejectedValue({ status: 404 });
-    const { context } = makeContext("/ha-bot ping", {
+    const { context } = makeContext("@home-assistant ping", {
       github,
       registry: registryWith(command),
     });
@@ -164,7 +170,7 @@ describe("dispatchCommand", () => {
 
   it("allows author commands for org members who are not the author", async () => {
     const command = noopCommand({ permission: "author" });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       github: createFakeGitHub({ members: ["someoneelse"] }),
       registry: registryWith(command),
       sender: { login: "someoneelse", type: "User" },
@@ -178,7 +184,7 @@ describe("dispatchCommand", () => {
   it("reacts -1 when the handler throws and logs the failure", async () => {
     const logErrorSpy = vi.spyOn(log, "error").mockImplementation(() => {});
     const command = noopCommand({ handle: vi.fn().mockRejectedValue(new Error("boom")) });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command),
     });
 
@@ -197,7 +203,7 @@ describe("dispatchCommand", () => {
     const command = noopCommand({
       handle: vi.fn().mockRejectedValue(new UsageError('usage: ping "<arg>"')),
     });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command),
     });
 
@@ -215,7 +221,7 @@ describe("dispatchCommand", () => {
 
   it("ignores bot senders entirely", async () => {
     const command = noopCommand();
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command),
       sender: { login: "otherbot[bot]", type: "Bot" },
     });
@@ -239,7 +245,7 @@ describe("dispatchCommand", () => {
     const command = noopCommand({
       handle: vi.fn().mockResolvedValue({ effects: [{ type: "addLabels", labels: ["foo"] }] }),
     });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       registry: registryWith(command, [onLabeled]),
     });
 
@@ -287,7 +293,7 @@ describe("code_owner permission and commands", () => {
   it("allows a non-member CODEOWNERS owner of the single labeled integration", async () => {
     const command = noopCommand({ permission: "code_owner" });
     const github = nonMemberGitHub();
-    const { context } = makeContext("/ha-bot ping", {
+    const { context } = makeContext("@home-assistant ping", {
       github,
       registry: registryWith(command),
       issue: { labels: [{ name: "integration: awesome" }] },
@@ -300,7 +306,7 @@ describe("code_owner permission and commands", () => {
 
   it("allows org members who are not code owners", async () => {
     const command = noopCommand({ permission: "code_owner" });
-    const { context, github } = makeContext("/ha-bot ping", {
+    const { context, github } = makeContext("@home-assistant ping", {
       github: createFakeGitHub({ members: ["stranger"] }),
       registry: registryWith(command),
       sender: { login: "stranger", type: "User" },
@@ -315,7 +321,7 @@ describe("code_owner permission and commands", () => {
     const command = noopCommand({ permission: "code_owner" });
     const github = createFakeGitHub();
     github.orgs.checkMembershipForUser.mockRejectedValue(new Error("must not be called"));
-    const { context } = makeContext("/ha-bot ping", {
+    const { context } = makeContext("@home-assistant ping", {
       github,
       registry: registryWith(command),
       senderAssociation: "MEMBER",
@@ -330,7 +336,7 @@ describe("code_owner permission and commands", () => {
   it("does not trust an OWNER association (personal repos); the API decides", async () => {
     const command = noopCommand({ permission: "code_owner" });
     const github = nonMemberGitHub("@balloob");
-    const { context } = makeContext("/ha-bot ping", {
+    const { context } = makeContext("@home-assistant ping", {
       github,
       registry: registryWith(command),
       issue: { labels: [{ name: "integration: awesome" }] },
@@ -345,7 +351,7 @@ describe("code_owner permission and commands", () => {
   it("denies non-member non-code-owners and unlabeled items", async () => {
     const command = noopCommand({ permission: "code_owner" });
     const g1 = nonMemberGitHub();
-    const { context: noLabel } = makeContext("/ha-bot ping", {
+    const { context: noLabel } = makeContext("@home-assistant ping", {
       github: g1,
       registry: registryWith(command),
     });
@@ -353,7 +359,7 @@ describe("code_owner permission and commands", () => {
     expectReaction(g1, "-1");
 
     const g2 = nonMemberGitHub("@balloob");
-    const { context: wrongUser } = makeContext("/ha-bot ping", {
+    const { context: wrongUser } = makeContext("@home-assistant ping", {
       github: g2,
       registry: registryWith(command),
       issue: { labels: [{ name: "integration: awesome" }] },
@@ -364,7 +370,7 @@ describe("code_owner permission and commands", () => {
   });
 
   it("unassign removes the integration label and its code-owner assignees", async () => {
-    const { context, github } = makeContext('/ha-bot unassign "awesome"', {
+    const { context, github } = makeContext('@home-assistant unassign "awesome"', {
       registry: registryWith(unassign),
       issue: {
         labels: [{ name: "integration: awesome" }],
@@ -385,10 +391,13 @@ describe("code_owner permission and commands", () => {
 
   it("remove-label rejects labels that are not set", async () => {
     const command = removeLabel(["needs-more-information"]);
-    const { context, github } = makeContext('/ha-bot remove-label "needs-more-information"', {
-      registry: registryWith(command),
-      issue: { labels: [{ name: "integration: awesome" }] },
-    });
+    const { context, github } = makeContext(
+      '@home-assistant remove-label "needs-more-information"',
+      {
+        registry: registryWith(command),
+        issue: { labels: [{ name: "integration: awesome" }] },
+      },
+    );
 
     await dispatchCommand(context);
     expectReaction(github, "-1");

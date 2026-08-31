@@ -153,7 +153,7 @@ describe("e2e: bot commands", () => {
     handle,
   });
 
-  it("runs a matched /ha-bot command, applies its effects, and posts a +1 reaction", async () => {
+  it("runs a matched @home-assistant command, applies its effects, and posts a +1 reaction", async () => {
     const handle = vi.fn().mockResolvedValue({ effects: [{ type: "setTitle", title: "pinged" }] });
 
     const harness = makeHarness({
@@ -163,7 +163,7 @@ describe("e2e: bot commands", () => {
       },
     });
 
-    const res = await harness.deliver("issue_comment", commentPayload("/ha-bot ping"));
+    const res = await harness.deliver("issue_comment", commentPayload("@home-assistant ping"));
 
     expect(res.status).toBe(200);
     const context = handle.mock.calls[0][0] as CommandContext;
@@ -190,7 +190,7 @@ describe("e2e: bot commands", () => {
 
     const res = await harness.deliver(
       "issue_comment",
-      commentPayload("/ha-bot ping", {
+      commentPayload("@home-assistant ping", {
         issue: { number: 5, user: { login: "testuser" }, body: "" }, // no pull_request
       }),
     );
@@ -212,7 +212,7 @@ describe("e2e: bot commands", () => {
       },
     });
 
-    await harness.deliver("issue_comment", commentPayload("/ha-bot nonsense"));
+    await harness.deliver("issue_comment", commentPayload("@home-assistant nonsense"));
 
     expect(harness.github.reactions.createForIssueComment).toHaveBeenCalledWith(
       expect.objectContaining({ comment_id: 42, content: "-1" }),

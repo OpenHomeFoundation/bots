@@ -10,12 +10,12 @@ This dashboard automatically updates on every change to this PR and reevaluates 
 
 ### Skip a check that doesn't apply
 
-If you think a check doesn't apply to your PR (or the rule is bugged), comment `/{{commandSlug}} ignore "<check name>" "<reason>"`. The check name as shown in the table above. This will mark the check as ignored and let you put your PR in 'Ready for review'; `/{{commandSlug}} unignore "<check name>"` restores the rule.
+If you think a check doesn't apply to your PR (or the rule is bugged), comment `@{{commandSlug}} ignore "<check name>" "<reason>"`. The check name as shown in the table above. This will mark the check as ignored and let you put your PR in 'Ready for review'; `@{{commandSlug}} unignore "<check name>"` restores the rule.
 
 ### Bot commands
 
 {{#hasCommands}}
-Reply with `/{{commandSlug}} <command>`. Several commands can be stacked, one per line:
+Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one per line:
 
 {{#commands}}
 - `{{name}}` — {{description}}{{permissionNote}}{{exampleSuffix}}

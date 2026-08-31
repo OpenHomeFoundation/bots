@@ -53,7 +53,7 @@ Things to address:
 {{#hasCommands}}
 <details><summary>Bot commands</summary>
 
-Reply with `/{{commandSlug}} <command>`. Several commands can be stacked, one per line:
+Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one per line:
 
 {{#commands}}
 - `{{name}}` — {{description}}{{permissionNote}}{{exampleSuffix}}

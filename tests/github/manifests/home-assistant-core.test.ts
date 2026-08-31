@@ -279,7 +279,7 @@ const scenarios: Record<string, Scenario> = {
 
   "issue_comment.created.command-add-label": {
     eventType: EventType.ISSUE_COMMENT_CREATED,
-    payload: commentPayload('/ha-bot add-label "needs-more-information"', {
+    payload: commentPayload('@home-assistant add-label "needs-more-information"', {
       labels: ["integration: hue"],
     }),
     state: {
@@ -292,7 +292,7 @@ const scenarios: Record<string, Scenario> = {
 
   "issue_comment.created.command-close": {
     eventType: EventType.ISSUE_COMMENT_CREATED,
-    payload: commentPayload("/ha-bot close", {
+    payload: commentPayload("@home-assistant close", {
       number: 23,
       title: "Hue lights become unavailable after bridge firmware update",
       body: "After the latest bridge firmware update, all hue lights drop out after a few hours.",
@@ -304,7 +304,7 @@ const scenarios: Record<string, Scenario> = {
 
   "issue_comment.created.command-close-rejected": {
     eventType: EventType.ISSUE_COMMENT_CREATED,
-    payload: commentPayload("/ha-bot close", {
+    payload: commentPayload("@home-assistant close", {
       number: 23,
       title: "Hue lights become unavailable after bridge firmware update",
       body: "After the latest bridge firmware update, all hue lights drop out after a few hours.",

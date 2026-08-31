@@ -45,7 +45,7 @@ export const testEnv: Env = {
   GITHUB_INSTALLATION_ID: "1",
   GITHUB_WEBHOOK_SECRET: "test-secret",
   BOT_SLUG: "ha-bot",
-  COMMAND_SLUG: "ha-bot",
+  COMMAND_SLUG: "home-assistant",
   SENTRY_DSN: "",
   ENVIRONMENT: "test",
   PORT: 0,

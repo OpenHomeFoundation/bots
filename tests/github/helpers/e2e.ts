@@ -49,7 +49,7 @@ export function createE2EHarness(wiring: E2EWiring, options: E2EHarnessOptions =
     GITHUB_INSTALLATION_ID: "1",
     GITHUB_WEBHOOK_SECRET: TEST_SECRET,
     BOT_SLUG: "ha-bot",
-    COMMAND_SLUG: "ha-bot",
+    COMMAND_SLUG: "home-assistant",
     SENTRY_DSN: "",
     ENVIRONMENT: "test",
   } as unknown as Env;
