@@ -1,15 +1,17 @@
 import { HttpException, Inject, Injectable } from "@nestjs/common";
 import type { Octokit } from "@octokit/rest";
 import { ENV, type Env } from "../env.js";
+import { evaluatePR } from "../github/engine/evaluate.js";
+import { registryConfig } from "../github/manifests/index.js";
 import { OCTOKIT } from "../github/octokit.provider.js";
-import { CLA_RECHECK_LABEL } from "./rule.js";
+import { log } from "../log.js";
 import type { ClaSignature, ClaStore } from "./store.js";
 import { CLA_STORE } from "./store.provider.js";
 
 /**
  * The HTTP half of the CLA flow, posted to by the sign form on
- * home-assistant.io: record the signature, then add the `cla-recheck` label
- * to the waiting PR so the webhook re-runs the CLA check.
+ * home-assistant.io: record the signature, then re-evaluate the waiting PR
+ * so the CLA check flips to passing.
  *
  * Bodies are validated here, not in pipes — the sign form relies on these
  * exact status/JSON contracts, so errors go out via `HttpException(body,
@@ -64,12 +66,15 @@ export class ClaService {
     await store.recordSignature(signature);
     await store.deletePendingSigner(login);
 
-    await this.octokit.issues.addLabels({
-      owner: pending.owner,
-      repo: pending.repo,
-      issue_number: pending.number,
-      labels: [CLA_RECHECK_LABEL],
-    });
+    try {
+      await evaluatePR(this.env, registryConfig, this.octokit, pending);
+    } catch (err) {
+      log.warn("CLA sign: post-signature re-evaluation failed", {
+        repository: `${pending.owner}/${pending.repo}`,
+        number: pending.number,
+        error: String(err),
+      });
+    }
 
     return { message: "ok" };
   }
