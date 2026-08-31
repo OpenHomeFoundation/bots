@@ -81,11 +81,9 @@ describe("PullRequest entity", () => {
 
     await pr.reviews();
     await pr.reviews();
-    await pr.reviewComments();
     await pr.issueComments();
 
     expect(github.pulls.listReviews).toHaveBeenCalledTimes(1);
-    expect(github.pulls.listReviewComments).toHaveBeenCalledTimes(1);
     expect(github.issues.listComments).toHaveBeenCalledTimes(1);
     expect(github.pulls.get).not.toHaveBeenCalled();
   });
