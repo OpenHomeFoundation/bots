@@ -11,9 +11,10 @@
       "groupName": "github-actions"
     },
     {
-      "description": "Update Node everywhere (Dockerfile + mise.toml) in one PR",
+      "description": "Update Node everywhere (Dockerfile + mise.toml) in one PR, LTS only",
       "matchDepNames": ["node"],
-      "groupName": "node"
+      "groupName": "node",
+      "versioning": "node"
     }
   ]
 }

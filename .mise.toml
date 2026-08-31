@@ -3,7 +3,7 @@
 # package.json. Run `mise tasks` to discover them.
 
 [tools]
-node = "26"
+node = "24"
 pnpm = "11.24.0" # keep in sync with package.json's packageManager
 
 [env]
