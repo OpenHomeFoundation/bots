@@ -14,7 +14,6 @@ import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { docsParenting } from "../../rules/docs-parenting.js";
 import { mergeConflict } from "../../rules/merge-conflict.js";
 import { mergeTarget } from "../../rules/merge-target.js";
-import { reviewComments } from "../../rules/review-comments.js";
 import { setIntegration } from "../../rules/set-integration.js";
 import { HomeAssistantRepository, homeAssistantOrgRules } from "../home-assistant-org.js";
 import type { RepoManifest } from "../types.js";
@@ -72,7 +71,6 @@ export const homeAssistantCore: RepoManifest = {
     mergeTarget({ base: "dev" }),
 
     // Review
-    reviewComments,
     platinumApproval,
 
     // Classification & process

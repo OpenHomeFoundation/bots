@@ -84,7 +84,6 @@ export interface FakeEndpoints {
     get: Endpoint;
     listFiles: Endpoint;
     listReviews: Endpoint;
-    listReviewComments: Endpoint;
     update: Endpoint;
     updateBranch: Endpoint;
     requestReviewers: Endpoint;
@@ -157,12 +156,6 @@ const ROUTES: Route[] = [
     regex: /^\/repos\/([^/]+)\/([^/]+)\/pulls\/(\d+)\/reviews$/,
     keys: ["owner", "repo", "pull_number"],
     endpoint: (g) => g.pulls.listReviews,
-  },
-  {
-    method: "GET",
-    regex: /^\/repos\/([^/]+)\/([^/]+)\/pulls\/(\d+)\/comments$/,
-    keys: ["owner", "repo", "pull_number"],
-    endpoint: (g) => g.pulls.listReviewComments,
   },
   {
     method: "GET",
@@ -350,7 +343,6 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
       get: endpointFn(async () => ({ data: world.pullRequest ?? {} })),
       listFiles: endpointFn(async () => ({ data: world.files ?? [] })),
       listReviews: endpointFn(async () => ({ data: world.reviews ?? [] })),
-      listReviewComments: endpointFn(async () => ({ data: [] })),
       update: endpointFn(async () => ({ data: {} })),
       updateBranch: endpointFn(async () => ({ data: {} })),
       requestReviewers: endpointFn(async () => ({ data: {} })),

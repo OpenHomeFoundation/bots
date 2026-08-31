@@ -7,8 +7,6 @@ export type ListPullRequestFiles =
   RestEndpointMethodTypes["pulls"]["listFiles"]["response"]["data"];
 export type PullRequestReviews =
   RestEndpointMethodTypes["pulls"]["listReviews"]["response"]["data"];
-export type PullRequestReviewComments =
-  RestEndpointMethodTypes["pulls"]["listReviewComments"]["response"]["data"];
 export type PullRequestCommits =
   RestEndpointMethodTypes["pulls"]["listCommits"]["response"]["data"];
 export type IssueComments = RestEndpointMethodTypes["issues"]["listComments"]["response"]["data"];
@@ -55,7 +53,6 @@ export class PullRequest {
     core?: Promise<GetPullRequestResponse>;
     files?: Promise<ListPullRequestFiles>;
     reviews?: Promise<PullRequestReviews>;
-    reviewComments?: Promise<PullRequestReviewComments>;
     commits?: Promise<PullRequestCommits>;
     issueComments?: Promise<IssueComments>;
   } = {};
@@ -186,21 +183,6 @@ export class PullRequest {
       this.caches.reviews = inflight;
     }
     return this.caches.reviews;
-  }
-
-  /** Inline review comments; each carries a `reactions` rollup for free. */
-  reviewComments(): Promise<PullRequestReviewComments> {
-    if (!this.caches.reviewComments) {
-      const inflight = this.github.paginate(
-        this.github.pulls.listReviewComments,
-        this.params({ per_page: 100 }),
-      );
-      inflight.catch(() => {
-        if (this.caches.reviewComments === inflight) this.caches.reviewComments = undefined;
-      });
-      this.caches.reviewComments = inflight;
-    }
-    return this.caches.reviewComments;
   }
 
   commits(): Promise<PullRequestCommits> {

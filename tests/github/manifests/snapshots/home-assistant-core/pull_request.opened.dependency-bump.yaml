@@ -15,10 +15,6 @@ statuses:
     title: Merge target
     status: pass
     message: This PR targets `dev`.
-  - id: review-comments
-    title: Review comments
-    status: skip
-    message: No inline review comments yet.
   - id: code-owner-approval
     title: Code owner approval
     status: skip
