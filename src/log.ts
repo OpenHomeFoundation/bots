@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/nestjs";
 import { pino } from "pino";
-import { correlationId } from "./correlation.js";
+import { logContext } from "./correlation.js";
 
 type Attributes = Record<string, unknown>;
 
@@ -11,35 +11,33 @@ const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
-/** Stamp the ambient correlation ID (see correlation.ts) onto every entry. */
-function withId(attributes?: Attributes): Attributes {
-  const id = correlationId();
-  if (!id) return attributes ?? {};
-  return { correlationId: id, ...attributes };
+/** Stamp the ambient log context (see correlation.ts) onto every entry. */
+function withContext(attributes?: Attributes): Attributes {
+  return { ...logContext(), ...attributes };
 }
 
 /** An object rather than free functions so tests can spyOn. */
 export const log = {
   info(message: string, attributes?: Attributes): void {
-    const attrs = withId(attributes);
+    const attrs = withContext(attributes);
     logger.info(attrs, message);
     Sentry.logger.info(message, attrs);
   },
 
   warn(message: string, attributes?: Attributes): void {
-    const attrs = withId(attributes);
+    const attrs = withContext(attributes);
     logger.warn(attrs, message);
     Sentry.logger.warn(message, attrs);
   },
 
   error(message: string, attributes?: Attributes): void {
-    const attrs = withId(attributes);
+    const attrs = withContext(attributes);
     logger.error(attrs, message);
     Sentry.logger.error(message, attrs);
   },
 
   exception(err: unknown, attributes?: Attributes): void {
-    const attrs = withId(attributes);
+    const attrs = withContext(attributes);
     logger.error({ err, ...attrs }, err instanceof Error ? err.message : String(err));
     // handled: false — every caller is a last-resort catch (exception filter,
     // gateway .catch); these are unhandled failures, not expected captures.

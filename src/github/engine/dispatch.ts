@@ -1,3 +1,4 @@
+import { addLogContext } from "../../correlation.js";
 import { log } from "../../log.js";
 import { EventType } from "./event.js";
 import type { CommandContext } from "./model/command-context.js";
@@ -101,7 +102,8 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
   // Thunks, not started promises: awaits happen between collection and the
   // allSettled below, and a rejection during that window would be an
   // unhandled rejection (which kills the process) instead of a logged failure.
-  const ops: (() => Promise<unknown>)[] = [];
+  // Each carries its effect name so a failure log says which op it was.
+  const ops: { op: string; run: () => Promise<unknown> }[] = [];
 
   for (const effect of effects) {
     switch (effect.type) {
@@ -118,59 +120,73 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
         comments.add(effect.body);
         break;
       case "addLabelsCrossRepo":
-        ops.push(() =>
-          context.github.issues.addLabels({
-            owner: effect.owner,
-            repo: effect.repo,
-            issue_number: effect.issue_number,
-            labels: effect.labels,
-          }),
-        );
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.issues.addLabels({
+              owner: effect.owner,
+              repo: effect.repo,
+              issue_number: effect.issue_number,
+              labels: effect.labels,
+            }),
+        });
         break;
       case "updatePullRequest":
-        ops.push(() =>
-          context.github.pulls.update({
-            owner: effect.owner,
-            repo: effect.repo,
-            pull_number: effect.pull_number,
-            state: effect.state,
-          }),
-        );
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.pulls.update({
+              owner: effect.owner,
+              repo: effect.repo,
+              pull_number: effect.pull_number,
+              state: effect.state,
+            }),
+        });
         break;
       case "requestReviewers":
-        ops.push(() =>
-          context.github.pulls.requestReviewers(
-            context.pullParams({ reviewers: effect.reviewers }),
-          ),
-        );
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.pulls.requestReviewers(
+              context.pullParams({ reviewers: effect.reviewers }),
+            ),
+        });
         break;
       case "dismissReview":
-        ops.push(() =>
-          context.github.pulls.dismissReview(
-            context.pullParams({ review_id: effect.reviewId, message: effect.message }),
-          ),
-        );
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.pulls.dismissReview(
+              context.pullParams({ review_id: effect.reviewId, message: effect.message }),
+            ),
+        });
         break;
       case "setTitle":
-        ops.push(() => context.github.issues.update(context.issueParams({ title: effect.title })));
+        ops.push({
+          op: effect.type,
+          run: () => context.github.issues.update(context.issueParams({ title: effect.title })),
+        });
         break;
       case "setState":
-        ops.push(() => context.github.issues.update(context.issueParams({ state: effect.state })));
+        ops.push({
+          op: effect.type,
+          run: () => context.github.issues.update(context.issueParams({ state: effect.state })),
+        });
         break;
       case "removeAssignees":
         for (const a of effect.assignees) removeAssignees.add(a);
         break;
       case "convertToDraft":
-        ops.push(() => draftPRIfNotDraft(context));
+        ops.push({ op: effect.type, run: () => draftPRIfNotDraft(context) });
         break;
       case "updateBranch":
-        ops.push(() => updateBranchOrExplain(context));
+        ops.push({ op: effect.type, run: () => updateBranchOrExplain(context) });
         break;
       case "commentOnce":
-        ops.push(() => commentOnce(context, effect.marker, effect.body));
+        ops.push({ op: effect.type, run: () => commentOnce(context, effect.marker, effect.body) });
         break;
       case "commitStatus":
-        ops.push(() => writeRuleCommitStatus(context, effect));
+        ops.push({ op: effect.type, run: () => writeRuleCommitStatus(context, effect) });
         break;
     }
   }
@@ -181,47 +197,61 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
     const current = new Set(await context.target.labels());
     const toAdd = [...labels].filter((label) => !current.has(label));
     if (toAdd.length > 0) {
-      ops.push(() => context.github.issues.addLabels(context.issueParams({ labels: toAdd })));
+      ops.push({
+        op: "addLabels",
+        run: () => context.github.issues.addLabels(context.issueParams({ labels: toAdd })),
+      });
     }
 
     for (const label of removeLabels) {
       if (labels.has(label)) {
         log.warn("applyEffects: label added and removed in the same dispatch; add wins", {
-          repository: context.repo.fullName,
-          number: context.number,
           label,
         });
         continue;
       }
       if (!current.has(label)) continue;
-      ops.push(() => context.github.issues.removeLabel(context.issueParams({ name: label })));
+      ops.push({
+        op: `removeLabel:${label}`,
+        run: () => context.github.issues.removeLabel(context.issueParams({ name: label })),
+      });
     }
   }
 
   for (const body of comments) {
-    ops.push(() => context.github.issues.createComment(context.issueParams({ body })));
+    ops.push({
+      op: "comment",
+      run: () => context.github.issues.createComment(context.issueParams({ body })),
+    });
   }
 
   if (assignees.size > 0) {
-    ops.push(() =>
-      context.github.issues.addAssignees(context.issueParams({ assignees: [...assignees] })),
-    );
+    ops.push({
+      op: "addAssignees",
+      run: () =>
+        context.github.issues.addAssignees(context.issueParams({ assignees: [...assignees] })),
+    });
   }
 
   if (removeAssignees.size > 0) {
-    ops.push(() =>
-      context.github.issues.removeAssignees(
-        context.issueParams({ assignees: [...removeAssignees] }),
-      ),
-    );
+    ops.push({
+      op: "removeAssignees",
+      run: () =>
+        context.github.issues.removeAssignees(
+          context.issueParams({ assignees: [...removeAssignees] }),
+        ),
+    });
   }
 
-  const settled = await Promise.allSettled(ops.map((op) => op()));
-  for (const outcome of settled) {
+  const settled = await Promise.allSettled(ops.map(({ run }) => run()));
+  settled.forEach((outcome, index) => {
     if (outcome.status === "rejected") {
-      log.warn("applyEffects: operation failed", { error: String(outcome.reason) });
+      log.warn("applyEffects: operation failed", {
+        op: ops[index].op,
+        error: String(outcome.reason),
+      });
     }
-  }
+  });
 }
 
 /** Post the marker-tagged comment unless the thread already carries one. */
@@ -276,10 +306,9 @@ export interface DispatchResult {
 
 async function runMatchedRules(
   context: RuleContext,
+  matched: Rule[],
   data: Record<string, unknown>,
 ): Promise<CollectedOutputs> {
-  const matched = matchRules(context);
-
   const settled = await Promise.allSettled(
     matched.map((rule) => {
       const handler = rule.events[context.eventType];
@@ -295,11 +324,7 @@ async function runMatchedRules(
   for (let i = 0; i < settled.length; i++) {
     const outcome = settled[i];
     if (outcome.status === "rejected") {
-      log.exception(outcome.reason, {
-        rule: matched[i].name,
-        repository: context.repo.fullName,
-        number: context.number,
-      });
+      log.exception(outcome.reason, { rule: matched[i].name });
     } else if (outcome.value) {
       collectOutput(collected, outcome.value, matched[i].name);
     }
@@ -308,6 +333,14 @@ async function runMatchedRules(
 }
 
 export async function dispatch(context: RuleContext): Promise<DispatchResult> {
+  const startedAt = Date.now();
+  // Redundant on the webhook path (webhook.service stamps it), but callers
+  // like the CLA re-evaluation reach dispatch without going through there.
+  addLogContext({
+    repository: context.repo.fullName,
+    number: context.number,
+    eventType: context.eventType,
+  });
   const knownSectionIds = collectKnownStatusSectionIds(context);
   const dashboardEnabled = context.registry.dashboards?.[context.repo.fullName] ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;
@@ -327,14 +360,13 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   );
   const { data, swept } = pruneData(previous?.data ?? {}, ruleNames);
 
-  const output = await runMatchedRules(context, data);
+  const matched = matchRules(context);
+  const output = await runMatchedRules(context, matched, data);
   output.dataChanged ||= swept;
 
   // Status rows only render on the dashboard
   if (!dashboardEnabled && output.statuses.size > 0) {
     log.warn("dispatch: dropping status rows — repo has no dashboard", {
-      repository: context.repo.fullName,
-      number: context.number,
       sections: [...output.statuses.keys()],
     });
   }
@@ -419,7 +451,17 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
     await draftPRIfNotDraft(context);
   }
 
-  return { statuses: [...output.statuses.values()], effects: output.effects };
+  const result: DispatchResult = {
+    statuses: [...output.statuses.values()],
+    effects: output.effects,
+  };
+  log.info("dispatch: done", {
+    rules: matched.map((rule) => rule.name),
+    statuses: result.statuses.length,
+    effects: result.effects.length,
+    durationMs: Date.now() - startedAt,
+  });
+  return result;
 }
 
 export function findCommand(
@@ -500,8 +542,6 @@ export async function dispatchCommand(
 
   if (context.invocations.length === 0) {
     log.info("command rejected", {
-      repository: context.repo.fullName,
-      number: context.number,
       sender: context.sender.login,
       reason: "unparseable invocation",
     });
@@ -520,8 +560,6 @@ export async function dispatchCommand(
     const rejection = await commandRejection(command, invocationContext);
     if (rejection || !command) {
       log.info("command rejected", {
-        repository: context.repo.fullName,
-        number: context.number,
         command: invocation.name,
         sender: context.sender.login,
         reason: rejection,
@@ -530,12 +568,7 @@ export async function dispatchCommand(
       continue;
     }
 
-    log.info("command", {
-      repository: context.repo.fullName,
-      number: context.number,
-      command: command.name,
-      sender: context.sender.login,
-    });
+    log.info("command", { command: command.name, sender: context.sender.login });
 
     try {
       const output = await command.handle(invocationContext);
@@ -549,19 +582,12 @@ export async function dispatchCommand(
         // The handler rejected the user's input — normal operation, like the
         // pre-run rejections above, not a fault.
         log.info("command rejected", {
-          repository: context.repo.fullName,
-          number: context.number,
           command: command.name,
           sender: context.sender.login,
           reason: err.message,
         });
       } else {
-        log.error("command failed", {
-          repository: context.repo.fullName,
-          number: context.number,
-          command: command.name,
-          error: String(err),
-        });
+        log.error("command failed", { command: command.name, error: String(err) });
       }
       anyFailed = true;
     }
@@ -573,8 +599,6 @@ export async function dispatchCommand(
 
     if (!dashboardEnabled && collected.statuses.size > 0) {
       log.warn("dispatchCommand: dropping status rows — repo has no dashboard", {
-        repository: context.repo.fullName,
-        number: context.number,
         sections: [...collected.statuses.keys()],
       });
     }
