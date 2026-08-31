@@ -1,7 +1,9 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import type { Octokit } from "@octokit/rest";
 import type { IssueCommentCreatedEvent } from "@octokit/webhooks-types";
+import { addLogContext } from "../correlation.js";
 import { ENV, type Env } from "../env.js";
+import { log } from "../log.js";
 import { dispatch, dispatchCommand } from "./engine/dispatch.js";
 import { EventType } from "./engine/event.js";
 import { commandContextFromWebhook, isBotCommand } from "./engine/model/command-context.js";
@@ -28,7 +30,7 @@ export class WebhookService {
       throw new BadRequestException("Invalid JSON");
     }
     const action = (raw.action as string) ?? "";
-    const rawEventType = `${event}.${action}`;
+    const rawEventType = action ? `${event}.${action}` : event;
 
     // Skip events without repository scope
     if (!raw.repository || typeof raw.repository !== "object") {
@@ -41,8 +43,12 @@ export class WebhookService {
     const ownBotLogin = `${this.env.BOT_SLUG}[bot]`;
     const selfWebhook = senderLogin.toLowerCase() === ownBotLogin.toLowerCase();
 
-    // Skip self-webhooks and events we don't have a rule for
-    if (selfWebhook || !known) return "OK";
+    // Skip self-webhooks
+    if (selfWebhook) return "OK";
+
+    if (!known) {
+      return "OK";
+    }
 
     const eventType = rawEventType as EventType;
 
@@ -56,6 +62,12 @@ export class WebhookService {
           this.octokit,
           commentPayload,
         );
+        addLogContext({
+          repository: context.repo.fullName,
+          number: context.number,
+          eventType,
+        });
+        log.info("webhook: dispatching");
         await logRace(`${context.repo.fullName}#${context.number}`, eventType, () =>
           dispatchCommand(context),
         );
@@ -70,6 +82,12 @@ export class WebhookService {
       payload,
       eventType,
     );
+    addLogContext({
+      repository: context.repo.fullName,
+      number: context.number,
+      eventType,
+    });
+    log.info("webhook: dispatching");
     await logRace(`${context.repo.fullName}#${context.number}`, eventType, () => dispatch(context));
 
     return "OK";
