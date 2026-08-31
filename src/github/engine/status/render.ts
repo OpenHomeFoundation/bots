@@ -22,10 +22,16 @@ const MARKER_SUFFIX = " -->";
 const SECTION_PREFIX = "<!-- section:";
 const BLOCK_PREFIX = "<!-- block:";
 
-const FRIENDLY_NAMES: Record<string, string> = {
-  "home-assistant/core": "Home Assistant",
-  "justanotherariel/hass_core": "Home Assistant", // TODO: Remove this
+// Greeting names by org. Falls back to the raw `owner/repo` slug.
+const FRIENDLY_ORG_NAMES: Record<string, string> = {
+  "home-assistant": "Home Assistant",
+  esphome: "ESPHome",
+  justanotherariel: "Home Assistant", // TODO: Remove this (test fork)
 };
+
+function friendlyName(repo: string): string {
+  return FRIENDLY_ORG_NAMES[repo.split("/")[0]] ?? repo;
+}
 
 const STATUS_ICONS: Record<SectionStatus, string> = {
   pass: ":white_check_mark:",
@@ -137,7 +143,7 @@ export function renderStatus(
   const applicable = commandsForTarget(extras.commands ?? [], target);
 
   const view = {
-    friendlyName: FRIENDLY_NAMES[repo] ?? repo,
+    friendlyName: friendlyName(repo),
     commandSlug: slug,
     author: extras.author ?? "",
     hasCommands: applicable.length > 0,
