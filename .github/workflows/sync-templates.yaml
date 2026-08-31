@@ -60,11 +60,42 @@ jobs:
         with:
           branch: bot/sync-pr-templates
           delete-branch: true
-          commit-message: Sync fixture bodies with the upstream PR template
-          title: Sync fixture bodies with the upstream PR template
-          body: >-
+          commit-message: "chore: sync fixture bodies with the upstream PR template"
+          title: "chore: sync fixture bodies with the upstream PR template"
+          body: |
+            ## Proposed change
+
             The upstream PR template changed. This PR vendors the new template,
             re-renders the fixture bodies from it, and refreshes the expected
             effects — review that diff for behavioral fallout (e.g. a
             type-of-change label disappearing means a rule no longer matches
             the reworded checkbox).
+
+            ## Type of change
+
+            - [ ] Dependency upgrade
+            - [ ] Bugfix
+            - [ ] New rule or command
+            - [ ] New repository manifest (enable the bot on another repo)
+            - [ ] New feature (which adds functionality to an existing engine)
+            - [x] Code quality improvement or refactor (incl. tests)
+
+            ## Additional information
+
+            - This PR was opened automatically by the scheduled
+              `sync-templates` workflow.
+
+            ## Checklist
+
+            - [ ] I understand the code I am submitting and can explain how it works.
+            - [ ] The code change is tested and works locally.
+            - [ ] Local tests pass (`just test`). **Your PR cannot be merged unless tests pass.**
+            - [ ] Lint and type checks pass (`just lint`).
+            - [ ] The code has been formatted (`just format`).
+            - [ ] Tests have been added to verify that the new code works.
+            - [ ] There is no commented out or debug code in this PR.
+            - [ ] Any generated code has been carefully reviewed for correctness and compliance with project standards.
+
+            If behaviour, configuration, or environment variables changed:
+
+            - [ ] `README.md` and `.env.example` have been updated accordingly.
