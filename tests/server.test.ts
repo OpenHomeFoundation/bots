@@ -33,11 +33,27 @@ afterAll(async () => {
 });
 
 describe("server routing", () => {
-  it("returns 200 for the health endpoint", async () => {
-    const res = await request(server).get("/health");
+  it("serves the load-balancer heartbeat", async () => {
+    const res = await request(server).get("/__lbheartbeat__");
 
     expect(res.status).toBe(200);
-    expect(res.text).toBe("OK");
+    expect(res.body).toEqual({});
+  });
+
+  it("serves the application heartbeat", async () => {
+    const res = await request(server).get("/__heartbeat__");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({});
+  });
+
+  it("reports the running version and build commit", async () => {
+    const res = await request(server).get("/__version__");
+
+    expect(res.status).toBe(200);
+    // The version tracks package.json; GIT_COMMIT is unset in tests, so the
+    // commit falls back to the local-build marker.
+    expect(res.body).toEqual({ version: expect.any(String), commit: "dev" });
   });
 
   it("rejects webhook posts with an invalid signature", async () => {

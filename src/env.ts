@@ -35,6 +35,10 @@ export const envSchema = z.object({
   // Environment
   ENVIRONMENT: z.string().default("production"),
 
+  // Build provenance reported by the `__version__` endpoint. The container
+  // image bakes in the release commit; local runs report "dev".
+  GIT_COMMIT: z.string().optional(),
+
   // HTTP listen port
   PORT: z.coerce.number().default(8787),
 });

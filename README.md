@@ -89,8 +89,18 @@ The `GITHUB_PRIVATE_KEY` must be on one line with `\n` for newlines (see the com
 mise run dev   # dev server on http://localhost:8787, watch mode
 ```
 
-Open or label a PR/issue on your fork and the delivery should flow smee → server → back to the fork. `GET /health` returns `OK` for a quick liveness check.
+Open or label a PR/issue on your fork and the delivery should flow smee → server → back to the fork. `GET /__lbheartbeat__` returns `{}` for a quick liveness check.
 
 ### Capturing fixtures
 
 `mise run capture` runs a standalone server that records real GitHub deliveries into scrubbed test fixtures — point the same smee tunnel at it instead of the dev server. See `scripts/capture-webhooks.ts` for the workflow.
+
+## Health and version endpoints
+
+`HealthModule` (`src/health/`) serves the operational endpoints every OHF NestJS service shares, so probes and dashboards are configured identically across deployments:
+
+| Endpoint | Response | Use |
+|---|---|---|
+| `GET /__lbheartbeat__` | `{}` | Load-balancer liveness. Checks nothing on purpose - a dependency outage must not pull a container that can still serve webhooks out of rotation. The Docker `HEALTHCHECK` uses this one. |
+| `GET /__heartbeat__` | `{}` | Deep heartbeat. Returns whatever the optional `extraHealthData` callback passed to `HealthModule.register` resolves to; nothing is wired up yet, so it is empty. |
+| `GET /__version__` | `{"version","commit"}` | Which build is running. `version` comes from `package.json`; `commit` from the `GIT_COMMIT` environment variable, baked into the image by the release workflow and reported as `dev` locally. |

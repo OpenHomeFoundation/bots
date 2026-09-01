@@ -48,6 +48,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
 
       - name: Update the Terraform variable set
         if: env.TFC_TOKEN != '' && env.TFC_VARSET_ID != ''

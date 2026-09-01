@@ -26,6 +26,10 @@ RUN npm install -g corepack && corepack enable \
 
 COPY --from=build /app/dist ./dist
 
+# Build provenance surfaced by the __version__ endpoint.
+ARG GIT_COMMIT=dev
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 # Sentry deployment label
 ENV ENVIRONMENT=production
 ENV NODE_ENV=production
@@ -33,7 +37,7 @@ ENV PORT=8787
 EXPOSE ${PORT}
 
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+  CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/__lbheartbeat__',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
 USER node
 
