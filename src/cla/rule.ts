@@ -3,7 +3,7 @@ import { EventType } from "../github/engine/event.js";
 import type { RuleContext } from "../github/engine/model/rule-context.js";
 import { type CheckOutcome, on } from "../github/engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../github/engine/types.js";
-import { type ClaStore, dynamoClaStore } from "./store.js";
+import { type ClaStore, postgresClaStore } from "./store.js";
 
 export const CLA_SIGNED_LABEL = "cla-signed";
 export const CLA_NEEDED_LABEL = "cla-needed";
@@ -282,5 +282,5 @@ We apologize for this inconvenience, especially since it usually bites new contr
 Thanks, I look forward to checking this PR again soon! :heart:`;
 }
 
-/** The production rule, reading and writing the DynamoDB-backed store. */
-export const cla: Rule = claCheck(dynamoClaStore);
+/** The production rule, reading and writing the Postgres-backed store. */
+export const cla: Rule = claCheck(postgresClaStore);
