@@ -1,6 +1,6 @@
 # OHF Bots
 
-A Node.js service running the GitHub and Discord bots for various Open Home Foundation projects most noteably Home Assistant and ESPHome. 
+A Node.js service running the GitHub and Discord bots for various Open Home Foundation projects, most notably Home Assistant and ESPHome.
 
 ## Development
 
@@ -18,15 +18,27 @@ mise run format      # Auto-fix formatting
 
 `mise tasks` shows all tasks; lifecycle tasks call `script/*`, convenience tasks wrap the pnpm scripts in `package.json`, which work directly too (`pnpm run dev`, …). Under the hood, `pnpm` is used as the package manager. A local `.env` is loaded into every task's environment automatically. A husky pre-commit hook runs `lint-staged` (biome) on staged files.
 
-## Running the Gitbub bot locally against a fork
+## Running the GitHub bot locally against a fork
 
 The bot only acts on the repositories listed in `src/github/manifests/`, so to exercise it end-to-end without touching a production repo you point it at a **fork you own**. The loop is: a GitHub App on your fork sends webhooks → [smee.io](https://smee.io) tunnels them to your laptop → the local server evaluates its rules and calls back into the fork.
 
-### 1. Create a GitHub App
+### 1. Set up smee
+
+GitHub can't reach `localhost`, so webhooks have to come from a tunnel, of which Github recommends smee. Get a channel by visiting [smee.io](https://smee.io/) and use it in the commands below:
+
+```bash
+# Get a channel URL from https://smee.io/new, then:
+npx smee-client --url https://smee.io/<your-channel> --target http://localhost:8787/github/webhook
+```
+
+Use that same `https://smee.io/<your-channel>` URL as the GitHub App's **Webhook URL** in the next step. Leave the tunnel running in the background.
+
+
+### 2. Create a GitHub App
 
 Create a personal GitHub App under **Settings → Developer settings → GitHub Apps → New GitHub App** (this can be a user-owned app; org ownership is only needed for the team-expansion permission below).
 
-- **Webhook URL** — the smee channel from step 2 (you can fill this in after creating the channel; the path the server listens on is `/github/webhook`).
+- **Webhook URL** — the smee channel from step 1.
 - **Webhook secret** — generate a random string; it goes into `GITHUB_WEBHOOK_SECRET`.
 - **Private key** — after creating the app, generate a private key and download the `.pem`; it goes into `GITHUB_PRIVATE_KEY`.
 
@@ -46,16 +58,6 @@ Create a personal GitHub App under **Settings → Developer settings → GitHub 
 
 After creating the app, **install it on your fork** (GitHub App page → Install App → select the fork). The install page URL ends in `/installations/<id>` — that number is your `GITHUB_INSTALLATION_ID`. The app's numeric ID (App settings → "App ID") is `GITHUB_APP_ID`.
 
-### 2. Set up smee
-
-GitHub can't reach `localhost`, so tunnel deliveries through smee. Get a channel by visiting [smee.io](https://smee.io/) and use it in the commands below:
-
-```bash
-# Get a channel URL from https://smee.io/new, then:
-npx smee-client --url https://smee.io/<your-channel> --target http://localhost:8787/github/webhook
-```
-
-Use that same `https://smee.io/<your-channel>` URL as the GitHub App's **Webhook URL**. Leave the tunnel running in the background.
 
 > The webhook secret and installation must match, or deliveries are rejected with `401 Invalid signature` — check the smee output and the app's "Advanced → Recent Deliveries" tab if events don't arrive.
 
@@ -71,8 +73,6 @@ export const homeAssistantCore: RepoManifest = {
   ...
 };
 ```
-
-The fork then shares the exact same rule instances as the real repo — no duplication. Aliases are validated at boot: a slug claimed by two manifests fails loudly on startup.
 
 ### 4. Configure `.env` and run
 
@@ -104,3 +104,7 @@ Open or label a PR/issue on your fork and the delivery should flow smee → serv
 | `GET /__lbheartbeat__` | `{}` | Load-balancer liveness. Checks nothing on purpose - a dependency outage must not pull a container that can still serve webhooks out of rotation. The Docker `HEALTHCHECK` uses this one. |
 | `GET /__heartbeat__` | `{}` | Deep heartbeat. Returns whatever the optional `extraHealthData` callback passed to `HealthModule.register` resolves to; nothing is wired up yet, so it is empty. |
 | `GET /__version__` | `{"version","commit"}` | Which build is running. `version` comes from `package.json`; `commit` from the `GIT_COMMIT` environment variable, baked into the image by the release workflow and reported as `dev` locally. |
+
+## Credits
+
+This project a rewrite of [service-hub](https://github.com/home-assistant/service-hub/) which was created and maintained by [@ludeeus](https://github.com/ludeeus). Most of the initial rules came from there, adapted to make use of the new PR/issue dashboard.
