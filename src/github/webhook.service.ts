@@ -8,9 +8,10 @@ import { dispatch, dispatchCommand } from "./engine/dispatch.js";
 import { EventType } from "./engine/event.js";
 import { commandContextFromWebhook, isBotCommand } from "./engine/model/command-context.js";
 import { ruleContextFromWebhook, type WebhookEventPayload } from "./engine/model/rule-context.js";
-import { registryConfig } from "./manifests/index.js";
+import type { RegistryConfig } from "./engine/types.js";
 import { OCTOKIT } from "./octokit.provider.js";
 import { logRace } from "./race-monitor.js";
+import { REGISTRY_CONFIG } from "./registry.provider.js";
 
 const KNOWN_EVENT_TYPES = new Set<string>(Object.values(EventType));
 
@@ -19,6 +20,7 @@ export class WebhookService {
   constructor(
     @Inject(ENV) private readonly env: Env,
     @Inject(OCTOKIT) private readonly octokit: Octokit,
+    @Inject(REGISTRY_CONFIG) private readonly registry: RegistryConfig,
   ) {}
 
   /** Handle a signature-verified delivery (see `GithubWebhookGuard`). */
@@ -58,7 +60,7 @@ export class WebhookService {
       if (isBotCommand(commentPayload.comment.body ?? "", this.env.COMMAND_SLUG)) {
         const context = commandContextFromWebhook(
           this.env,
-          registryConfig,
+          this.registry,
           this.octokit,
           commentPayload,
         );
@@ -77,7 +79,7 @@ export class WebhookService {
 
     const context = ruleContextFromWebhook(
       this.env,
-      registryConfig,
+      this.registry,
       this.octokit,
       payload,
       eventType,

@@ -7,14 +7,18 @@ import {
 import type { Client } from "discord.js";
 import { ENV, type Env } from "../env.js";
 import { log } from "../log.js";
+import type { GuildRegistry } from "./engine/dispatch.js";
 import { startDiscordGateway } from "./engine/gateway.js";
-import { discordRegistry } from "./manifests/index.js";
+import { DISCORD_REGISTRY } from "./registry.provider.js";
 
 @Injectable()
 export class DiscordGatewayService implements OnApplicationBootstrap, OnApplicationShutdown {
   private client: Client | undefined;
 
-  constructor(@Inject(ENV) private readonly env: Env) {}
+  constructor(
+    @Inject(ENV) private readonly env: Env,
+    @Inject(DISCORD_REGISTRY) private readonly registry: GuildRegistry,
+  ) {}
 
   onApplicationBootstrap(): void {
     const token = this.env.DISCORD_TOKEN;
@@ -22,7 +26,7 @@ export class DiscordGatewayService implements OnApplicationBootstrap, OnApplicat
 
     // Fire-and-forget: a Discord outage must not block or take down the
     // webhook endpoints.
-    startDiscordGateway(discordRegistry, { token })
+    startDiscordGateway(this.registry, { token })
       .then((client) => {
         this.client = client;
       })
