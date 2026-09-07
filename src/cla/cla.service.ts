@@ -2,8 +2,9 @@ import { HttpException, Inject, Injectable } from "@nestjs/common";
 import type { Octokit } from "@octokit/rest";
 import { ENV, type Env } from "../env.js";
 import { evaluatePR } from "../github/engine/evaluate.js";
-import { registryConfig } from "../github/manifests/index.js";
+import type { RegistryConfig } from "../github/engine/types.js";
 import { OCTOKIT } from "../github/octokit.provider.js";
+import { REGISTRY_CONFIG } from "../github/registry.provider.js";
 import { log } from "../log.js";
 import type { ClaSignature, ClaStore } from "./store.js";
 import { CLA_STORE } from "./store.provider.js";
@@ -30,6 +31,7 @@ export class ClaService {
     @Inject(ENV) private readonly env: Env,
     @Inject(OCTOKIT) private readonly octokit: Octokit,
     @Inject(CLA_STORE) private readonly store: ClaStore | undefined,
+    @Inject(REGISTRY_CONFIG) private readonly registry: RegistryConfig,
   ) {}
 
   async sign(payload: unknown, ipAddress: string, userAgent: string): Promise<{ message: string }> {
@@ -80,7 +82,7 @@ export class ClaService {
     });
 
     try {
-      await evaluatePR(this.env, registryConfig, this.octokit, pending);
+      await evaluatePR(this.env, this.registry, this.octokit, pending);
     } catch (err) {
       log.warn("CLA sign: post-signature re-evaluation failed", {
         repository: `${pending.owner}/${pending.repo}`,

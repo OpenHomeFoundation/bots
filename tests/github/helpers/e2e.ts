@@ -10,16 +10,6 @@ const TEST_SECRET = "test-webhook-secret";
 
 const EMPTY_REGISTRY: RegistryConfig = { repositories: {} };
 
-/**
- * webhook.service.ts imports its registry itself, so the test file must
- * install a module mock over manifests/index.js that reads from this mutable
- * wiring object (see e2e.test.ts); each harness points it at the test's
- * registry. The Octokit is an ordinary parameter and needs no mock plumbing.
- */
-export interface E2EWiring {
-  config: RegistryConfig;
-}
-
 export interface E2EHarnessOptions {
   config?: RegistryConfig;
 }
@@ -32,16 +22,15 @@ export interface E2EHarness {
 }
 
 /**
- * Wire the registry mock and a mock Octokit, then provide a
- * `deliver(event, payload)` helper that POSTs a signed webhook through the
- * real signature-verification + dispatch pipeline.
+ * Wire a test registry and a mock Octokit into a real WebhookService, then
+ * provide a `deliver(event, payload)` helper that POSTs a signed webhook through
+ * the real signature-verification + dispatch pipeline.
  *
  * Modeled on Probot's `probot.receive({ name, payload })` — but assertions
  * happen against the captured Octokit mock rather than nock interceptors.
  */
-export function createE2EHarness(wiring: E2EWiring, options: E2EHarnessOptions = {}): E2EHarness {
+export function createE2EHarness(options: E2EHarnessOptions = {}): E2EHarness {
   const github = createFakeGitHub();
-  wiring.config = options.config ?? EMPTY_REGISTRY;
 
   const env = {
     GITHUB_APP_ID: "1",
@@ -55,7 +44,7 @@ export function createE2EHarness(wiring: E2EWiring, options: E2EHarnessOptions =
   } as unknown as Env;
 
   const guard = new GithubWebhookGuard(env);
-  const service = new WebhookService(env, github.octokit);
+  const service = new WebhookService(env, github.octokit, options.config ?? EMPTY_REGISTRY);
 
   // Runs the same guard → service pipeline the controller does, folding
   // HttpExceptions back into a Response so status assertions read naturally.

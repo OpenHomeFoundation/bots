@@ -20,7 +20,7 @@ vi.mock("../../src/github/engine/evaluate.js", () => ({
 }));
 
 function claService(store: ClaStore | undefined, github = createFakeGitHub()): ClaService {
-  return new ClaService(testEnv, github as unknown as Octokit, store);
+  return new ClaService(testEnv, github as unknown as Octokit, store, { repositories: {} });
 }
 
 function fakeStore(pending?: { owner: string; repo: string; number: number }): ClaStore {
