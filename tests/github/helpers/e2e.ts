@@ -22,10 +22,9 @@ export interface E2EHarness {
 }
 
 /**
- * Wire a test registry and a mock Octokit into a real WebhookService (both
- * are constructor dependencies), then provide a `deliver(event, payload)`
- * helper that POSTs a signed webhook through the real signature-verification
- * + dispatch pipeline.
+ * Wire a test registry and a mock Octokit into a real WebhookService, then
+ * provide a `deliver(event, payload)` helper that POSTs a signed webhook through
+ * the real signature-verification + dispatch pipeline.
  *
  * Modeled on Probot's `probot.receive({ name, payload })` — but assertions
  * happen against the captured Octokit mock rather than nock interceptors.
