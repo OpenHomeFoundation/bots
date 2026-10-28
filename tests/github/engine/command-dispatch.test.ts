@@ -79,6 +79,39 @@ describe("parseCommands", () => {
     expect(parseCommands("@home-assistant", "home-assistant")).toEqual([]);
     expect(parseCommands("hello world", "home-assistant")).toEqual([]);
   });
+
+  it("requires whitespace or the line end after the command name", () => {
+    expect(parseCommands("@home-assistant close!", "home-assistant")).toEqual([]);
+    expect(parseCommands('@home-assistant rename"New title"', "home-assistant")).toEqual([]);
+    expect(parseCommands("@home-assistant\tclose\t", "home-assistant")).toEqual([
+      { name: "close", args: [] },
+    ]);
+  });
+
+  it("ignores trailing whitespace and CRLF line ends", () => {
+    expect(
+      parseCommands(
+        '@home-assistant rename \t"New title"  \r\n@home-assistant close  \r\nthanks',
+        "home-assistant",
+      ),
+    ).toEqual([
+      { name: "rename", args: ["New title"] },
+      { name: "close", args: [] },
+    ]);
+    expect(parseCommands("@home-assistant rename   Awesome  ", "home-assistant")).toEqual([
+      { name: "rename", args: [], malformed: true },
+    ]);
+  });
+
+  it("parses a line with a huge whitespace run in linear time", () => {
+    const body = `@home-assistant x a${" ".repeat(65_000)}b`;
+    const startedAt = performance.now();
+    expect(parseCommands(body, "home-assistant")).toEqual([
+      { name: "x", args: [], malformed: true },
+    ]);
+    // Quadratic backtracking takes seconds on this input.
+    expect(performance.now() - startedAt).toBeLessThan(500);
+  });
 });
 
 describe("isBotCommand", () => {

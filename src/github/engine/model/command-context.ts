@@ -50,8 +50,11 @@ function parseArgs(rest: string | undefined): Pick<CommandInvocation, "args" | "
  * and several commands can be stacked in one comment.
  */
 export function parseCommands(commentBody: string, slug: string): CommandInvocation[] {
+  // `.` runs to the line break and parseArgs trims the capture: a lazy
+  // capture before the whitespace tail would backtrack quadratically on long
+  // space runs, and any user's comment reaches this parser.
   const re = new RegExp(
-    `^@${escapeRegExp(slug)}\\s+([\\w-]+)(?:[^\\S\\n]+(\\S[^\\n]*?))?[^\\S\\n]*$`,
+    `^@${escapeRegExp(slug)}\\s+([\\w-]+)(?:[^\\S\\n]+(\\S.*))?[^\\S\\n]*$`,
     "gim",
   );
   return [...commentBody.matchAll(re)].map((match) => ({
