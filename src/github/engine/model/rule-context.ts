@@ -128,9 +128,14 @@ export class RuleContext<E extends EventType = EventType> {
     return this.target.number;
   }
 
-  /** Bot's commit-status creator login, e.g. "ha-bot[bot]". */
+  /** Bot's own login (comment author, commit-status creator), e.g. "ha-bot[bot]". */
   get botLogin(): string {
     return `${this.env.BOT_SLUG}[bot]`;
+  }
+
+  /** Whether the bot wrote this comment: anyone can type a marker, so only ours count. */
+  isOwnComment(comment: { user?: { login: string } | null }): boolean {
+    return comment.user?.login.toLowerCase() === this.botLogin.toLowerCase();
   }
 
   /** The repo's registered comment commands, for rendering command help. */

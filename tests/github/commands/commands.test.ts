@@ -13,7 +13,7 @@ import { renderStatus } from "../../../src/github/engine/status/render.js";
 import type { Rule } from "../../../src/github/engine/types.js";
 import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { expectReaction, makeCommandContext, registryWith } from "../helpers/command.js";
-import { createFakeGitHub, type FakeGitHub } from "../helpers/mock-context.js";
+import { BOT_LOGIN, createFakeGitHub, type FakeGitHub } from "../helpers/mock-context.js";
 
 // All commands except `update` are code_owner-gated; `testuser` passes as an
 // org member. The manifest fetch mock feeds the rules that label effects
@@ -193,6 +193,7 @@ describe("ignore / unignore", () => {
       data: [
         {
           id: 7,
+          user: { login: BOT_LOGIN },
           body: renderStatus(
             [
               {

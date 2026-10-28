@@ -1,6 +1,5 @@
 import type { Octokit } from "@octokit/rest";
 import { log } from "../../log.js";
-import type { GetIssueParams } from "./model/issue.js";
 import type { RuleContext } from "./model/rule-context.js";
 import type { BlockUpdates } from "./status/blocks.js";
 import { buildStatus, type StatusAggregate } from "./status/build.js";
@@ -30,16 +29,15 @@ export interface StatusCommentRef {
 }
 
 export async function findStatusComment(
-  github: Octokit,
-  params: GetIssueParams,
+  context: RuleContext,
 ): Promise<{ id: number; body: string; html_url: string } | null> {
-  const comments = await github.paginate(github.issues.listComments, {
-    ...params,
-    per_page: 100,
-  });
+  const comments = await context.github.paginate(
+    context.github.issues.listComments,
+    context.issueParams({ per_page: 100 }),
+  );
 
   for (const comment of comments) {
-    if (comment.body && isStatusComment(comment.body)) {
+    if (context.isOwnComment(comment) && comment.body && isStatusComment(comment.body)) {
       return { id: comment.id, body: comment.body, html_url: comment.html_url };
     }
   }
@@ -54,16 +52,15 @@ export async function findStatusComment(
  * result carries no persisted state, so callers skip parsing entirely.
  */
 export async function locateStatusComment(
-  github: Octokit,
-  params: GetIssueParams,
+  context: RuleContext,
   options: { createIfMissing: boolean },
 ): Promise<StatusCommentRef | null> {
-  const existing = await findStatusComment(github, params);
+  const existing = await findStatusComment(context);
   if (existing) return { ...existing, fresh: false };
   if (!options.createIfMissing) return null;
 
   const body = placeholderBody();
-  const { data } = await github.issues.createComment({ ...params, body });
+  const { data } = await context.github.issues.createComment(context.issueParams({ body }));
   return { id: data.id, body, html_url: data.html_url, fresh: true };
 }
 

@@ -62,7 +62,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
 
   const effects: Effect[] = [{ type: "convertToDraft" }];
   const comments = await ctx.target.issueComments();
-  if (!comments.some((c) => isDraftExplainerComment(c.body))) {
+  if (!comments.some((c) => ctx.isOwnComment(c) && isDraftExplainerComment(c.body))) {
     effects.push({ type: "comment", body: reviewComment(ctx.org.name) });
   }
   return { effects };
