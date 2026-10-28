@@ -280,7 +280,7 @@ describe("mention-code-owners", () => {
       github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [integrationDomain, rule] },
+        repositories: { "home-assistant/core": { rules: [integrationDomain, rule], commands: [] } },
       };
       const context = createMockContext({
         registry: config,
@@ -317,7 +317,7 @@ describe("mention-code-owners", () => {
       github.repos.getContent.mockResolvedValue({ data: { content: btoa("") } });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [integrationDomain, rule] },
+        repositories: { "home-assistant/core": { rules: [integrationDomain, rule], commands: [] } },
       };
       const context = createMockContext({
         registry: config,

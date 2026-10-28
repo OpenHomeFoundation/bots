@@ -33,7 +33,7 @@ const noBotRule: Rule = {
 describe("matchRules", () => {
   it("matches repo rule with correct event type", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [testRule] },
+      repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -46,7 +46,7 @@ describe("matchRules", () => {
 
   it("does not match rule with wrong event type", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [testRule] },
+      repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -58,7 +58,7 @@ describe("matchRules", () => {
 
   it("does not match rule for different repo", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/frontend": [testRule] },
+      repositories: { "home-assistant/frontend": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -70,7 +70,7 @@ describe("matchRules", () => {
 
   it("filters out bots when allowBots is false", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [noBotRule] },
+      repositories: { "home-assistant/core": { rules: [noBotRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -83,7 +83,7 @@ describe("matchRules", () => {
 
   it("allows bots by default", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [testRule] },
+      repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -121,7 +121,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [labelRule] },
+      repositories: { "home-assistant/core": { rules: [labelRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -149,7 +149,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [removerRule] },
+      repositories: { "home-assistant/core": { rules: [removerRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -182,7 +182,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [conflictRule] },
+      repositories: { "home-assistant/core": { rules: [conflictRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -209,7 +209,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [commentRule] },
+      repositories: { "home-assistant/core": { rules: [commentRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -237,7 +237,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [assignRule] },
+      repositories: { "home-assistant/core": { rules: [assignRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -276,7 +276,9 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [failingRule, succeedingRule] },
+      repositories: {
+        "home-assistant/core": { rules: [failingRule, succeedingRule], commands: [] },
+      },
     };
     const context = createMockContext({
       registry: config,
@@ -329,7 +331,7 @@ describe("dispatch", () => {
       },
     };
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule] },
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -353,8 +355,7 @@ describe("dispatch", () => {
   it("baselines the dashboard on opened for greeting repos, even with no matching rules", async () => {
     const github = createFakeGitHub();
     const config: RegistryConfig = {
-      repositories: {},
-      dashboards: { "home-assistant/core": true },
+      repositories: { "home-assistant/core": { rules: [], commands: [], dashboard: true } },
     };
     const context = createMockContext({
       registry: config,
@@ -413,7 +414,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule1, rule2] },
+      repositories: { "home-assistant/core": { rules: [rule1, rule2], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -453,8 +454,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -521,8 +521,9 @@ describe("dispatch", () => {
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [claimsX] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [claimsX], commands: [], dashboard: true },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -598,8 +599,9 @@ describe("dispatch", () => {
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [claimsX] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [claimsX], commands: [], dashboard: true },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -625,8 +627,9 @@ describe("dispatch", () => {
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [claimsX] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [claimsX], commands: [], dashboard: true },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -706,8 +709,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -818,8 +820,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -869,8 +870,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -939,8 +939,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -985,8 +984,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -1045,7 +1043,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [labeler, reactor] },
+      repositories: { "home-assistant/core": { rules: [labeler, reactor], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1076,7 +1074,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule] },
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1103,7 +1101,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule] },
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1139,7 +1137,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [remover, reactor] },
+      repositories: { "home-assistant/core": { rules: [remover, reactor], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1175,8 +1173,9 @@ describe("dashboard placeholder on opened", () => {
     };
     const context = createMockContext({
       registry: {
-        repositories: { "home-assistant/core": [observer] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [observer], commands: [], dashboard: true },
+        },
       },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
@@ -1197,8 +1196,7 @@ describe("dashboard placeholder on opened", () => {
 
     const context = createMockContext({
       registry: {
-        repositories: { "home-assistant/core": [] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [], commands: [], dashboard: true } },
       },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
@@ -1216,7 +1214,7 @@ describe("dashboard placeholder on opened", () => {
     const github = createFakeGitHub();
 
     const context = createMockContext({
-      registry: { repositories: { "home-assistant/core": [testRule] } },
+      registry: { repositories: { "home-assistant/core": { rules: [testRule], commands: [] } } },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
     });
@@ -1261,8 +1259,7 @@ describe("rule state persisted in the status comment", () => {
   function makeContext(github: ReturnType<typeof createFakeGitHub>, rules: Rule[]) {
     return createMockContext({
       registry: {
-        repositories: { "home-assistant/core": rules },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules, commands: [], dashboard: true } },
       },
       eventType: EventType.PULL_REQUEST_SYNCHRONIZE,
       github,
@@ -1381,8 +1378,7 @@ describe("status comment ownership", () => {
   function makeContext(github: FakeGitHub, rules: Rule[]) {
     return createMockContext({
       registry: {
-        repositories: { "home-assistant/core": rules },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules, commands: [], dashboard: true } },
       },
       eventType: EventType.PULL_REQUEST_SYNCHRONIZE,
       github,

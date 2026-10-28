@@ -73,7 +73,7 @@ function processIntegration(
     .map((usr) => `@${usr}`);
 
   if (mentions.length > 0) {
-    const applicable = commandsForTarget(ctx.commands, ctx.target.kind);
+    const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
     effects.push({
       type: "comment",
       // Escaping disabled: the output is markdown, not HTML.

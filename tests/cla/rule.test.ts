@@ -35,8 +35,9 @@ function claContext(opts: {
     eventType: opts.eventType ?? EventType.PULL_REQUEST_OPENED,
     github,
     registry: {
-      repositories: {},
-      dashboards: (opts.dashboard ?? true) ? { [fullName]: true } : {},
+      repositories: {
+        [fullName]: { rules: [], commands: [], dashboard: opts.dashboard ?? true },
+      },
     },
     payload: {
       action: opts.eventType === EventType.PULL_REQUEST_LABELED ? "labeled" : "opened",

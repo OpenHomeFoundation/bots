@@ -40,8 +40,7 @@ async function apply(
     events: { [EventType.PULL_REQUEST_SYNCHRONIZE]: async () => output },
   };
   const config: RegistryConfig = {
-    repositories: { "home-assistant/core": [rule] },
-    dashboards: { "home-assistant/core": true },
+    repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
   };
   await dispatch(
     createMockContext({
