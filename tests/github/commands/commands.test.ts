@@ -11,6 +11,7 @@ import { updateBranch } from "../../../src/github/commands/update-branch.js";
 import { dispatchCommand } from "../../../src/github/engine/dispatch.js";
 import { renderStatus } from "../../../src/github/engine/status/render.js";
 import type { Rule } from "../../../src/github/engine/types.js";
+import { registryConfig } from "../../../src/github/manifests/index.js";
 import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { expectReaction, makeCommandContext, registryWith } from "../helpers/command.js";
 import { BOT_LOGIN, createFakeGitHub, type FakeGitHub } from "../helpers/mock-context.js";
@@ -255,6 +256,58 @@ describe("ignore / unignore", () => {
 
     expect(github.issues.updateComment).not.toHaveBeenCalled();
     expectReaction(github, "-1");
+  });
+
+  describe("member-only checks", () => {
+    const memberOnlyRule: Rule = {
+      ...claimingRule,
+      statusSections: [{ id: "merge-conflict", title: "Merge conflicts", waivableBy: "member" }],
+    };
+
+    it("rejects the non-member author", async () => {
+      const github = withStatusComment({});
+      const { context } = makeCommandContext(
+        '@home-assistant ignore "Merge conflicts" "Will rebase before merge"',
+        { github, registry: registryWith(ignore, [memberOnlyRule]) },
+      );
+
+      await dispatchCommand(context);
+
+      expect(github.issues.updateComment).not.toHaveBeenCalled();
+      expectReaction(github, "-1");
+    });
+
+    it("lets org members waive them", async () => {
+      const github = withStatusComment({});
+      github.world.members = ["testuser"];
+      const { context } = makeCommandContext(
+        '@home-assistant ignore "Merge conflicts" "Will rebase before merge"',
+        { github, registry: registryWith(ignore, [memberOnlyRule]) },
+      );
+
+      await dispatchCommand(context);
+
+      const body = github.issues.updateComment.mock.lastCall?.[0].body as string;
+      expect(body).toContain("Ignored: Will rebase before merge");
+      expectReaction(github, "+1");
+    });
+
+    it.each(["Code owner approval", "Blocking: awaiting-frontend", "CLA"])(
+      "covers core's %s gate",
+      async (title) => {
+        const github = withStatusComment({});
+        const { context } = makeCommandContext(`@home-assistant ignore "${title}" "trivial fix"`, {
+          github,
+          registry: registryConfig,
+        });
+
+        await dispatchCommand(context);
+
+        expect(github.issues.updateComment).not.toHaveBeenCalled();
+        expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
+        expectReaction(github, "-1");
+      },
+    );
   });
 });
 

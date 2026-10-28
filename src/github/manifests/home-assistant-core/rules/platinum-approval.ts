@@ -89,6 +89,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
 export const platinumApproval = check({
   id: "code-owner-approval",
   title: "Code owner approval",
+  waivableBy: "member",
   description: "Requires code owner approval for platinum quality scale integrations",
   events: [
     EventType.PULL_REQUEST_OPENED,
