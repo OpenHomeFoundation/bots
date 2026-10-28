@@ -2,7 +2,7 @@ import { addLogContext } from "../../correlation.js";
 import { log } from "../../log.js";
 import { EventType } from "./event.js";
 import type { CommandContext } from "./model/command-context.js";
-import type { RuleContext } from "./model/rule-context.js";
+import { type RuleContext, ruleContextFromPullRequest } from "./model/rule-context.js";
 import { draftPRIfNotDraft } from "./pr-state.js";
 import type { BlockArgsMap, BlockId } from "./status/blocks.js";
 import { hasFailingSections } from "./status/build.js";
@@ -348,6 +348,22 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   let comment = dashboardEnabled
     ? await locateStatusComment(context, { createIfMissing: greeting })
     : null;
+
+  // First contact with a PR that predates the deploy or whose `opened` was
+  // missed: a dashboard built from this event's rules alone would count every
+  // other check as passing, so baseline it with a full evaluation first.
+  if (
+    dashboardEnabled &&
+    !comment &&
+    context.eventType !== EventType.ON_DEMAND &&
+    context.target.kind === "pull_request" &&
+    (await context.target.state()) === "open"
+  ) {
+    const { data: pr } = await context.github.pulls.get(context.pullParams());
+    await dispatch(ruleContextFromPullRequest(context.env, context.registry, context.github, pr));
+    addLogContext({ eventType: context.eventType }); // the nested dispatch relabeled it
+    comment = await locateStatusComment(context, { createIfMissing: false });
+  }
   let previous = comment ? (comment.fresh ? emptyRuleState() : parseState(comment.body)) : null;
 
   const ruleNames = new Set(context.repoConfig.rules.map((rule) => rule.name));
