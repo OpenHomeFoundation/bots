@@ -1,3 +1,4 @@
+import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { log } from "../../log.js";
 import type { RuleContext } from "./model/rule-context.js";
 import type { BlockUpdates } from "./status/blocks.js";
@@ -135,6 +136,35 @@ export async function syncDashboard(
   return { sections: result.sections, aggregate: result.aggregate, commentUrl };
 }
 
+type CommitStatusParams = Pick<
+  RestEndpointMethodTypes["repos"]["createCommitStatus"]["parameters"],
+  "sha" | "state" | "description" | "context" | "target_url"
+>;
+
+const COMMIT_NOT_FOUND_RETRIES = 3;
+
+/**
+ * Right after a push to a fork, the webhook can beat the commit into the base
+ * repo and GitHub rejects the status with 422 "No commit found for SHA".
+ * plugin-retry never retries a 422, so back off here (1s, 2s, 4s).
+ */
+export async function createCommitStatusWithRetry(
+  context: RuleContext,
+  params: CommitStatusParams,
+): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await context.github.repos.createCommitStatus(context.repoParams(params));
+      return;
+    } catch (err) {
+      const { status, message } = err as { status?: number; message?: string };
+      const commitNotFound = status === 422 && !!message?.includes("No commit found for SHA");
+      if (!commitNotFound || attempt === COMMIT_NOT_FOUND_RETRIES) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 1_000 * 2 ** attempt));
+    }
+  }
+}
+
 /**
  * Write the single aggregate `ha-bot` commit status on the PR head, deep-
  * linking to the status comment.
@@ -167,14 +197,12 @@ export async function updateCommitStatus(
     latest.description === aggregate.description &&
     latest.target_url === commentUrl;
   if (!statusUnchanged) {
-    await context.github.repos.createCommitStatus(
-      context.repoParams({
-        sha: headSha,
-        context: STATUS_CHECK_CONTEXT,
-        state: aggregate.state,
-        description: aggregate.description,
-        target_url: commentUrl,
-      }),
-    );
+    await createCommitStatusWithRetry(context, {
+      sha: headSha,
+      context: STATUS_CHECK_CONTEXT,
+      state: aggregate.state,
+      description: aggregate.description,
+      target_url: commentUrl,
+    });
   }
 }

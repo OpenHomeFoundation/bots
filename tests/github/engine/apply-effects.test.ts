@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import { renderStatus } from "../../../src/github/engine/status/render.js";
@@ -282,6 +282,33 @@ describe("effect → GitHub API mapping", () => {
       description: "At least one contributor needs to sign the CLA.",
       target_url: "https://example.com/sign",
     });
+  });
+
+  it("rule-owned and ha-bot statuses retry while GitHub cannot see the head commit yet", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const github = createFakeGitHub();
+    const seen = new Set<unknown>();
+    github.repos.createCommitStatus.mockImplementation(async ({ context }) => {
+      if (seen.has(context)) return { status: 201, data: {} };
+      seen.add(context);
+      throw { status: 422, message: "No commit found for SHA: abc123" };
+    });
+
+    const done = apply(
+      {
+        statuses: [{ id: "a", title: "Alpha check", status: "pass", message: "ok" }],
+        effects: [
+          { type: "commitStatus", context: "cla-bot", state: "success", description: "ok" },
+        ],
+      },
+      { github },
+    );
+    await vi.runAllTimersAsync();
+    await done;
+    vi.useRealTimers();
+
+    const contexts = github.repos.createCommitStatus.mock.calls.map(([p]) => p.context);
+    expect(contexts).toEqual(["cla-bot", "cla-bot", "ha-bot", "ha-bot"]);
   });
 
   it("statuses → placeholder, dashboard body, and ha-bot commit status on the head sha", async () => {
