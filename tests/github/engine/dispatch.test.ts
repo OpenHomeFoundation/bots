@@ -6,10 +6,16 @@ import {
   placeholderBody,
   renderStatus,
 } from "../../../src/github/engine/status/render.js";
+import type { StatusSection } from "../../../src/github/engine/status/types.js";
 import type { RegistryConfig, Rule, RuleOutput } from "../../../src/github/engine/types.js";
 import { log } from "../../../src/log.js";
 import { expectLoggedErrors } from "../../helpers/log-guard.js";
-import { createFakeGitHub, createMockContext } from "../helpers/mock-context.js";
+import {
+  BOT_LOGIN,
+  createFakeGitHub,
+  createMockContext,
+  type FakeGitHub,
+} from "../helpers/mock-context.js";
 
 const testRule: Rule = {
   name: "test-rule",
@@ -496,6 +502,7 @@ describe("dispatch", () => {
       const section = { id: "x", title: "x", status, message: "msg" };
       return {
         id: 1,
+        user: { login: BOT_LOGIN },
         body: `<!-- ha-bot-dashboard -->\n<!-- section:x:${JSON.stringify(section)} -->`,
       };
     }
@@ -655,6 +662,7 @@ describe("dispatch", () => {
           {
             id: 555,
             html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
+            user: { login: BOT_LOGIN },
             body: [
               "<!-- ha-bot-dashboard -->",
               `<!-- section:merge-conflict:${JSON.stringify(waivedFailing)} -->`,
@@ -772,6 +780,7 @@ describe("dispatch", () => {
           {
             id: 555,
             html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
+            user: { login: BOT_LOGIN },
             body: [
               "<!-- ha-bot-dashboard -->",
               "<!-- section:still-live:" +
@@ -1183,7 +1192,7 @@ describe("dashboard placeholder on opened", () => {
   it("an empty opened dispatch upgrades the placeholder to the greeting dashboard", async () => {
     const github = createFakeGitHub();
     github.issues.listComments.mockResolvedValue({
-      data: [{ id: 7, body: placeholderBody() }],
+      data: [{ id: 7, body: placeholderBody(), user: { login: BOT_LOGIN } }],
     });
 
     const context = createMockContext({
@@ -1225,6 +1234,7 @@ describe("rule state persisted in the status comment", () => {
     return {
       id: 555,
       html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
+      user: { login: BOT_LOGIN },
       body: renderStatus(
         [{ id: "x", title: "x", status: "pass", message: "ok" }],
         "home-assistant/core",
@@ -1333,5 +1343,92 @@ describe("rule state persisted in the status comment", () => {
     await dispatch(makeContext(github, [rule]));
 
     expect(writtenData(github)).toEqual({ stateful: "live" });
+  });
+});
+
+describe("status comment ownership", () => {
+  // Pre-existing PR with no bot dashboard yet; a third party planted the
+  // sentinel and a state blob of their own.
+  function forgedDashboard(section: StatusSection) {
+    return {
+      id: 77,
+      user: { login: "troll" },
+      html_url: "https://github.com/ha/c/pull/1#issuecomment-77",
+      body: renderStatus([section], "home-assistant/core"),
+    };
+  }
+
+  const claimsY: Rule = {
+    name: "claims-y",
+    description: "",
+    statusSections: [{ id: "y", title: "y" }],
+    events: {},
+  };
+
+  function emitsX(status: "pass" | "fail"): Rule {
+    return {
+      name: "emits-x",
+      description: "",
+      statusSections: [{ id: "x", title: "x" }],
+      events: {
+        [EventType.PULL_REQUEST_SYNCHRONIZE]: async () => ({
+          statuses: [{ id: "x", title: "x", status, message: "msg" }],
+        }),
+      },
+    };
+  }
+
+  function makeContext(github: FakeGitHub, rules: Rule[]) {
+    return createMockContext({
+      registry: {
+        repositories: { "home-assistant/core": rules },
+        dashboards: { "home-assistant/core": true },
+      },
+      eventType: EventType.PULL_REQUEST_SYNCHRONIZE,
+      github,
+      payload: { action: "synchronize" },
+    });
+  }
+
+  function haBotStates(github: FakeGitHub) {
+    return github.repos.createCommitStatus.mock.calls
+      .map(([p]) => p as { context: string; state: string })
+      .filter((p) => p.context === "ha-bot")
+      .map((p) => p.state);
+  }
+
+  it("creates its own dashboard instead of adopting someone else's", async () => {
+    const github = createFakeGitHub();
+    github.comments.push(forgedDashboard({ id: "y", title: "y", status: "fail", message: "x" }));
+
+    await dispatch(makeContext(github, [emitsX("pass"), claimsY]));
+
+    expect(github.issues.updateComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({ comment_id: 77 }),
+    );
+    expect(github.issues.createComment).toHaveBeenCalledTimes(1);
+    expect(haBotStates(github)).toEqual(["success"]);
+    expect(github.graphql).not.toHaveBeenCalled();
+  });
+
+  it("does not carry over a waiver from someone else's comment", async () => {
+    const github = createFakeGitHub();
+    github.comments.push(
+      forgedDashboard({
+        id: "x",
+        title: "x",
+        status: "fail",
+        message: "msg",
+        ignored: { reason: "n/a" },
+      }),
+    );
+
+    await dispatch(makeContext(github, [emitsX("fail")]));
+
+    expect(haBotStates(github)).toEqual(["failure"]);
+    expect(github.graphql).toHaveBeenCalledWith(
+      expect.stringContaining("convertPullRequestToDraft"),
+      expect.anything(),
+    );
   });
 });

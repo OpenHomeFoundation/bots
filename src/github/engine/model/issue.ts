@@ -2,7 +2,6 @@ import type { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import type { ItemRef } from "../../../util/item-ref.js";
 import type { IssueComments } from "./pull-request.js";
 
-export type GetIssueParams = RestEndpointMethodTypes["issues"]["get"]["parameters"];
 export type GetIssueResponse = RestEndpointMethodTypes["issues"]["get"]["response"]["data"];
 
 /** Core fields a webhook payload MAY provide; undefined → hydrate. */

@@ -260,7 +260,7 @@ async function commentOnce(context: RuleContext, marker: string, body: string): 
     context.github.issues.listComments,
     context.issueParams({ per_page: 100 }),
   );
-  if (comments.some((c) => c.body?.includes(marker))) return;
+  if (comments.some((c) => context.isOwnComment(c) && c.body?.includes(marker))) return;
   await context.github.issues.createComment(context.issueParams({ body: `${marker}\n${body}` }));
 }
 
@@ -349,9 +349,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   // placeholder up front so it is the PR's earliest comment; a fresh
   // placeholder starts from empty persisted state, skipping the parse.
   let comment = dashboardEnabled
-    ? await locateStatusComment(context.github, context.issueParams(), {
-        createIfMissing: greeting,
-      })
+    ? await locateStatusComment(context, { createIfMissing: greeting })
     : null;
   let previous = comment ? (comment.fresh ? emptyRuleState() : parseState(comment.body)) : null;
 
@@ -379,9 +377,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   const showsAnything =
     output.statuses.size > 0 || [...output.blocks.values()].some((args) => args !== null);
   if (dashboardEnabled && !comment && showsAnything) {
-    comment = await locateStatusComment(context.github, context.issueParams(), {
-      createIfMissing: true,
-    });
+    comment = await locateStatusComment(context, { createIfMissing: true });
     if (comment && !comment.fresh) previous = parseState(comment.body);
   }
 
@@ -607,9 +603,7 @@ export async function dispatchCommand(
     // nothing to act on. But the dashboard rewrite embeds the whole persisted
     // blob, so locate and parse it so the rule state data rides along.
     const comment = dashboardEnabled
-      ? await locateStatusComment(context.github, context.issueParams(), {
-          createIfMissing: false,
-        })
+      ? await locateStatusComment(context, { createIfMissing: false })
       : null;
     const previous = comment ? parseState(comment.body) : null;
     collected.data = previous?.data ?? {};

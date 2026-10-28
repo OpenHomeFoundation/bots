@@ -16,7 +16,7 @@ import type {
 } from "../../../src/github/engine/types.js";
 import { createFakeGitHub, type FakeGitHub } from "./fake-github.js";
 
-export { createFakeGitHub, type FakeGitHub } from "./fake-github.js";
+export { BOT_LOGIN, createFakeGitHub, type FakeGitHub } from "./fake-github.js";
 
 // Seed the component registry so rule tests never hit the network for the
 // entity-platform list (parseFiles reads it).

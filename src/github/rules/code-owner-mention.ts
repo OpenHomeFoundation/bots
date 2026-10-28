@@ -122,7 +122,7 @@ export function mentionCodeOwners(config: {
     }
 
     const comments = await ctx.target.issueComments();
-    if (comments.some((c) => isMentionComment(c.body))) return;
+    if (comments.some((c) => ctx.isOwnComment(c) && isMentionComment(c.body))) return;
 
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
     const assignees = (await ctx.target.assigneeLogins()).map((a) => a.toLowerCase());

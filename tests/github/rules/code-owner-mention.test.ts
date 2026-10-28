@@ -6,6 +6,7 @@ import { integrationDomainsFromEvent } from "../../../src/github/manifests/home-
 import { integrationDomain } from "../../../src/github/manifests/home-assistant-core/rules/integration-domain.js";
 import { MENTION_MARKER, mentionCodeOwners } from "../../../src/github/rules/code-owner-mention.js";
 import {
+  BOT_LOGIN,
   createFakeGitHub,
   createMockContext,
   createMockIssueContext,
@@ -103,7 +104,7 @@ describe("mention-code-owners", () => {
     github.issues.listComments.mockResolvedValue({
       data: [
         {
-          user: { login: "bot[bot]" },
+          user: { login: BOT_LOGIN },
           body: `${MENTION_MARKER}\n\nHey there @someone-else, mind taking a look?`,
         },
       ],
@@ -128,6 +129,29 @@ describe("mention-code-owners", () => {
     expect(result).toBeUndefined();
   });
 
+  it("still mentions owners when only someone else's comment carries the marker", async () => {
+    const github = createFakeGitHub();
+    github.repos.getContent.mockResolvedValue({
+      data: { content: btoa(`homeassistant/components/hue/* @balloob`) },
+    });
+    github.issues.listComments.mockResolvedValue({
+      data: [{ user: { login: "troll" }, body: MENTION_MARKER }],
+    });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: hue" },
+        issue: { labels: [{ name: "integration: hue" }] },
+      },
+    });
+
+    const result = await runRule(rule, context);
+    expect(result?.comment).toContain("@balloob");
+  });
+
   it("does not post again when the legacy bot already mentioned owners", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;
@@ -136,11 +160,11 @@ describe("mention-code-owners", () => {
       data: { content: btoa(codeowners) },
     });
     // Verbatim shape of the legacy CodeOwnersMention comment: template prose
-    // only, no marker (the legacy bot never stamped one).
+    // only, no marker (the legacy bot never stamped one). Same GitHub App.
     github.issues.listComments.mockResolvedValue({
       data: [
         {
-          user: { login: "home-assistant[bot]" },
+          user: { login: BOT_LOGIN },
           body:
             "\nHey there @balloob, mind taking a look at this pull request as it has been " +
             "labeled with an integration (`hue`) you are listed as a " +

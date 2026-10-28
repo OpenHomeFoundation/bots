@@ -4,13 +4,18 @@ import {
   DRAFT_ON_CHANGES_REQUESTED_MARKER,
   draftOnChangesRequested,
 } from "../../../src/github/rules/draft-on-changes-requested.js";
-import { createFakeGitHub, createMockContext, runRule } from "../helpers/mock-context.js";
+import {
+  BOT_LOGIN,
+  createFakeGitHub,
+  createMockContext,
+  runRule,
+} from "../helpers/mock-context.js";
 
 function reviewContext(opts: {
   reviewState?: string;
   reviewerType?: "User" | "Bot";
   draft?: boolean;
-  existingComments?: { body: string }[];
+  existingComments?: { body: string; user: { login: string } }[];
   member?: boolean;
 }) {
   const github = createFakeGitHub({ members: opts.member === false ? [] : ["reviewer"] });
@@ -71,17 +76,37 @@ describe("draft-on-changes-requested", () => {
     const result = await runRule(
       draftOnChangesRequested,
       reviewContext({
-        existingComments: [{ body: `${DRAFT_ON_CHANGES_REQUESTED_MARKER}\nolder comment` }],
+        existingComments: [
+          {
+            body: `${DRAFT_ON_CHANGES_REQUESTED_MARKER}\nolder comment`,
+            user: { login: BOT_LOGIN },
+          },
+        ],
       }),
     );
     expect(result?.effects).toEqual([{ type: "convertToDraft" }]);
+  });
+
+  it("still explains when only someone else's comment carries the marker", async () => {
+    const result = await runRule(
+      draftOnChangesRequested,
+      reviewContext({
+        existingComments: [
+          { body: `${DRAFT_ON_CHANGES_REQUESTED_MARKER}\nforged`, user: { login: "troll" } },
+        ],
+      }),
+    );
+    expect(result?.comment).toContain(DRAFT_ON_CHANGES_REQUESTED_MARKER);
   });
 
   it("recognizes the legacy bot's marker too", async () => {
     const result = await runRule(
       draftOnChangesRequested,
       reviewContext({
-        existingComments: [{ body: "<!-- ReviewDrafterComment -->\nlegacy comment" }],
+        // The legacy bot ran as the same GitHub App.
+        existingComments: [
+          { body: "<!-- ReviewDrafterComment -->\nlegacy comment", user: { login: BOT_LOGIN } },
+        ],
       }),
     );
     expect(result?.effects).toEqual([{ type: "convertToDraft" }]);

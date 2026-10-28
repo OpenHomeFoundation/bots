@@ -8,7 +8,12 @@ import type {
   RuleOutput,
   StatusSectionClaim,
 } from "../../../src/github/engine/types.js";
-import { createFakeGitHub, createMockContext, type FakeGitHub } from "../helpers/mock-context.js";
+import {
+  BOT_LOGIN,
+  createFakeGitHub,
+  createMockContext,
+  type FakeGitHub,
+} from "../helpers/mock-context.js";
 
 /**
  * Context defaults (mock-context.ts): PR #1 on
@@ -234,7 +239,7 @@ describe("effect → GitHub API mapping", () => {
   it("commentOnce is a no-op when a marker-tagged comment already exists", async () => {
     const github = createFakeGitHub();
     github.issues.listComments.mockResolvedValue({
-      data: [{ id: 7, body: "<!-- my-marker -->\nPlease sign." }],
+      data: [{ id: 7, body: "<!-- my-marker -->\nPlease sign.", user: { login: BOT_LOGIN } }],
     });
     await apply(
       { effects: [{ type: "commentOnce", marker: "<!-- my-marker -->", body: "Please sign." }] },
@@ -242,6 +247,19 @@ describe("effect → GitHub API mapping", () => {
     );
 
     expect(github.issues.createComment).not.toHaveBeenCalled();
+  });
+
+  it("commentOnce still posts when only someone else's comment carries the marker", async () => {
+    const github = createFakeGitHub();
+    github.issues.listComments.mockResolvedValue({
+      data: [{ id: 7, body: "<!-- my-marker -->", user: { login: "troll" } }],
+    });
+    await apply(
+      { effects: [{ type: "commentOnce", marker: "<!-- my-marker -->", body: "Please sign." }] },
+      { github },
+    );
+
+    expect(github.issues.createComment).toHaveBeenCalledTimes(1);
   });
 
   it("commitStatus → repos.createCommitStatus on the PR head with the rule's context", async () => {
@@ -298,6 +316,7 @@ describe("effect → GitHub API mapping", () => {
         {
           id: 7,
           html_url: "https://github.com/ha/c/issues/1#issuecomment-7",
+          user: { login: BOT_LOGIN },
           body: renderStatus(
             [{ id: "a", title: "Alpha check", status: "pass", message: "ok" }],
             "home-assistant/core",
@@ -343,6 +362,7 @@ describe("effect → GitHub API mapping", () => {
         {
           id: 7,
           html_url: "https://github.com/ha/c/pull/1#issuecomment-7",
+          user: { login: BOT_LOGIN },
           body: renderStatus(
             [{ id: "a", title: "Alpha check", status: "fail", message: "broken" }],
             "home-assistant/core",

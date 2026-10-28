@@ -50,7 +50,11 @@ export interface StoredComment {
   id: number;
   body: string;
   html_url: string;
+  user?: { login: string };
 }
+
+/** The login of the bot under test (the test envs' BOT_SLUG), which authors created comments. */
+export const BOT_LOGIN = "ha-bot[bot]";
 
 interface EndpointResult {
   status?: number;
@@ -320,6 +324,7 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
           id,
           body: p.body,
           html_url: `https://github.com/${p.owner}/${p.repo}/issues/${p.issue_number}#issuecomment-${id}`,
+          user: { login: BOT_LOGIN },
         };
         comments.push(comment);
         return { status: 201, data: comment };
