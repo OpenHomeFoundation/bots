@@ -1,4 +1,4 @@
-import type { Command, Rule } from "../engine/types.js";
+import type { Command, RepoConfig } from "../engine/types.js";
 import type { ESPHomeRepository } from "./esphome-org.js";
 import type { HomeAssistantRepository } from "./home-assistant-org.js";
 
@@ -22,7 +22,7 @@ export enum Organization {
  * exactly what the bot enforces on the repo. Group with comment headers as you
  * see fit — grouping is presentational and may differ per repo.
  */
-export interface RepoManifest {
+export interface RepoManifest extends Omit<RepoConfig, "commands"> {
   /** Canonical `owner/repo` the manifest describes. */
   slug: string;
   /**
@@ -30,15 +30,13 @@ export interface RepoManifest {
    * test fork). They share the same rule instances — no duplication.
    */
   aliases?: string[];
-  /** Every rule that runs on this repo, in display order. */
-  rules: Rule[];
-  /** Enable the PR dashboard on this repo */
-  dashboard?: boolean;
-  /** Comment commands (`@<slug> <name>`) available on this repo. */
   commands?: Command[];
-  /**
-   * CODEOWNERS path of an integration domain (e.g. `hue` →
-   * `homeassistant/components/hue/*`); backs the code-owner permission check.
-   */
-  integrationPath?: (domain: string) => string;
+}
+
+/**
+ * What every repo of an org runs when no {@link RepoManifest} names it. There
+ * is no dashboard: that stays a per-repo opt-in.
+ */
+export interface OrgManifest extends Pick<RepoConfig, "rules" | "commands"> {
+  org: Organization;
 }

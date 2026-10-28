@@ -5,12 +5,12 @@ import { draftOnChangesRequested } from "../rules/draft-on-changes-requested.js"
 import { hacktoberfest } from "../rules/hacktoberfest.js";
 import { readyForReview } from "../rules/ready-for-review.js";
 import { wth } from "../rules/wth.js";
-import type { RepoManifest } from "./types.js";
+import { Organization, type OrgManifest } from "./types.js";
 
 /** home-assistant org repos, for rules that need to reference one by slug. */
 export enum HomeAssistantRepository {
-  ADDONS = "home-assistant/addons",
   ANDROID = "home-assistant/android",
+  APPS = "home-assistant/apps",
   BRANDS = "home-assistant/brands",
   CLI = "home-assistant/cli",
   COMPANION_HOME_ASSISTANT = "home-assistant/companion.home-assistant",
@@ -38,20 +38,9 @@ export const homeAssistantOrgRules: Rule[] = [
   cla,
 ];
 
-/** Repos with a dedicated manifest of their own; excluded from the bare list below. */
-const DEDICATED_MANIFESTS = new Set<string>([
-  HomeAssistantRepository.CORE,
-  HomeAssistantRepository.FRONTEND,
-  HomeAssistantRepository.HOME_ASSISTANT_IO,
-  HomeAssistantRepository.INTENTS,
-  HomeAssistantRepository.SUPERVISOR,
-]);
-
-/**
- * Bare manifests for every other org repo, so the org-wide rules run there
- * too. A repo that grows repo-specific rules graduates to its own manifest
- * (add it to {@link DEDICATED_MANIFESTS}).
- */
-export const homeAssistantOrgManifests: RepoManifest[] = Object.values(HomeAssistantRepository)
-  .filter((slug) => !DEDICATED_MANIFESTS.has(slug))
-  .map((slug) => ({ slug, rules: homeAssistantOrgRules, commands: [update] }));
+/** Every org repo without a manifest of its own. */
+export const homeAssistantOrg: OrgManifest = {
+  org: Organization.HOME_ASSISTANT,
+  rules: homeAssistantOrgRules,
+  commands: [update],
+};

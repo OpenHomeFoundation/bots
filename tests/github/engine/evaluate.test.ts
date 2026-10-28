@@ -12,7 +12,7 @@ vi.mock("../../../src/github/engine/dispatch.js", async (importOriginal) => ({
 }));
 
 const config: RegistryConfig = {
-  repositories: { "home-assistant/core": [] },
+  repositories: { "home-assistant/core": { rules: [], commands: [] } },
 };
 
 describe("evaluatePR", () => {

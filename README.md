@@ -20,7 +20,7 @@ mise run format      # Auto-fix formatting
 
 ## Running the GitHub bot locally against a fork
 
-The bot only acts on the repositories listed in `src/github/manifests/`, so to exercise it end-to-end without touching a production repo you point it at a **fork you own**. The loop is: a GitHub App on your fork sends webhooks → [smee.io](https://smee.io) tunnels them to your laptop → the local server evaluates its rules and calls back into the fork.
+The bot only acts on the repositories and orgs listed in `src/github/manifests/`, so to exercise it end-to-end without touching a production repo you point it at a **fork you own**. The loop is: a GitHub App on your fork sends webhooks → [smee.io](https://smee.io) tunnels them to your laptop → the local server evaluates its rules and calls back into the fork.
 
 ### 1. Set up smee
 

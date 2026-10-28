@@ -283,8 +283,13 @@ describe("platinum-approval", () => {
     // No platinum-relevant labels on the payload — the rule derives the
     // domain from the changed files and the scale from the manifest itself.
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [integrationDomain, qualityScale, platinumApproval] },
-      dashboards: { "home-assistant/core": true },
+      repositories: {
+        "home-assistant/core": {
+          rules: [integrationDomain, qualityScale, platinumApproval],
+          commands: [],
+          dashboard: true,
+        },
+      },
     };
     const context = createMockContext({
       registry: config,

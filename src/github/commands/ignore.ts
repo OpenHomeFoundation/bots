@@ -7,9 +7,7 @@ import { UsageError } from "../engine/usage-error.js";
  * the title against the registry's section claims.
  */
 function resolveSectionId(context: CommandContext, title: string): string {
-  const claims = (context.registry.repositories[context.repo.fullName] ?? []).flatMap(
-    (rule) => rule.statusSections ?? [],
-  );
+  const claims = context.repoConfig.rules.flatMap((rule) => rule.statusSections ?? []);
   const claim = claims.find((c) => c.title.toLowerCase() === title.trim().toLowerCase());
   if (!claim) throw new UsageError(`unknown dashboard check "${title}"`);
   return claim.id;

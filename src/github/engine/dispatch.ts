@@ -9,13 +9,11 @@ import { hasFailingSections } from "./status/build.js";
 import { emptyRuleState, parseState } from "./status/render.js";
 import type { SectionOverride, StatusSection } from "./status/types.js";
 import { locateStatusComment, syncDashboard, updateCommitStatus } from "./status-sync.js";
-import type { Command, Effect, RegistryConfig, Rule, RuleOutput } from "./types.js";
+import type { Command, Effect, Rule, RuleOutput } from "./types.js";
 import { UsageError } from "./usage-error.js";
 
 export function matchRules(context: RuleContext): Rule[] {
-  const repoRules = context.registry.repositories[context.repo.fullName] ?? [];
-
-  return repoRules.filter(
+  return context.repoConfig.rules.filter(
     (rule) =>
       (rule.allowBots !== false || !context.senderIsBot) &&
       Object.hasOwn(rule.events, context.eventType),
@@ -25,8 +23,7 @@ export function matchRules(context: RuleContext): Rule[] {
 /** Collect every statusSection ID claimed by some rule in this repo's registry. */
 function collectKnownStatusSectionIds(context: RuleContext): Set<string> {
   const ids = new Set<string>();
-  const rules = context.registry.repositories[context.repo.fullName] ?? [];
-  for (const rule of rules) {
+  for (const rule of context.repoConfig.rules) {
     if (rule.statusSections) for (const { id } of rule.statusSections) ids.add(id);
   }
   return ids;
@@ -342,7 +339,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
     eventType: context.eventType,
   });
   const knownSectionIds = collectKnownStatusSectionIds(context);
-  const dashboardEnabled = context.registry.dashboards?.[context.repo.fullName] ?? false;
+  const dashboardEnabled = context.repoConfig.dashboard ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;
 
   // The dispatch's single status-comment read. Greeting dispatches create the
@@ -353,9 +350,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
     : null;
   let previous = comment ? (comment.fresh ? emptyRuleState() : parseState(comment.body)) : null;
 
-  const ruleNames = new Set(
-    (context.registry.repositories[context.repo.fullName] ?? []).map((rule) => rule.name),
-  );
+  const ruleNames = new Set(context.repoConfig.rules.map((rule) => rule.name));
   const { data, swept } = pruneData(previous?.data ?? {}, ruleNames);
 
   const matched = matchRules(context);
@@ -460,14 +455,6 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   return result;
 }
 
-export function findCommand(
-  registryConfig: RegistryConfig,
-  repository: string,
-  name: string,
-): Command | undefined {
-  return (registryConfig.commands?.[repository] ?? []).find((command) => command.name === name);
-}
-
 /** Why the invocation may not run, or undefined when it may. */
 async function commandRejection(
   command: Command | undefined,
@@ -535,7 +522,6 @@ export async function dispatchCommand(
   context: CommandContext,
 ): Promise<DispatchResult | undefined> {
   if (context.senderIsBot) return undefined;
-  const registryConfig = context.registry;
 
   if (context.invocations.length === 0) {
     log.info("command rejected", {
@@ -554,7 +540,7 @@ export async function dispatchCommand(
 
   for (const invocation of context.invocations) {
     const invocationContext = context.withInvocation(invocation);
-    const command = findCommand(registryConfig, context.repo.fullName, invocation.name);
+    const command = context.repoConfig.commands.find((c) => c.name === invocation.name);
     const rejection = await commandRejection(command, invocationContext);
     if (rejection || !command) {
       log.info("command rejected", {
@@ -599,7 +585,7 @@ export async function dispatchCommand(
 
   if (anyOutputs) {
     const knownSectionIds = collectKnownStatusSectionIds(context);
-    const dashboardEnabled = context.registry.dashboards?.[context.repo.fullName] ?? false;
+    const dashboardEnabled = context.repoConfig.dashboard ?? false;
 
     if (!dashboardEnabled && collected.statuses.size > 0) {
       log.warn("dispatchCommand: dropping status rows — repo has no dashboard", {

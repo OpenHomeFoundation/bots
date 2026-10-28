@@ -118,8 +118,9 @@ describe("docs-missing handler", () => {
     const github = createFakeGitHub();
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [fileShape, docsPrPresent] },
-      dashboards: { "home-assistant/core": true },
+      repositories: {
+        "home-assistant/core": { rules: [fileShape, docsPrPresent], commands: [], dashboard: true },
+      },
     };
     const context = createMockContext({
       registry: config,

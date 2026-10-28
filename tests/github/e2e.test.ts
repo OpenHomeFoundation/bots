@@ -18,7 +18,7 @@ describe("e2e: webhook delivery", () => {
 
     const harness = createE2EHarness({
       config: {
-        repositories: { "home-assistant/core": [labelOnOpen] },
+        repositories: { "home-assistant/core": { rules: [labelOnOpen], commands: [] } },
       },
     });
 
@@ -48,7 +48,7 @@ describe("e2e: webhook delivery", () => {
 
     const harness = createE2EHarness({
       config: {
-        repositories: { "home-assistant/core": [labelOnOpen] },
+        repositories: { "home-assistant/core": { rules: [labelOnOpen], commands: [] } },
       },
     });
 
@@ -71,7 +71,7 @@ describe("e2e: webhook delivery", () => {
 
     const harness = createE2EHarness({
       config: {
-        repositories: { "home-assistant/core": [labelIssue] },
+        repositories: { "home-assistant/core": { rules: [labelIssue], commands: [] } },
       },
     });
 
@@ -110,7 +110,7 @@ describe("e2e: webhook delivery", () => {
     };
     const harness = createE2EHarness({
       config: {
-        repositories: { "home-assistant/core": [labelRule] },
+        repositories: { "home-assistant/core": { rules: [labelRule], commands: [] } },
       },
     });
 
@@ -138,8 +138,7 @@ describe("e2e: bot commands", () => {
 
     const harness = createE2EHarness({
       config: {
-        repositories: {},
-        commands: { "home-assistant/core": [pingCommand(handle)] },
+        repositories: { "home-assistant/core": { rules: [], commands: [pingCommand(handle)] } },
       },
     });
 
@@ -163,8 +162,7 @@ describe("e2e: bot commands", () => {
 
     const harness = createE2EHarness({
       config: {
-        repositories: {},
-        commands: { "home-assistant/core": [pingCommand(handle)] },
+        repositories: { "home-assistant/core": { rules: [], commands: [pingCommand(handle)] } },
       },
     });
 
@@ -187,8 +185,7 @@ describe("e2e: bot commands", () => {
   it("posts a -1 reaction when the command is unknown", async () => {
     const harness = createE2EHarness({
       config: {
-        repositories: {},
-        commands: { "home-assistant/core": [pingCommand(vi.fn())] },
+        repositories: { "home-assistant/core": { rules: [], commands: [pingCommand(vi.fn())] } },
       },
     });
 
@@ -204,8 +201,7 @@ describe("e2e: bot commands", () => {
 
     const harness = createE2EHarness({
       config: {
-        repositories: {},
-        commands: { "home-assistant/core": [pingCommand(handle)] },
+        repositories: { "home-assistant/core": { rules: [], commands: [pingCommand(handle)] } },
       },
     });
 

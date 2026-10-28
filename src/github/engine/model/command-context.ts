@@ -124,7 +124,7 @@ export class CommandContext extends RuleContext<EventType.ISSUE_COMMENT_CREATED>
           .map((label) => label.slice(INTEGRATION_LABEL_PREFIX.length));
     if (domains.length !== 1) return false;
 
-    const integrationPath = this.registry.integrationPaths?.[this.repo.fullName];
+    const { integrationPath } = this.repoConfig;
     if (!integrationPath) return false;
 
     let content: string | null;

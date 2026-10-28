@@ -141,8 +141,13 @@ describe("new-integration-validation", () => {
     // Payload has no labels; file-shape derives `new-integration` from the
     // added __init__.py and the loop re-dispatches this rule with it.
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [fileShape, newIntegrationValidation] },
-      dashboards: { "home-assistant/core": true },
+      repositories: {
+        "home-assistant/core": {
+          rules: [fileShape, newIntegrationValidation],
+          commands: [],
+          dashboard: true,
+        },
+      },
     };
     const context = createMockContext({
       registry: config,

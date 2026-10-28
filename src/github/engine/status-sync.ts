@@ -110,7 +110,7 @@ export async function syncDashboard(
     data: changes.data,
     previous,
     knownSectionIds,
-    help: { commandSlug: context.env.COMMAND_SLUG, commands: context.commands },
+    help: { commandSlug: context.env.COMMAND_SLUG, commands: context.repoConfig.commands },
   });
   if (result.body === null) {
     return { sections: result.sections, aggregate: result.aggregate, commentUrl: null };

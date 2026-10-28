@@ -15,7 +15,7 @@ import type {
 } from "@octokit/webhooks-types";
 import type { Env } from "../../../env.js";
 import { EventType, type RuleEvent, type RuleEventOf } from "../event.js";
-import type { Command, RegistryConfig } from "../types.js";
+import { type RegistryConfig, type RepoConfig, resolveRepo } from "../types.js";
 import { type CodeownersReads, createCodeownersReads, readCodeowners } from "./codeowners.js";
 import { type GetIssueResponse, Issue, type IssueSeed } from "./issue.js";
 import {
@@ -92,6 +92,8 @@ export interface RuleContextParams<E extends EventType> {
 export class RuleContext<E extends EventType = EventType> {
   readonly env: Env;
   readonly registry: RegistryConfig;
+  /** This repo's registry entry, org fallback applied. */
+  readonly repoConfig: RepoConfig;
   readonly github: Octokit;
   readonly event: RuleEventOf<E>;
   readonly sender: Sender;
@@ -103,6 +105,7 @@ export class RuleContext<E extends EventType = EventType> {
   constructor(params: RuleContextParams<E>) {
     this.env = params.env;
     this.registry = params.registry;
+    this.repoConfig = resolveRepo(params.registry, params.repo);
     this.github = params.github;
     this.event = params.event;
     this.sender = params.sender;
@@ -136,11 +139,6 @@ export class RuleContext<E extends EventType = EventType> {
   /** Whether the bot wrote this comment: anyone can type a marker, so only ours count. */
   isOwnComment(comment: { user?: { login: string } | null }): boolean {
     return comment.user?.login.toLowerCase() === this.botLogin.toLowerCase();
-  }
-
-  /** The repo's registered comment commands, for rendering command help. */
-  get commands(): readonly Command[] {
-    return this.registry.commands?.[this.repo.fullName] ?? [];
   }
 
   repoParams<T extends Record<string, unknown> = Record<string, never>>(
