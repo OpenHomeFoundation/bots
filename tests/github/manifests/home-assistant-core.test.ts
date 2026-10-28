@@ -153,6 +153,30 @@ const scenarios: Record<string, Scenario> = {
     },
   },
 
+  // A major release: the changelog body has no Type of change boxes, and the
+  // diff carries every integration added during the beta.
+  "pull_request.opened.release": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: prPayload("opened", {
+      number: 27,
+      title: "2026.7.0",
+      head: { sha: "abc123", ref: "rc" },
+      base: { ref: "master" },
+      body: "## New integrations\n\n- Add Awesome integration (@newdev - #26)\n",
+      user: { login: "frenck" },
+      author_association: "MEMBER",
+    }),
+    state: {
+      files: [
+        ...AWESOME_FILES,
+        { filename: "homeassistant/components/awesome/light.py", status: "added", additions: 40 },
+        { filename: "homeassistant/components/awesome/sensor.py", status: "added", additions: 40 },
+      ],
+      codeowners: HUE_CODEOWNERS,
+      remote: { "components/awesome/manifest.json": AWESOME_MANIFEST },
+    },
+  },
+
   "pull_request.edited.body-updated": {
     eventType: EventType.PULL_REQUEST_EDITED,
     payload: prPayload("edited", {

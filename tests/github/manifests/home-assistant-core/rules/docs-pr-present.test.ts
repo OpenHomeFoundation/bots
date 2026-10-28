@@ -80,7 +80,7 @@ describe("docs-missing handler", () => {
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("auto-approves (skips) release PRs", async () => {
+  it("skips release PRs", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,
       payload: {

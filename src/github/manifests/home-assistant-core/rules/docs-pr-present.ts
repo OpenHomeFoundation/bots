@@ -5,6 +5,7 @@ import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
 import { HomeAssistantRepository } from "../../home-assistant-org.js";
 import { parseFiles } from "../helpers/parse-path.js";
+import { isReleasePR } from "../helpers/release-pr.js";
 import { NEW_INTEGRATION_LABEL, pickedTypeLabels } from "./change-type.js";
 import { addsNewIntegration } from "./file-shape.js";
 
@@ -22,7 +23,10 @@ const RELEVANT_LABELS = new Set(["new-integration", "new-platform", "docs-missin
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
   if ("label" in ctx.event && !RELEVANT_LABELS.has(ctx.event.label)) return;
 
-  const isReleasePR = (await ctx.target.baseRef()) === "master";
+  if (await isReleasePR(ctx.target)) {
+    return { status: "skip", message: "Not checked on release PRs." };
+  }
+
   const currentLabels = new Set(await ctx.target.labels());
 
   // Derived from the PR itself (body checkbox, file shape) plus human-applied
@@ -36,16 +40,11 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
   const docsApplies = hasNewIntegrationOrPlatform || hasDocsMissingLabel;
 
   // Skip when there's no signal that docs are needed.
-  if (!docsApplies && !isReleasePR) {
+  if (!docsApplies) {
     return {
       status: "skip",
       message: "Not a new integration or platform — no documentation PR required.",
     };
-  }
-
-  // Release PRs auto-approve regardless of docs link.
-  if (isReleasePR) {
-    return { status: "skip", message: "Auto-approved — release PR." };
   }
 
   let needsDocumentation = hasDocsMissingLabel;
