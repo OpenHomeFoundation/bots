@@ -221,7 +221,7 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
   return {
     name: "cla",
     description: "Requires every commit author to have signed the Contributor License Agreement.",
-    statusSections: [{ id: "cla", title: "CLA" }],
+    statusSections: [{ id: "cla", title: "CLA", waivableBy: "member" }],
     events: on(
       [
         EventType.PULL_REQUEST_OPENED,

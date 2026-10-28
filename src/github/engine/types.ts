@@ -124,6 +124,12 @@ export type EventHandlers = {
 export interface StatusSectionClaim {
   id: string;
   title: string;
+  /**
+   * Who may waive the section with `ignore`: the PR author or org members
+   * (default), or org members only — for gates that exist to hold the
+   * author back.
+   */
+  waivableBy?: "author" | "member";
 }
 
 export interface Rule {
