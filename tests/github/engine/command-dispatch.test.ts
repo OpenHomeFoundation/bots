@@ -219,6 +219,31 @@ describe("dispatchCommand", () => {
     logInfoSpy.mockRestore();
   });
 
+  it("runs a repeated command once, whatever arguments it doesn't take", async () => {
+    const command = noopCommand();
+    const { context, github } = makeContext(
+      '@home-assistant ping\n@home-assistant ping\n@home-assistant ping "1"\n@home-assistant ping "2"',
+      { registry: registryWith(command) },
+    );
+
+    await dispatchCommand(context);
+    expect(command.handle).toHaveBeenCalledTimes(1);
+    // Dropped repeats aren't failures.
+    expectReaction(github, "+1");
+  });
+
+  it("tells repeats of a command with required arguments apart by those arguments", async () => {
+    const command = noopCommand({ args: "required" });
+    const { context, github } = makeContext(
+      '@home-assistant ping "a"\n@home-assistant ping "b"\n@home-assistant ping "a"',
+      { registry: registryWith(command) },
+    );
+
+    await dispatchCommand(context);
+    expect(command.handle).toHaveBeenCalledTimes(2);
+    expectReaction(github, "+1");
+  });
+
   it("ignores bot senders entirely", async () => {
     const command = noopCommand();
     const { context, github } = makeContext("@home-assistant ping", {

@@ -258,7 +258,7 @@ describe("ignore / unignore", () => {
 });
 
 describe("update", () => {
-  it("re-evaluates the item through the registry", async () => {
+  function githubWithPR(): FakeGitHub {
     const github = createFakeGitHub();
     github.pulls.get.mockResolvedValue({
       data: {
@@ -284,6 +284,11 @@ describe("update", () => {
         },
       },
     });
+    return github;
+  }
+
+  it("re-evaluates the item through the registry", async () => {
+    const github = githubWithPR();
     const { context } = makeCommandContext("@home-assistant update", {
       github,
       registry: registryWith(update),
@@ -291,6 +296,19 @@ describe("update", () => {
 
     await dispatchCommand(context);
     expect(github.pulls.get).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 1 }));
+    expectReaction(github, "+1");
+  });
+
+  it("re-evaluates once for a comment stacking thousands of update lines", async () => {
+    const github = githubWithPR();
+    // Arguments `update` doesn't take must not make the repeats distinct.
+    const body = Array.from({ length: 2800 }, (_, i) =>
+      i % 2 ? `@home-assistant update "${i}"` : "@home-assistant update",
+    ).join("\n");
+    const { context } = makeCommandContext(body, { github, registry: registryWith(update) });
+
+    await dispatchCommand(context);
+    expect(github.pulls.get).toHaveBeenCalledTimes(1);
     expectReaction(github, "+1");
   });
 });
