@@ -1,4 +1,3 @@
-import type { Octokit } from "@octokit/rest";
 import { log } from "../../log.js";
 import type { RuleContext } from "./model/rule-context.js";
 import type { BlockUpdates } from "./status/blocks.js";
@@ -16,8 +15,6 @@ import type { RuleState, SectionOverride, StatusSection } from "./status/types.j
  */
 
 export const STATUS_CHECK_CONTEXT = "ha-bot";
-
-type CommitStatuses = Awaited<ReturnType<Octokit["repos"]["listCommitStatusesForRef"]>>["data"];
 
 /** The located (or just-created) status comment. */
 export interface StatusCommentRef {
@@ -140,9 +137,7 @@ export async function syncDashboard(
 
 /**
  * Write the single aggregate `ha-bot` commit status on the PR head, deep-
- * linking to the status comment. Also sweeps stale commit statuses written
- * by older deploys (any contexts no live rule claims); stale comment
- * sections are swept inside buildStatus.
+ * linking to the status comment.
  */
 export async function updateCommitStatus(
   context: RuleContext,
@@ -153,25 +148,14 @@ export async function updateCommitStatus(
   const headSha = await context.target.headSha();
   if (!headSha) return;
 
-  // One listing serves both the idempotence check and the stale sweep.
-  // Fail open: if it errors, write the status unconditionally and skip the
-  // sweep — a listing hiccup must not sink the primary write.
+  // Fail open: if the listing errors, write the status unconditionally.
   const statuses = await context.github.repos
     .listCommitStatusesForRef(context.repoParams({ ref: headSha, per_page: 100 }))
-    .then((res): CommitStatuses | null => res.data)
+    .then((res) => res.data)
     .catch((err) => {
       log.warn("updateCommitStatus: listing commit statuses failed", { error: String(err) });
       return null;
     });
-
-  // Sweep stale status checks (best-effort; failures here shouldn't sink the
-  // primary write below). The bot writes only the `ha-bot` aggregate going
-  // forward — anything else we created on this commit is from an older deploy.
-  const sweep = statuses
-    ? sweepStaleStatusChecks(context, headSha, statuses).catch((err) => {
-        log.warn("sweepStaleStatusChecks failed", { error: String(err) });
-      })
-    : Promise.resolve();
 
   // Statuses are append-only: same-context writes pile up as separate objects
   // and GitHub displays the newest one. The listing is newest-first, so `find`
@@ -193,59 +177,4 @@ export async function updateCommitStatus(
       }),
     );
   }
-  await sweep;
-}
-
-/**
- * Find commit statuses on the head SHA that *we* wrote (matched by creator
- * login = `<botSlug>[bot]`) whose context isn't the dispatcher's aggregate
- * `ha-bot` context, and neutralize them to `success` + "No longer in use".
- * GitHub has no "delete status" API; overwriting is the closest equivalent.
- *
- * Rules emit `statuses` outputs going forward; the single `ha-bot` status is
- * the bot's sole commit-status output. Any other context we own on this
- * commit is therefore from an older deploy.
- */
-async function sweepStaleStatusChecks(
-  context: RuleContext,
-  headSha: string,
-  statuses: CommitStatuses,
-): Promise<void> {
-  // Collapse to the latest status per context (API returns newest first).
-  const latestByContext = new Map<string, (typeof statuses)[number]>();
-  for (const s of statuses) {
-    if (!latestByContext.has(s.context)) latestByContext.set(s.context, s);
-  }
-
-  const ourLogin = context.botLogin.toLowerCase();
-  const stale = [...latestByContext.values()].filter(
-    (s) =>
-      s.creator?.login?.toLowerCase() === ourLogin &&
-      s.context !== STATUS_CHECK_CONTEXT &&
-      s.state !== "success",
-  );
-  if (stale.length === 0) return;
-  log.info("sweep: neutralizing stale statuses", {
-    count: stale.length,
-    contexts: stale.map((s) => s.context).join(", "),
-  });
-  await Promise.all(
-    stale.map((s) =>
-      context.github.repos
-        .createCommitStatus(
-          context.repoParams({
-            sha: headSha,
-            context: s.context,
-            state: "success" as const,
-            description: "No longer in use",
-          }),
-        )
-        .catch((err) => {
-          log.warn("sweep: failed to neutralize status", {
-            context: s.context,
-            error: String(err),
-          });
-        }),
-    ),
-  );
 }

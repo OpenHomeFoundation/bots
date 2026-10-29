@@ -843,89 +843,18 @@ describe("dispatch", () => {
     });
   });
 
-  describe("stale-status sweep", () => {
-    // Must match the mock context's `botLogin` (derived from testEnv's BOT_SLUG).
-    const BOT_LOGIN = "ha-bot[bot]";
-
-    function setupStaleStatusHarness(existingStatuses: { context: string; state: string }[]) {
+  describe("other commit statuses", () => {
+    it("leaves the bot's other statuses on the head alone", async () => {
       const github = createFakeGitHub();
       github.issues.listComments.mockResolvedValue({ data: [] });
       github.issues.createComment.mockResolvedValue({
         data: { id: 111, html_url: "https://github.com/ha/c/pull/1#issuecomment-111" },
       });
-      const allStatuses = existingStatuses.map((s, idx) => ({
-        ...s,
-        id: idx,
-        creator: { login: BOT_LOGIN },
-      }));
-      github.repos.listCommitStatusesForRef.mockResolvedValue({ data: allStatuses });
-      const rule: Rule = {
-        name: "with-dashboard",
-        description: "",
-        statusSections: [{ id: "live", title: "live" }],
-        events: {
-          [EventType.PULL_REQUEST_OPENED]: async () => ({
-            statuses: [{ id: "live", title: "Live", status: "pass", message: "ok" }],
-          }),
-        },
-      };
-      const config: RegistryConfig = {
-        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
-      };
-      const context = createMockContext({
-        registry: config,
-        eventType: EventType.PULL_REQUEST_OPENED,
-        github,
-      });
-      return { github, context };
-    }
-
-    it("neutralizes stale non-ha-bot statuses we wrote", async () => {
-      const { github, context } = setupStaleStatusHarness([
-        { context: "required-labels", state: "failure" },
-        { context: "code-owner-approval", state: "failure" },
-      ]);
-
-      await dispatch(context);
-
-      // ha-bot itself gets re-written (success now) but is NOT neutralized.
-      expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: "required-labels",
-          state: "success",
-          description: "No longer in use",
-        }),
-      );
-      expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: "code-owner-approval",
-          state: "success",
-          description: "No longer in use",
-        }),
-      );
-      // ha-bot got overwritten by the aggregate, not by the sweep.
-      const haBotCalls = github.repos.createCommitStatus.mock.calls.filter(
-        (call) => call[0].context === "ha-bot",
-      );
-      expect(haBotCalls).toHaveLength(1);
-      expect(haBotCalls[0][0].description).not.toBe("No longer in use");
-    });
-
-    it("does not touch statuses created by other users", async () => {
-      const github = createFakeGitHub();
-      github.issues.listComments.mockResolvedValue({ data: [] });
-      github.issues.createComment.mockResolvedValue({
-        data: { id: 111, html_url: "https://github.com/ha/c/pull/1#issuecomment-111" },
-      });
-      // A status from another bot — the sweep must leave it alone.
+      // Legacy contexts written by the same app (testEnv's BOT_SLUG); rulesets may still require them.
       github.repos.listCommitStatusesForRef.mockResolvedValue({
         data: [
-          {
-            id: 1,
-            context: "external-ci",
-            state: "failure",
-            creator: { login: "some-other-bot[bot]" },
-          },
+          { id: 1, context: "cla-bot", state: "failure", creator: { login: "ha-bot[bot]" } },
+          { id: 2, context: "docs-missing", state: "failure", creator: { login: "ha-bot[bot]" } },
         ],
       });
       const rule: Rule = {
@@ -938,81 +867,18 @@ describe("dispatch", () => {
           }),
         },
       };
-      const config: RegistryConfig = {
-        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
-      };
       const context = createMockContext({
-        registry: config,
-        eventType: EventType.PULL_REQUEST_OPENED,
-        github,
-      });
-
-      await dispatch(context);
-
-      const neutralizing = github.repos.createCommitStatus.mock.calls.filter(
-        (call) => call[0].description === "No longer in use",
-      );
-      expect(neutralizing).toHaveLength(0);
-    });
-
-    it("runs on first dispatch even with no prior ha-bot status", async () => {
-      const github = createFakeGitHub();
-      github.issues.listComments.mockResolvedValue({ data: [] });
-      github.issues.createComment.mockResolvedValue({
-        data: { id: 111, html_url: "https://github.com/ha/c/pull/1#issuecomment-111" },
-      });
-      // No ha-bot status in history yet — sweep uses `context.botLogin` directly
-      // so it can still neutralize any stale status the bot wrote previously.
-      github.repos.listCommitStatusesForRef.mockResolvedValue({
-        data: [
-          {
-            id: 1,
-            context: "required-labels",
-            state: "failure",
-            creator: { login: BOT_LOGIN },
-          },
-        ],
-      });
-      const rule: Rule = {
-        name: "rule",
-        description: "",
-        statusSections: [{ id: "live", title: "live" }],
-        events: {
-          [EventType.PULL_REQUEST_OPENED]: async () => ({
-            statuses: [{ id: "live", title: "Live", status: "pass", message: "ok" }],
-          }),
+        registry: {
+          repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
         },
-      };
-      const config: RegistryConfig = {
-        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
-      };
-      const context = createMockContext({
-        registry: config,
         eventType: EventType.PULL_REQUEST_OPENED,
         github,
       });
 
       await dispatch(context);
 
-      expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: "required-labels",
-          state: "success",
-          description: "No longer in use",
-        }),
-      );
-    });
-
-    it("skips statuses already in success state", async () => {
-      const { github, context } = setupStaleStatusHarness([
-        { context: "required-labels", state: "success" },
-      ]);
-      await dispatch(context);
-
-      const neutralizing = github.repos.createCommitStatus.mock.calls.filter(
-        (call) => call[0].description === "No longer in use",
-      );
-      expect(neutralizing).toHaveLength(0);
+      const contexts = github.repos.createCommitStatus.mock.calls.map(([p]) => p.context);
+      expect(contexts).toEqual(["ha-bot"]);
     });
   });
 });
