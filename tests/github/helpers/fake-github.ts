@@ -345,7 +345,15 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
       update: endpointFn(async () => ({ data: {} })),
     },
     pulls: {
-      get: endpointFn(async () => ({ data: world.pullRequest ?? {} })),
+      get: endpointFn(async (params) => {
+        // GitHub always serves the number and base repo; ON_DEMAND contexts are built from them.
+        const p = params as { owner: string; repo: string; pull_number: number };
+        const pr = world.pullRequest ?? {};
+        const repo = { owner: { login: p.owner }, name: p.repo, full_name: `${p.owner}/${p.repo}` };
+        return {
+          data: { number: p.pull_number, ...pr, base: { repo, ...(pr.base as object) } },
+        };
+      }),
       listFiles: endpointFn(async () => ({ data: world.files ?? [] })),
       listReviews: endpointFn(async () => ({ data: world.reviews ?? [] })),
       update: endpointFn(async () => ({ data: {} })),

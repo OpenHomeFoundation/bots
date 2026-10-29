@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import { claCheck } from "../../../src/cla/rule.js";
+import type { ClaStore } from "../../../src/cla/store.js";
 import { dispatch, matchRules } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
+import { on } from "../../../src/github/engine/rule.js";
 import {
+  isStatusComment,
   parseState,
   placeholderBody,
   renderStatus,
@@ -1089,6 +1093,120 @@ describe("dashboard placeholder on opened", () => {
 
     expect(github.issues.createComment).not.toHaveBeenCalled();
     expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe("first contact with a PR that has no dashboard", () => {
+  const unsignedStore: ClaStore = {
+    hasSigned: async () => false,
+    recordPendingSigners: async () => {},
+    getPendingSigner: async () => undefined,
+    deletePendingSigner: async () => {},
+    recordSignature: async () => {},
+  };
+
+  // Stands in for the rules a review or an edit triggers; none of them is CLA.
+  const reviewRule: Rule = {
+    name: "review-rule",
+    description: "",
+    statusSections: [{ id: "review", title: "Review" }],
+    events: on(
+      [EventType.PULL_REQUEST_REVIEW_SUBMITTED, EventType.PULL_REQUEST_EDITED],
+      async () => ({
+        statuses: [{ id: "review", title: "Review", status: "skip", message: "n/a" }],
+      }),
+    ),
+  };
+
+  const config: RegistryConfig = {
+    repositories: {
+      "home-assistant/core": {
+        rules: [claCheck(() => unsignedStore), reviewRule],
+        commands: [],
+        dashboard: true,
+      },
+    },
+  };
+
+  function setup() {
+    const github = createFakeGitHub({
+      pullRequest: {
+        number: 1,
+        node_id: "PR_1",
+        head: { sha: "abc123" },
+        user: { login: "testuser", type: "User" },
+        labels: [],
+        state: "open",
+        draft: false,
+      },
+    });
+    github.pulls.listCommits.mockResolvedValue({
+      data: [
+        {
+          sha: "abc123",
+          author: { login: "testuser", type: "User" },
+          commit: { author: { email: "testuser@example.com" } },
+        },
+      ],
+    });
+    return github;
+  }
+
+  function dashboardRows(github: FakeGitHub): string[] {
+    const dashboards = github.comments.filter((c) => isStatusComment(c.body));
+    expect(dashboards).toHaveLength(1);
+    return parseState(dashboards[0].body)
+      .sections.map((s) => `${s.id}:${s.status}`)
+      .sort();
+  }
+
+  it.each([
+    {
+      eventType: EventType.PULL_REQUEST_REVIEW_SUBMITTED,
+      payload: { action: "submitted", review: { state: "commented", user: { login: "testuser" } } },
+    },
+    { eventType: EventType.PULL_REQUEST_EDITED, payload: { action: "edited" } },
+  ])(
+    "on $eventType, evaluates every rule so the unsigned CLA fails and drafts",
+    async ({ eventType, payload }) => {
+      const github = setup();
+
+      await dispatch(createMockContext({ registry: config, eventType, github, payload }));
+
+      expect(github.pulls.listCommits).toHaveBeenCalled();
+      expect(dashboardRows(github)).toEqual(["cla:fail", "review:skip"]);
+      const haBot = github.repos.createCommitStatus.mock.calls
+        .map(([p]) => p)
+        .filter((p) => p.context === "ha-bot");
+      expect(haBot.length).toBeGreaterThan(0);
+      expect(haBot.every((p) => p.state === "failure")).toBe(true);
+      expect(github.graphql).toHaveBeenCalledWith(
+        expect.stringContaining("convertPullRequestToDraft"),
+        expect.objectContaining({ id: "PR_1" }),
+      );
+    },
+  );
+
+  it("runs only the event's rules once the dashboard exists", async () => {
+    const github = setup();
+    github.comments.push({
+      id: 1,
+      body: placeholderBody(),
+      html_url: "https://example.test/1",
+      user: { login: BOT_LOGIN },
+    });
+
+    await dispatch(
+      createMockContext({
+        registry: config,
+        eventType: EventType.PULL_REQUEST_EDITED,
+        github,
+        payload: { action: "edited" },
+      }),
+    );
+
+    expect(github.pulls.listCommits).not.toHaveBeenCalled();
+    expect(dashboardRows(github)).toEqual(["review:skip"]);
   });
 });
 
