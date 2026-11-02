@@ -8,7 +8,12 @@ import type { BlockArgsMap, BlockId } from "./status/blocks.js";
 import { hasFailingSections } from "./status/build.js";
 import { emptyRuleState, parseState } from "./status/render.js";
 import type { SectionOverride, StatusSection } from "./status/types.js";
-import { locateStatusComment, syncDashboard, updateCommitStatus } from "./status-sync.js";
+import {
+  createCommitStatusWithRetry,
+  locateStatusComment,
+  syncDashboard,
+  updateCommitStatus,
+} from "./status-sync.js";
 import type { Command, Effect, Rule, RuleOutput } from "./types.js";
 import { UsageError } from "./usage-error.js";
 
@@ -269,15 +274,13 @@ async function writeRuleCommitStatus(
   if (context.target.kind !== "pull_request") return;
   const sha = await context.target.headSha();
   if (!sha) return;
-  await context.github.repos.createCommitStatus(
-    context.repoParams({
-      sha,
-      state: effect.state,
-      description: effect.description,
-      context: effect.context,
-      target_url: effect.targetUrl,
-    }),
-  );
+  await createCommitStatusWithRetry(context, {
+    sha,
+    state: effect.state,
+    description: effect.description,
+    context: effect.context,
+    target_url: effect.targetUrl,
+  });
 }
 
 /** Update the PR branch; surface API failures (conflicts, …) to the thread. */
