@@ -3,6 +3,7 @@ import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
 import { isNewIntegrationPR } from "../helpers/new-integration.js";
 import { parseFiles } from "../helpers/parse-path.js";
+import { isReleasePR } from "../helpers/release-pr.js";
 import { NEW_INTEGRATION_LABEL } from "./change-type.js";
 
 type HandledEvent =
@@ -16,6 +17,9 @@ type HandledEvent =
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
   if ("label" in ctx.event && ctx.event.label !== NEW_INTEGRATION_LABEL) return;
+  if (await isReleasePR(ctx.target)) {
+    return { status: "skip", message: "Not checked on release PRs." };
+  }
 
   const files = await ctx.target.files();
   const parsed = await parseFiles(ctx, files);

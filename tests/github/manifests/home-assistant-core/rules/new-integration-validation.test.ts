@@ -121,6 +121,27 @@ describe("new-integration-validation", () => {
     expect(result?.section?.message).toContain("brand");
   });
 
+  it("skips release PRs", async () => {
+    const context = createMockContext({
+      eventType: EventType.ON_DEMAND,
+      payload: {
+        pull_request: {
+          head: { sha: "abc123", ref: "rc" },
+          base: { ref: "master" },
+          labels: [{ name: "new-integration" }],
+        },
+      },
+    });
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/sensor.py"),
+      makeFile("homeassistant/components/mydevice/light.py"),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "skip" });
+  });
+
   it("listens to PR state and label events plus on_demand", () => {
     expect(Object.keys(newIntegrationValidation.events).sort()).toEqual(
       [

@@ -367,6 +367,24 @@ describe("change-type", () => {
     });
   });
 
+  it("skips release PRs without touching labels", async () => {
+    const context = createMockContext({
+      eventType: EventType.PULL_REQUEST_EDITED,
+      payload: {
+        pull_request: {
+          body: "## New integrations\n\n- Add Awesome integration",
+          base: { ref: "master" },
+          head: { sha: "abc123", ref: "rc" },
+          labels: [{ name: "bugfix" }],
+        },
+      },
+    });
+
+    const result = await runRule(changeType, context);
+    expect(result?.section).toMatchObject({ id: "type-of-change", status: "skip" });
+    expect(result?.effects).toEqual([]);
+  });
+
   it("is excluded from bot senders by the dispatcher", () => {
     expect(changeType.allowBots).toBe(false);
   });

@@ -4,6 +4,7 @@ import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
 import type { Effect } from "../../../engine/types.js";
 import { parseFiles } from "../helpers/parse-path.js";
+import { isReleasePR } from "../helpers/release-pr.js";
 import { addsNewIntegration } from "./file-shape.js";
 
 export const NEW_INTEGRATION_LABEL = "new-integration";
@@ -89,6 +90,10 @@ type HandledEvent =
   | EventType.ON_DEMAND;
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome> {
+  if (await isReleasePR(ctx.target)) {
+    return { status: "skip", message: "Not checked on release PRs." };
+  }
+
   const effects: Effect[] = [];
   const picked = pickedTypeLabels(await ctx.target.body());
 
