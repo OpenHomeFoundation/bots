@@ -36,7 +36,9 @@ export function blockingLabels(
       return {
         id: `blocking-label-${label.toLowerCase().replaceAll(" ", "-")}`,
         title: `Blocking: ${label}`,
-        status: hasBlockingLabel ? "fail" : "skip",
+        // A maintainer's hold the author can't lift: `pending` blocks the merge
+        // without drafting the PR.
+        status: hasBlockingLabel ? "pending" : "skip",
         message: hasBlockingLabel
           ? description.message
           : `\`${label}\` label not set — nothing to block.`,
