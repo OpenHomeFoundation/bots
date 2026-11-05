@@ -6,6 +6,7 @@ import { matchCodeOwners, parseCodeOwners } from "../engine/model/codeowners.js"
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../engine/types.js";
+import { isNonIntegrationLabelEvent } from "../helpers/integration-domains.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
@@ -14,6 +15,7 @@ type HandledEvent =
   | EventType.PULL_REQUEST_LABELED
   | EventType.ISSUES_OPENED
   | EventType.ISSUES_LABELED
+  | EventType.ISSUES_ON_DEMAND
   | EventType.ON_DEMAND;
 
 // One ping per item: a comment carrying this marker means owners were already
@@ -101,13 +103,14 @@ export function mentionCodeOwners(config: {
   pathPattern: (integration: string) => string;
   /**
    * Integration domains the item is about — repo policy (file layout, doc
-   * links), injected by the manifest. Returning [] skips the rule, including
-   * for label events the implementation deems irrelevant.
+   * links), injected by the manifest.
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
   itemLabel?: string;
 }): Rule {
   async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+    if (isNonIntegrationLabelEvent(ctx)) return;
+
     // Never mention or assign on closed items — label events and ON_DEMAND fire on them too.
     if ((await ctx.target.state()) !== "open") return;
 
@@ -160,6 +163,7 @@ export function mentionCodeOwners(config: {
         EventType.PULL_REQUEST_LABELED,
         EventType.ISSUES_OPENED,
         EventType.ISSUES_LABELED,
+        EventType.ISSUES_ON_DEMAND,
         EventType.ON_DEMAND,
       ],
       handle,

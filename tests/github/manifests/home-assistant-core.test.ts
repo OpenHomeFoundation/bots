@@ -278,6 +278,24 @@ const scenarios: Record<string, Scenario> = {
     payload: issuePayload("opened"),
   },
 
+  // Labeled and pinged from the documentation link in the body.
+  "issues.opened.integration-link": {
+    eventType: EventType.ISSUES_OPENED,
+    payload: issuePayload("opened", {
+      body: "My bridge drops off, see https://www.home-assistant.io/integrations/hue/",
+    }),
+    state: HUE_STATE,
+  },
+
+  // `@home-assistant update` after the link was added to the body.
+  "issues.on_demand.integration-link": {
+    eventType: EventType.ISSUES_ON_DEMAND,
+    payload: issuePayload("opened", {
+      body: "My bridge drops off, see https://www.home-assistant.io/integrations/hue/",
+    }),
+    state: HUE_STATE,
+  },
+
   "issues.labeled.integration-hue": {
     eventType: EventType.ISSUES_LABELED,
     payload: issuePayload(

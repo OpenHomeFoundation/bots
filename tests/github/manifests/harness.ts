@@ -379,9 +379,11 @@ function syntheticLabelPayload(
   labels: string[],
 ): { eventType: EventType; payload: Record<string, unknown> } | undefined {
   const payload = scenario.payload as {
+    repository: unknown;
     pull_request?: Record<string, unknown>;
     issue?: { pull_request?: unknown } & Record<string, unknown>;
   };
+  const { repository } = payload;
 
   const isPullRequest = payload.pull_request || payload.issue?.pull_request;
   if (isPullRequest) {
@@ -395,7 +397,7 @@ function syntheticLabelPayload(
         action: change.action,
         label: { name: change.name },
         sender: SENDER,
-        repository: REPOSITORY,
+        repository,
         pull_request: { ...pr, labels: labelObjects(labels) },
       },
     };
@@ -408,7 +410,7 @@ function syntheticLabelPayload(
       action: "labeled",
       label: { name: change.name },
       sender: SENDER,
-      repository: REPOSITORY,
+      repository,
       issue: { ...payload.issue, labels: labelObjects(labels) },
     },
   };

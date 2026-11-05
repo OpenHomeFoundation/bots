@@ -30,9 +30,6 @@ statuses:
 effects:
   - type: addLabels
     labels:
-      - "integration: hue"
-  - type: addLabels
-    labels:
       - Top 50
       - Top 100
       - Top 200

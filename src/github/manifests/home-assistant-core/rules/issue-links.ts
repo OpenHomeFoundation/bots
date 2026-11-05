@@ -2,13 +2,13 @@ import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { on } from "../../../engine/rule.js";
 import type { Rule, RuleOutput } from "../../../engine/types.js";
-import { INTEGRATION_LABEL_PREFIX } from "../../../helpers/integration-domains.js";
+import { isNonIntegrationLabelEvent } from "../../../helpers/integration-domains.js";
 import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
 type HandledEvent = EventType.ISSUES_OPENED | EventType.ISSUES_LABELED | EventType.ISSUES_ON_DEMAND;
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
-  if ("label" in ctx.event && !ctx.event.label.startsWith(INTEGRATION_LABEL_PREFIX)) return;
+  if (isNonIntegrationLabelEvent(ctx)) return;
   // Plain rule (blocks, not check()): guard closed issues itself.
   if ((await ctx.target.state()) !== "open") return;
 
