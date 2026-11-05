@@ -333,7 +333,6 @@ describe("update", () => {
             name: "core",
             full_name: "home-assistant/core",
             owner: { login: "home-assistant" },
-            topics: [],
           },
         },
       },

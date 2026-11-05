@@ -2,7 +2,6 @@ import { cla } from "../../cla/rule.js";
 import { update } from "../commands/update.js";
 import type { Rule } from "../engine/types.js";
 import { draftOnChangesRequested } from "../rules/draft-on-changes-requested.js";
-import { hacktoberfest } from "../rules/hacktoberfest.js";
 import { readyForReview } from "../rules/ready-for-review.js";
 import { wth } from "../rules/wth.js";
 import { Organization, type OrgManifest } from "./types.js";
@@ -30,13 +29,7 @@ export enum HomeAssistantRepository {
  * manifest (`...homeAssistantOrgRules`) so the manifest stays the single
  * top-to-bottom list of everything that runs on the repo.
  */
-export const homeAssistantOrgRules: Rule[] = [
-  hacktoberfest,
-  wth,
-  draftOnChangesRequested,
-  readyForReview,
-  cla,
-];
+export const homeAssistantOrgRules: Rule[] = [wth, draftOnChangesRequested, readyForReview, cla];
 
 /** Every org repo without a manifest of its own. */
 export const homeAssistantOrg: OrgManifest = {

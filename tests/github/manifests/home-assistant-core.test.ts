@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 import { EventType } from "../../../src/github/engine/event.js";
 import {
@@ -340,16 +340,6 @@ const scenarios: Record<string, Scenario> = {
 };
 
 describe("home-assistant/core dispatch snapshots", () => {
-  beforeAll(() => {
-    // Pin the clock: hacktoberfest (and anything else date-driven) must not
-    // flip snapshots with the calendar.
-    vi.useFakeTimers({ now: new Date("2026-06-15T12:00:00Z"), toFake: ["Date"] });
-  });
-
-  afterAll(() => {
-    vi.useRealTimers();
-  });
-
   for (const [name, scenario] of Object.entries(scenarios)) {
     it(name, async () => {
       const result = await runScenario(scenario);
