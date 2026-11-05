@@ -1,0 +1,72 @@
+name: Check home-assistant.io sections
+
+# Keep the io section labels in step with the live site: list the sitemap
+# sections that src/github/manifests/home-assistant-io/sections.ts doesn't
+# cover, and track them in one issue that stays open until they are, so a new
+# part of the site gets a label (or is marked unlabeled) instead of silently
+# going unlabeled.
+
+on:
+  schedule:
+    - cron: "37 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        # Installs the Node and pnpm versions pinned in .mise.toml.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      - name: Locate pnpm store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: List uncovered sections
+        run: node scripts/check-io-sections.ts > "$RUNNER_TEMP/sections.md"
+
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: New home-assistant.io sections without a label
+          INTRO: >-
+            These home-assistant.io sections have pages in the sitemap, but
+            `src/github/manifests/home-assistant-io/sections.ts` neither labels
+            them nor lists them as unlabeled. Add each one to a `section:`
+            label or to `UNLABELED`.
+        run: |
+          number=$(gh issue list --state open --search "in:title $TITLE" --json number,title \
+            --jq "map(select(.title == env.TITLE)) | first | .number // empty")
+          if [ -s "$RUNNER_TEMP/sections.md" ]; then
+            printf '%s\n\n' "$INTRO" | cat - "$RUNNER_TEMP/sections.md" > "$RUNNER_TEMP/body.md"
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md"
+            else
+              gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "Every home-assistant.io section is covered now."
+          fi

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  extractDocumentationSectionsLinks,
+  extractDocumentationLinks,
   extractForumLinks,
   extractIntegrationDocumentationLinks,
 } from "../../../src/github/helpers/ha-links.js";
@@ -66,30 +66,46 @@ describe("extractForumLinks", () => {
   });
 });
 
-describe("extractDocumentationSectionsLinks", () => {
-  it("extracts section from documentation URL", () => {
-    const sections = extractDocumentationSectionsLinks(
-      "https://www.home-assistant.io/getting-started/",
+describe("extractDocumentationLinks", () => {
+  it("extracts links without query or fragment", () => {
+    const links = extractDocumentationLinks(
+      "See [the docs](https://www.home-assistant.io/docs/automation/trigger/#state-trigger) " +
+        "and https://rc.home-assistant.io/getting-started?x=1",
     );
-    expect(sections).toContain("getting-started");
+    expect(links).toEqual([
+      "https://www.home-assistant.io/docs/automation/trigger/",
+      "https://rc.home-assistant.io/getting-started",
+    ]);
   });
 
-  it("extracts sections from multiple URLs", () => {
-    const sections = extractDocumentationSectionsLinks(
-      "https://home-assistant.io/docs/ and https://home-assistant.io/configuration/",
-    );
-    expect(sections).toContain("docs");
-    expect(sections).toContain("configuration");
+  it("drops a trailing sentence period", () => {
+    expect(
+      extractDocumentationLinks(
+        "Wrong on https://www.home-assistant.io/faq. See https://home-assistant.io/.",
+      ),
+    ).toEqual(["https://www.home-assistant.io/faq", "https://home-assistant.io/"]);
   });
 
-  it("deduplicates sections", () => {
-    const sections = extractDocumentationSectionsLinks(
-      "https://home-assistant.io/docs/ and https://home-assistant.io/docs/",
+  it("extracts the home page", () => {
+    expect(extractDocumentationLinks("https://home-assistant.io")).toEqual([
+      "https://home-assistant.io",
+    ]);
+  });
+
+  it("skips other home-assistant.io subdomains", () => {
+    expect(
+      extractDocumentationLinks("https://companion.home-assistant.io/docs/core/sensors"),
+    ).toEqual([]);
+  });
+
+  it("deduplicates links", () => {
+    const links = extractDocumentationLinks(
+      "https://www.home-assistant.io/faq/ and https://www.home-assistant.io/faq/",
     );
-    expect(sections.filter((s) => s === "docs")).toHaveLength(1);
+    expect(links).toEqual(["https://www.home-assistant.io/faq/"]);
   });
 
   it("returns empty for null body", () => {
-    expect(extractDocumentationSectionsLinks(null)).toEqual([]);
+    expect(extractDocumentationLinks(null)).toEqual([]);
   });
 });
