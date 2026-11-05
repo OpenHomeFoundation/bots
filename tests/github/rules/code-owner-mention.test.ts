@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { dispatch } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../src/github/engine/types.js";
-import { integrationDomainsFromEvent } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
-import { integrationDomain } from "../../../src/github/manifests/home-assistant-core/rules/integration-domain.js";
+import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { MENTION_MARKER, mentionCodeOwners } from "../../../src/github/rules/code-owner-mention.js";
+import { setIntegration } from "../../../src/github/rules/set-integration.js";
 import {
   BOT_LOGIN,
   createFakeGitHub,
@@ -15,7 +15,7 @@ import {
 } from "../helpers/mock-context.js";
 
 const rule = mentionCodeOwners({
-  domains: integrationDomainsFromEvent,
+  domains: itemIntegrationDomains,
   pathPattern: (name) => `homeassistant/components/${name}/*`,
 });
 
@@ -280,7 +280,12 @@ describe("mention-code-owners", () => {
       github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": { rules: [integrationDomain, rule], commands: [] } },
+        repositories: {
+          "home-assistant/core": {
+            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            commands: [],
+          },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -317,7 +322,12 @@ describe("mention-code-owners", () => {
       github.repos.getContent.mockResolvedValue({ data: { content: btoa("") } });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": { rules: [integrationDomain, rule], commands: [] } },
+        repositories: {
+          "home-assistant/core": {
+            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            commands: [],
+          },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -343,6 +353,7 @@ describe("mention-code-owners", () => {
           EventType.PULL_REQUEST_SYNCHRONIZE,
           EventType.ISSUES_OPENED,
           EventType.ISSUES_LABELED,
+          EventType.ISSUES_ON_DEMAND,
           EventType.PULL_REQUEST_LABELED,
           EventType.ON_DEMAND,
         ].sort(),
@@ -352,7 +363,7 @@ describe("mention-code-owners", () => {
 
   it("uses custom itemLabel in comment", async () => {
     const docsRule = mentionCodeOwners({
-      domains: integrationDomainsFromEvent,
+      domains: itemIntegrationDomains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
       itemLabel: "feedback",
     });

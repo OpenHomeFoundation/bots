@@ -4,7 +4,6 @@ import type { RuleContext } from "../../../engine/model/rule-context.js";
 import {
   domainsFromIssueBody,
   domainsFromLabels,
-  INTEGRATION_LABEL_PREFIX,
   MAX_INTEGRATION_LABELS,
 } from "../../../helpers/integration-domains.js";
 import { ParsedPath } from "./parse-path.js";
@@ -24,9 +23,11 @@ export function domainsFromFiles(files: ListPullRequestFiles): string[] {
 
 /**
  * Every integration domain the item is about, derived from the item itself:
- * changed files for PRs, documentation links in the body for issues — unioned
- * with any `integration:` labels already present (maintainer adds, earlier
- * dispatches). Rules use this instead of waiting for another rule's labels.
+ * changed files for PRs (none when they span more than MAX_INTEGRATION_LABELS
+ * integrations, a tree-wide change), documentation links in the body for
+ * issues — unioned with any `integration:` labels already present (maintainer
+ * adds, earlier dispatches). set-integration labels from it; other rules read
+ * it instead of waiting for those labels.
  */
 export async function itemIntegrationDomains(ctx: RuleContext<EventType>): Promise<string[]> {
   const labeled = domainsFromLabels(await ctx.target.labels());
@@ -40,14 +41,4 @@ export async function itemIntegrationDomains(ctx: RuleContext<EventType>): Promi
   }
 
   return [...new Set([...labeled, ...derived])];
-}
-
-/**
- * `itemIntegrationDomains` gated for label events: a labeled/unlabeled event
- * for a non-`integration:` label yields nothing, so rules skip work the event
- * can't have changed. Injected into the shared code-owner rule factories.
- */
-export async function integrationDomainsFromEvent(ctx: RuleContext<EventType>): Promise<string[]> {
-  if ("label" in ctx.event && !ctx.event.label.startsWith(INTEGRATION_LABEL_PREFIX)) return [];
-  return itemIntegrationDomains(ctx);
 }

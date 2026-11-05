@@ -1,7 +1,7 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
-import { INTEGRATION_LABEL_PREFIX } from "../../../helpers/integration-domains.js";
+import { isNonIntegrationLabelEvent } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
 import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
@@ -18,8 +18,7 @@ type HandledEvent =
 const APPROVED_LABEL = "code-owner-approved";
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
-  // Only integration labels change what this check concludes.
-  if ("label" in ctx.event && !ctx.event.label.startsWith(INTEGRATION_LABEL_PREFIX)) return;
+  if (isNonIntegrationLabelEvent(ctx)) return;
 
   // Everything is derived from the PR itself (files, manifest, CODEOWNERS
   // teams, reviews) — never from labels other rules maintain.

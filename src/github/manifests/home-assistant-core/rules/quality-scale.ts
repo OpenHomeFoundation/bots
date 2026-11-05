@@ -2,9 +2,9 @@ import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { on } from "../../../engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../../../engine/types.js";
-import { INTEGRATION_LABEL_PREFIX } from "../../../helpers/integration-domains.js";
+import { isNonIntegrationLabelEvent } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
-import { domainsFromFiles } from "../helpers/integration-domains.js";
+import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
@@ -32,8 +32,7 @@ function highestScale(scales: QualityScale[]): QualityScale {
 }
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
-  // Only integration labels feed the scale; other labels are not our input.
-  if ("label" in ctx.event && !ctx.event.label.startsWith(INTEGRATION_LABEL_PREFIX)) return;
+  if (isNonIntegrationLabelEvent(ctx)) return;
 
   const effects: Effect[] = [];
 
@@ -46,15 +45,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
     effects.push({ type: "addLabels", labels: ["quality-scale"] });
   }
 
-  // Resolve which integration domains drive the score: file-derived first
-  // (the canonical case), unioned with any `integration:` labels already on
-  // the PR (covers manual maintainer adds that file shape doesn't pick up).
-  const fileDerived = domainsFromFiles(await ctx.target.files());
-  const currentLabels = await ctx.target.labels();
-  const labelDerived = currentLabels
-    .filter((n) => n.startsWith(INTEGRATION_LABEL_PREFIX))
-    .map((n) => n.slice(INTEGRATION_LABEL_PREFIX.length));
-  const domains = [...new Set([...fileDerived, ...labelDerived])];
+  const domains = await itemIntegrationDomains(ctx);
 
   const scales: QualityScale[] = [];
   for (const domain of domains) {
@@ -68,7 +59,9 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
     const newLabel = `Quality Scale: ${highestScale(scales)}`;
     effects.push({ type: "addLabels", labels: [newLabel] });
 
-    const stale = currentLabels.filter((n) => n.startsWith("Quality Scale: ") && n !== newLabel);
+    const stale = (await ctx.target.labels()).filter(
+      (n) => n.startsWith("Quality Scale: ") && n !== newLabel,
+    );
     if (stale.length > 0) {
       effects.push({ type: "removeLabels", labels: stale });
     }

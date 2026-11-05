@@ -1,3 +1,5 @@
+import type { EventType } from "../engine/event.js";
+import type { RuleContext } from "../engine/model/rule-context.js";
 import { extractIntegrationDocumentationLinks } from "./ha-links.js";
 import { fetchIntegrationManifest } from "./integration-manifest.js";
 
@@ -9,6 +11,14 @@ export const INTEGRATION_LABEL_PREFIX = "integration: ";
  * change, where per-integration handling is noise.
  */
 export const MAX_INTEGRATION_LABELS = 5;
+
+/**
+ * Whether the event is a label event for a label other than `integration:`,
+ * which can't change the item's integrations: rules that act on those skip.
+ */
+export function isNonIntegrationLabelEvent(ctx: RuleContext<EventType>): boolean {
+  return "label" in ctx.event && !ctx.event.label.startsWith(INTEGRATION_LABEL_PREFIX);
+}
 
 /** Domains named by `integration: <domain>` labels currently on the item. */
 export function domainsFromLabels(labels: readonly string[]): string[] {
