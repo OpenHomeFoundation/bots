@@ -170,7 +170,6 @@ export function commandContextFromWebhook(
     owner: payload.repository.owner.login,
     name: payload.repository.name,
     fullName: payload.repository.full_name,
-    topics: (payload.repository as { topics?: string[] }).topics ?? [],
   };
 
   return new CommandContext({

@@ -75,7 +75,7 @@ export interface RuleContextParams<E extends EventType> {
   event: RuleEventOf<E>;
   sender: Sender;
   /** Repository identity — plain data, no behavior. */
-  repo: { owner: string; name: string; fullName: string; topics: string[] };
+  repo: { owner: string; name: string; fullName: string };
   /** Organization identity — plain data, no behavior. */
   org: { name: string };
   target: TargetFor<E>;
@@ -371,7 +371,6 @@ function repoFromPayload(payload: WebhookEventPayload): RuleContextParams<EventT
     owner: payload.repository.owner.login,
     name: payload.repository.name,
     fullName: payload.repository.full_name,
-    topics: (payload.repository as { topics?: string[] }).topics ?? [],
   };
 }
 
@@ -399,8 +398,7 @@ export function ruleContextFromWebhook(
 
 /**
  * Build an ISSUES_ON_DEMAND RuleContext from a REST issues.get response.
- * The response carries no repository object, so the caller supplies owner
- * and repo; topics are unknown without an extra fetch and stay empty.
+ * The response carries no repository object, so the caller supplies owner and repo.
  */
 export function ruleContextFromIssue(
   env: Env,
@@ -419,7 +417,6 @@ export function ruleContextFromIssue(
       owner: repoRef.owner,
       name: repoRef.repo,
       fullName: `${repoRef.owner}/${repoRef.repo}`,
-      topics: [],
     },
     org: { name: repoRef.owner },
     target: new Issue(
@@ -442,7 +439,6 @@ export function ruleContextFromPullRequest(
     owner: repoData.owner.login,
     name: repoData.name,
     fullName: repoData.full_name,
-    topics: repoData.topics ?? [],
   };
 
   return new RuleContext<EventType.ON_DEMAND>({
