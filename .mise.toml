@@ -80,3 +80,7 @@ run = "node scripts/capture-discord.ts"
 [tasks.sync-templates]
 description = "Vendor the upstream PR templates and re-render fixture bodies"
 run = "pnpm run sync-templates"
+
+[tasks.check-io-sections]
+description = "List home-assistant.io sections the section labels don't cover"
+run = "pnpm run check-io-sections"

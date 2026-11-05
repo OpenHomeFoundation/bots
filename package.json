@@ -22,7 +22,8 @@
     "capture": "node scripts/capture-webhooks.ts",
     "scrub": "node scripts/capture-webhooks.ts scrub",
     "capture-discord": "pnpm build && node scripts/capture-discord.ts",
-    "sync-templates": "node scripts/sync-templates.ts"
+    "sync-templates": "node scripts/sync-templates.ts",
+    "check-io-sections": "pnpm build && node scripts/check-io-sections.ts"
   },
   "lint-staged": {
     "*": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"

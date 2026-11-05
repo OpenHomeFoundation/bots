@@ -32,16 +32,12 @@ export function extractForumLinks(body: string | null): string[] {
   return [...body.matchAll(re)].filter((m) => m.groups).map((m) => groups(m).link);
 }
 
-export function extractDocumentationSectionsLinks(body: string | null): string[] {
+/**
+ * home-assistant.io links in a body, without query, fragment or a trailing
+ * sentence period, deduped.
+ */
+export function extractDocumentationLinks(body: string | null): string[] {
   if (!body) return [];
-  // Capture the full path (`/docs/automation/` → docs, automation), one
-  // section per segment.
-  const re = /https:\/\/(?:www\.|rc\.|next\.|)home-assistant\.io\/((?:[\w-]+\/)+)/g;
-  const results = new Set<string>();
-  for (const match of body.matchAll(re)) {
-    for (const section of match[1].split("/")) {
-      if (section) results.add(section);
-    }
-  }
-  return [...results];
+  const re = /https:\/\/(?:www\.|rc\.|next\.|)home-assistant\.io(?:\/(?:[\w./-]*[\w/-])?)?/g;
+  return [...new Set([...body.matchAll(re)].map((m) => m[0]))];
 }
