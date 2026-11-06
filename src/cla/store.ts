@@ -68,7 +68,14 @@ export interface ClaDatabase {
 
 /** A Kysely handle on the CLA database. Callers own its lifecycle. */
 export function createClaDb(connectionString: string): Kysely<ClaDatabase> {
-  const pool = new pg.Pool({ connectionString, max: 5 });
+  const pool = new pg.Pool({
+    connectionString,
+    max: 5,
+    // pg waits forever for a connection by default. An unreachable database
+    // (wrong security group, black-holed route) would then hang every CLA
+    // check and migration attempt instead of failing them.
+    connectionTimeoutMillis: 10_000,
+  });
   // Without a listener, an error on an idle connection crashes the process.
   pool.on("error", (err) => {
     log.warn("cla: idle database connection error", { error: String(err) });
