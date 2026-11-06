@@ -3,6 +3,7 @@ import { matchCodeOwners, parseCodeOwners } from "../engine/model/codeowners.js"
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
 import type { Rule, RuleOutput } from "../engine/types.js";
+import { isNonIntegrationLabelEvent } from "../helpers/integration-domains.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
@@ -10,6 +11,7 @@ type HandledEvent =
   | EventType.PULL_REQUEST_SYNCHRONIZE
   | EventType.ISSUES_OPENED
   | EventType.ISSUES_LABELED
+  | EventType.ISSUES_ON_DEMAND
   | EventType.PULL_REQUEST_LABELED
   | EventType.ON_DEMAND;
 
@@ -17,12 +19,13 @@ export function byCodeOwner(config: {
   pathPattern: (integration: string) => string;
   /**
    * Integration domains the item is about — repo policy (file layout, doc
-   * links), injected by the manifest. Returning [] skips the rule, including
-   * for label events the implementation deems irrelevant.
+   * links), injected by the manifest.
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
 }): Rule {
   async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+    if (isNonIntegrationLabelEvent(ctx)) return;
+
     const integrationNames = await config.domains(ctx);
     if (integrationNames.length === 0) return;
 
@@ -56,6 +59,7 @@ export function byCodeOwner(config: {
         EventType.PULL_REQUEST_SYNCHRONIZE,
         EventType.ISSUES_OPENED,
         EventType.ISSUES_LABELED,
+        EventType.ISSUES_ON_DEMAND,
         EventType.PULL_REQUEST_LABELED,
         EventType.ON_DEMAND,
       ],

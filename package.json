@@ -1,6 +1,6 @@
 {
   "name": "ha-github-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.24.0",
@@ -23,7 +23,8 @@
     "scrub": "node scripts/capture-webhooks.ts scrub",
     "capture-discord": "pnpm build && node scripts/capture-discord.ts",
     "migrate-cla": "pnpm build && node scripts/migrate-cla-from-dynamodb.ts",
-    "sync-templates": "node scripts/sync-templates.ts"
+    "sync-templates": "node scripts/sync-templates.ts",
+    "check-io-sections": "pnpm build && node scripts/check-io-sections.ts"
   },
   "lint-staged": {
     "*": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"

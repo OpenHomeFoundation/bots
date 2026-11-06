@@ -1,7 +1,7 @@
 import type { EventType } from "./event.js";
 import type { RuleContext } from "./model/rule-context.js";
 import type { SectionStatus } from "./status/types.js";
-import type { Effect, EventHandler, EventHandlers, Rule } from "./types.js";
+import type { Effect, EventHandler, EventHandlers, Rule, StatusSectionClaim } from "./types.js";
 
 /**
  * Register one handler for several events, so a rule declares its event list
@@ -33,6 +33,7 @@ export interface CheckConfig<E extends EventType, S = never> {
   /** Status section ID; doubles as the rule name. */
   id: string;
   title: string;
+  waivableBy?: StatusSectionClaim["waivableBy"];
   description: string;
   events: readonly E[];
   /**
@@ -78,7 +79,7 @@ export function check<E extends EventType, S = never>(config: CheckConfig<E, S>)
     name: config.id,
     description: config.description,
     allowBots: config.allowBots,
-    statusSections: [{ id: config.id, title: config.title }],
+    statusSections: [{ id: config.id, title: config.title, waivableBy: config.waivableBy }],
     events: on(config.events, handler),
   };
 }

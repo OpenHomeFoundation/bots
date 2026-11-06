@@ -19,7 +19,6 @@ const repository = {
   full_name: "home-assistant/core",
   name: "core",
   owner: { login: "home-assistant" },
-  topics: ["hacktoberfest"],
 };
 
 function prPayload(overrides: Record<string, unknown> = {}) {
@@ -59,7 +58,6 @@ describe("contextFromWebhook", () => {
 
     expect(ctx.repo.fullName).toBe("home-assistant/core");
     expect(ctx.org.name).toBe("home-assistant");
-    expect(ctx.repo.topics).toEqual(["hacktoberfest"]);
     expect(ctx.sender).toEqual({ login: "testuser", isBot: false });
     expect(ctx.event).toEqual({ type: EventType.PULL_REQUEST_OPENED });
 

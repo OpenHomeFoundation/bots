@@ -80,7 +80,7 @@ describe("docs-missing handler", () => {
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("auto-approves (skips) release PRs", async () => {
+  it("skips release PRs", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,
       payload: {
@@ -118,8 +118,9 @@ describe("docs-missing handler", () => {
     const github = createFakeGitHub();
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [fileShape, docsPrPresent] },
-      dashboards: { "home-assistant/core": true },
+      repositories: {
+        "home-assistant/core": { rules: [fileShape, docsPrPresent], commands: [], dashboard: true },
+      },
     };
     const context = createMockContext({
       registry: config,

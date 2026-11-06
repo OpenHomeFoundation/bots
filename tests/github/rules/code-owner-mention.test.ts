@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { dispatch } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../src/github/engine/types.js";
-import { integrationDomainsFromEvent } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
-import { integrationDomain } from "../../../src/github/manifests/home-assistant-core/rules/integration-domain.js";
+import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { MENTION_MARKER, mentionCodeOwners } from "../../../src/github/rules/code-owner-mention.js";
+import { setIntegration } from "../../../src/github/rules/set-integration.js";
 import {
+  BOT_LOGIN,
   createFakeGitHub,
   createMockContext,
   createMockIssueContext,
@@ -14,7 +15,7 @@ import {
 } from "../helpers/mock-context.js";
 
 const rule = mentionCodeOwners({
-  domains: integrationDomainsFromEvent,
+  domains: itemIntegrationDomains,
   pathPattern: (name) => `homeassistant/components/${name}/*`,
 });
 
@@ -103,7 +104,7 @@ describe("mention-code-owners", () => {
     github.issues.listComments.mockResolvedValue({
       data: [
         {
-          user: { login: "bot[bot]" },
+          user: { login: BOT_LOGIN },
           body: `${MENTION_MARKER}\n\nHey there @someone-else, mind taking a look?`,
         },
       ],
@@ -128,6 +129,29 @@ describe("mention-code-owners", () => {
     expect(result).toBeUndefined();
   });
 
+  it("still mentions owners when only someone else's comment carries the marker", async () => {
+    const github = createFakeGitHub();
+    github.repos.getContent.mockResolvedValue({
+      data: { content: btoa(`homeassistant/components/hue/* @balloob`) },
+    });
+    github.issues.listComments.mockResolvedValue({
+      data: [{ user: { login: "troll" }, body: MENTION_MARKER }],
+    });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: hue" },
+        issue: { labels: [{ name: "integration: hue" }] },
+      },
+    });
+
+    const result = await runRule(rule, context);
+    expect(result?.comment).toContain("@balloob");
+  });
+
   it("does not post again when the legacy bot already mentioned owners", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;
@@ -136,11 +160,11 @@ describe("mention-code-owners", () => {
       data: { content: btoa(codeowners) },
     });
     // Verbatim shape of the legacy CodeOwnersMention comment: template prose
-    // only, no marker (the legacy bot never stamped one).
+    // only, no marker (the legacy bot never stamped one). Same GitHub App.
     github.issues.listComments.mockResolvedValue({
       data: [
         {
-          user: { login: "home-assistant[bot]" },
+          user: { login: BOT_LOGIN },
           body:
             "\nHey there @balloob, mind taking a look at this pull request as it has been " +
             "labeled with an integration (`hue`) you are listed as a " +
@@ -256,7 +280,12 @@ describe("mention-code-owners", () => {
       github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [integrationDomain, rule] },
+        repositories: {
+          "home-assistant/core": {
+            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            commands: [],
+          },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -293,7 +322,12 @@ describe("mention-code-owners", () => {
       github.repos.getContent.mockResolvedValue({ data: { content: btoa("") } });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [integrationDomain, rule] },
+        repositories: {
+          "home-assistant/core": {
+            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            commands: [],
+          },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -319,6 +353,7 @@ describe("mention-code-owners", () => {
           EventType.PULL_REQUEST_SYNCHRONIZE,
           EventType.ISSUES_OPENED,
           EventType.ISSUES_LABELED,
+          EventType.ISSUES_ON_DEMAND,
           EventType.PULL_REQUEST_LABELED,
           EventType.ON_DEMAND,
         ].sort(),
@@ -328,7 +363,7 @@ describe("mention-code-owners", () => {
 
   it("uses custom itemLabel in comment", async () => {
     const docsRule = mentionCodeOwners({
-      domains: integrationDomainsFromEvent,
+      domains: itemIntegrationDomains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
       itemLabel: "feedback",
     });

@@ -54,12 +54,14 @@ export function makeCommandContext(
 
 export function registryWith(command: Command, rules: Rule[] = []): RegistryConfig {
   return {
-    repositories: { "home-assistant/core": rules },
-    commands: { "home-assistant/core": [command] },
-    integrationPaths: {
-      "home-assistant/core": (domain) => `homeassistant/components/${domain}/*`,
+    repositories: {
+      "home-assistant/core": {
+        rules,
+        commands: [command],
+        dashboard: true,
+        integrationPath: (domain) => `homeassistant/components/${domain}/*`,
+      },
     },
-    dashboards: { "home-assistant/core": true },
   };
 }
 

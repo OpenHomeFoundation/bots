@@ -6,6 +6,7 @@ import { matchCodeOwners, parseCodeOwners } from "../engine/model/codeowners.js"
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../engine/types.js";
+import { isNonIntegrationLabelEvent } from "../helpers/integration-domains.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
@@ -14,6 +15,7 @@ type HandledEvent =
   | EventType.PULL_REQUEST_LABELED
   | EventType.ISSUES_OPENED
   | EventType.ISSUES_LABELED
+  | EventType.ISSUES_ON_DEMAND
   | EventType.ON_DEMAND;
 
 // One ping per item: a comment carrying this marker means owners were already
@@ -73,7 +75,7 @@ function processIntegration(
     .map((usr) => `@${usr}`);
 
   if (mentions.length > 0) {
-    const applicable = commandsForTarget(ctx.commands, ctx.target.kind);
+    const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
     effects.push({
       type: "comment",
       // Escaping disabled: the output is markdown, not HTML.
@@ -101,13 +103,14 @@ export function mentionCodeOwners(config: {
   pathPattern: (integration: string) => string;
   /**
    * Integration domains the item is about — repo policy (file layout, doc
-   * links), injected by the manifest. Returning [] skips the rule, including
-   * for label events the implementation deems irrelevant.
+   * links), injected by the manifest.
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
   itemLabel?: string;
 }): Rule {
   async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+    if (isNonIntegrationLabelEvent(ctx)) return;
+
     // Never mention or assign on closed items — label events and ON_DEMAND fire on them too.
     if ((await ctx.target.state()) !== "open") return;
 
@@ -122,7 +125,7 @@ export function mentionCodeOwners(config: {
     }
 
     const comments = await ctx.target.issueComments();
-    if (comments.some((c) => isMentionComment(c.body))) return;
+    if (comments.some((c) => ctx.isOwnComment(c) && isMentionComment(c.body))) return;
 
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
     const assignees = (await ctx.target.assigneeLogins()).map((a) => a.toLowerCase());
@@ -160,6 +163,7 @@ export function mentionCodeOwners(config: {
         EventType.PULL_REQUEST_LABELED,
         EventType.ISSUES_OPENED,
         EventType.ISSUES_LABELED,
+        EventType.ISSUES_ON_DEMAND,
         EventType.ON_DEMAND,
       ],
       handle,

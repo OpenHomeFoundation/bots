@@ -194,7 +194,7 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
     const effects: Effect[] = [...(outcome.effects ?? [])];
     if (outcome.comment) effects.push({ type: "commentOnce", ...outcome.comment });
 
-    if (ctx.registry.dashboards?.[ctx.repo.fullName]) {
+    if (ctx.repoConfig.dashboard) {
       return {
         statuses: [{ id: "cla", title: "CLA", status: outcome.status, message: outcome.message }],
         effects,
@@ -221,7 +221,7 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
   return {
     name: "cla",
     description: "Requires every commit author to have signed the Contributor License Agreement.",
-    statusSections: [{ id: "cla", title: "CLA" }],
+    statusSections: [{ id: "cla", title: "CLA", waivableBy: "member" }],
     events: on(
       [
         EventType.PULL_REQUEST_OPENED,

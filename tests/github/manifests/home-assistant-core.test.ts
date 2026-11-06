@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 import { EventType } from "../../../src/github/engine/event.js";
 import {
@@ -153,6 +153,30 @@ const scenarios: Record<string, Scenario> = {
     },
   },
 
+  // A major release: the changelog body has no Type of change boxes, and the
+  // diff carries every integration added during the beta.
+  "pull_request.opened.release": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: prPayload("opened", {
+      number: 27,
+      title: "2026.7.0",
+      head: { sha: "abc123", ref: "rc" },
+      base: { ref: "master" },
+      body: "## New integrations\n\n- Add Awesome integration (@newdev - #26)\n",
+      user: { login: "frenck" },
+      author_association: "MEMBER",
+    }),
+    state: {
+      files: [
+        ...AWESOME_FILES,
+        { filename: "homeassistant/components/awesome/light.py", status: "added", additions: 40 },
+        { filename: "homeassistant/components/awesome/sensor.py", status: "added", additions: 40 },
+      ],
+      codeowners: HUE_CODEOWNERS,
+      remote: { "components/awesome/manifest.json": AWESOME_MANIFEST },
+    },
+  },
+
   "pull_request.edited.body-updated": {
     eventType: EventType.PULL_REQUEST_EDITED,
     payload: prPayload("edited", {
@@ -254,6 +278,24 @@ const scenarios: Record<string, Scenario> = {
     payload: issuePayload("opened"),
   },
 
+  // Labeled and pinged from the documentation link in the body.
+  "issues.opened.integration-link": {
+    eventType: EventType.ISSUES_OPENED,
+    payload: issuePayload("opened", {
+      body: "My bridge drops off, see https://www.home-assistant.io/integrations/hue/",
+    }),
+    state: HUE_STATE,
+  },
+
+  // `@home-assistant update` after the link was added to the body.
+  "issues.on_demand.integration-link": {
+    eventType: EventType.ISSUES_ON_DEMAND,
+    payload: issuePayload("opened", {
+      body: "My bridge drops off, see https://www.home-assistant.io/integrations/hue/",
+    }),
+    state: HUE_STATE,
+  },
+
   "issues.labeled.integration-hue": {
     eventType: EventType.ISSUES_LABELED,
     payload: issuePayload(
@@ -316,16 +358,6 @@ const scenarios: Record<string, Scenario> = {
 };
 
 describe("home-assistant/core dispatch snapshots", () => {
-  beforeAll(() => {
-    // Pin the clock: hacktoberfest (and anything else date-driven) must not
-    // flip snapshots with the calendar.
-    vi.useFakeTimers({ now: new Date("2026-06-15T12:00:00Z"), toFake: ["Date"] });
-  });
-
-  afterAll(() => {
-    vi.useRealTimers();
-  });
-
   for (const [name, scenario] of Object.entries(scenarios)) {
     it(name, async () => {
       const result = await runScenario(scenario);

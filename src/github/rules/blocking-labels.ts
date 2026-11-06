@@ -2,7 +2,7 @@ import { EventType } from "../engine/event.js";
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
 import type { StatusSection } from "../engine/status/types.js";
-import type { Rule, RuleOutput } from "../engine/types.js";
+import type { Rule, RuleOutput, StatusSectionClaim } from "../engine/types.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_LABELED
@@ -36,7 +36,9 @@ export function blockingLabels(
       return {
         id: `blocking-label-${label.toLowerCase().replaceAll(" ", "-")}`,
         title: `Blocking: ${label}`,
-        status: hasBlockingLabel ? "fail" : "skip",
+        // A maintainer's hold the author can't lift: `pending` blocks the merge
+        // without drafting the PR.
+        status: hasBlockingLabel ? "pending" : "skip",
         message: hasBlockingLabel
           ? description.message
           : `\`${label}\` label not set — nothing to block.`,
@@ -45,9 +47,10 @@ export function blockingLabels(
     return { statuses };
   }
 
-  const statusSections = Object.keys(config).map((label) => ({
+  const statusSections = Object.keys(config).map<StatusSectionClaim>((label) => ({
     id: `blocking-label-${label.toLowerCase().replaceAll(" ", "-")}`,
     title: `Blocking: ${label}`,
+    waivableBy: "member",
   }));
 
   return {

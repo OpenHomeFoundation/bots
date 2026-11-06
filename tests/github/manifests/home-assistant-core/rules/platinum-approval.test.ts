@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../../../src/github/engine/types.js";
-import { integrationDomain } from "../../../../../src/github/manifests/home-assistant-core/rules/integration-domain.js";
+import { itemIntegrationDomains } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { platinumApproval } from "../../../../../src/github/manifests/home-assistant-core/rules/platinum-approval.js";
 import { qualityScale } from "../../../../../src/github/manifests/home-assistant-core/rules/quality-scale.js";
+import { setIntegration } from "../../../../../src/github/rules/set-integration.js";
 import {
   createFakeGitHub,
   createMockContext,
@@ -283,8 +284,17 @@ describe("platinum-approval", () => {
     // No platinum-relevant labels on the payload — the rule derives the
     // domain from the changed files and the scale from the manifest itself.
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [integrationDomain, qualityScale, platinumApproval] },
-      dashboards: { "home-assistant/core": true },
+      repositories: {
+        "home-assistant/core": {
+          rules: [
+            setIntegration({ domains: itemIntegrationDomains }),
+            qualityScale,
+            platinumApproval,
+          ],
+          commands: [],
+          dashboard: true,
+        },
+      },
     };
     const context = createMockContext({
       registry: config,

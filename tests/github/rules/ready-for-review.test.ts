@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
 import { DRAFT_ON_CHANGES_REQUESTED_MARKER } from "../../../src/github/rules/draft-on-changes-requested.js";
 import { readyForReview } from "../../../src/github/rules/ready-for-review.js";
-import { createFakeGitHub, createMockContext, runRule } from "../helpers/mock-context.js";
+import {
+  BOT_LOGIN,
+  createFakeGitHub,
+  createMockContext,
+  runRule,
+} from "../helpers/mock-context.js";
 
 interface MockReview {
   id: number;
@@ -10,11 +15,17 @@ interface MockReview {
   user: { login: string; type: "User" | "Bot" };
 }
 
-function readyContext(opts: { hasMarker?: boolean; markerBody?: string; reviews?: MockReview[] }) {
+function readyContext(opts: {
+  hasMarker?: boolean;
+  markerBody?: string;
+  markerAuthor?: string;
+  reviews?: MockReview[];
+}) {
   const github = createFakeGitHub();
   const markerBody = opts.markerBody ?? `${DRAFT_ON_CHANGES_REQUESTED_MARKER}\ncomment`;
+  const user = { login: opts.markerAuthor ?? BOT_LOGIN };
   github.issues.listComments.mockResolvedValue({
-    data: opts.hasMarker === false ? [] : [{ body: markerBody }],
+    data: opts.hasMarker === false ? [] : [{ body: markerBody, user }],
   });
   github.pulls.listReviews.mockResolvedValue({ data: opts.reviews ?? [] });
 
@@ -31,6 +42,17 @@ describe("ready-for-review", () => {
       readyForReview,
       readyContext({
         hasMarker: false,
+        reviews: [{ id: 1, state: "CHANGES_REQUESTED", user: { login: "alice", type: "User" } }],
+      }),
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it("ignores a marker someone else's comment carries", async () => {
+    const result = await runRule(
+      readyForReview,
+      readyContext({
+        markerAuthor: "troll",
         reviews: [{ id: 1, state: "CHANGES_REQUESTED", user: { login: "alice", type: "User" } }],
       }),
     );

@@ -16,9 +16,10 @@ import {
   ruleContextFromWebhook,
   type WebhookEventPayload,
 } from "../../../src/github/engine/model/rule-context.js";
+import { placeholderBody } from "../../../src/github/engine/status/render.js";
 import type { Effect, RuleOutput } from "../../../src/github/engine/types.js";
 import { registryConfig } from "../../../src/github/manifests/index.js";
-import { createFakeGitHub } from "../helpers/fake-github.js";
+import { BOT_LOGIN, createFakeGitHub } from "../helpers/fake-github.js";
 import { testEnv } from "../helpers/mock-context.js";
 import { loadPRTemplate, renderPRTemplate } from "./pr-template.js";
 
@@ -253,7 +254,7 @@ function asPatch(body: string): string {
 
 function fakeGitHubFor(scenario: Scenario) {
   const state = scenario.state ?? {};
-  return createFakeGitHub({
+  const github = createFakeGitHub({
     pullRequest: hydrationPullRequest(scenario),
     files: (state.files ?? []).map((f) => ({
       filename: f.filename,
@@ -265,6 +266,22 @@ function fakeGitHubFor(scenario: Scenario) {
     members: state.members,
     contents: state.codeowners === undefined ? undefined : { CODEOWNERS: state.codeowners },
   });
+  // Past `opened` the bot has already greeted the PR, so a snapshot shows the
+  // event's own rules rather than the first-contact evaluation.
+  const payload = scenario.payload as {
+    pull_request?: unknown;
+    issue?: { pull_request?: unknown };
+  };
+  const isPullRequest = payload.pull_request || payload.issue?.pull_request;
+  if (isPullRequest && scenario.eventType !== EventType.PULL_REQUEST_OPENED) {
+    github.comments.push({
+      id: 1,
+      body: placeholderBody(),
+      html_url: "https://example.test/1",
+      user: { login: BOT_LOGIN },
+    });
+  }
+  return github;
 }
 
 // ── Runner ───────────────────────────────────────────────────────────────────
@@ -362,9 +379,11 @@ function syntheticLabelPayload(
   labels: string[],
 ): { eventType: EventType; payload: Record<string, unknown> } | undefined {
   const payload = scenario.payload as {
+    repository: unknown;
     pull_request?: Record<string, unknown>;
     issue?: { pull_request?: unknown } & Record<string, unknown>;
   };
+  const { repository } = payload;
 
   const isPullRequest = payload.pull_request || payload.issue?.pull_request;
   if (isPullRequest) {
@@ -378,7 +397,7 @@ function syntheticLabelPayload(
         action: change.action,
         label: { name: change.name },
         sender: SENDER,
-        repository: REPOSITORY,
+        repository,
         pull_request: { ...pr, labels: labelObjects(labels) },
       },
     };
@@ -391,7 +410,7 @@ function syntheticLabelPayload(
       action: "labeled",
       label: { name: change.name },
       sender: SENDER,
-      repository: REPOSITORY,
+      repository,
       issue: { ...payload.issue, labels: labelObjects(labels) },
     },
   };

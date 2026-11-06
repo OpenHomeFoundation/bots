@@ -79,6 +79,39 @@ describe("parseCommands", () => {
     expect(parseCommands("@home-assistant", "home-assistant")).toEqual([]);
     expect(parseCommands("hello world", "home-assistant")).toEqual([]);
   });
+
+  it("requires whitespace or the line end after the command name", () => {
+    expect(parseCommands("@home-assistant close!", "home-assistant")).toEqual([]);
+    expect(parseCommands('@home-assistant rename"New title"', "home-assistant")).toEqual([]);
+    expect(parseCommands("@home-assistant\tclose\t", "home-assistant")).toEqual([
+      { name: "close", args: [] },
+    ]);
+  });
+
+  it("ignores trailing whitespace and CRLF line ends", () => {
+    expect(
+      parseCommands(
+        '@home-assistant rename \t"New title"  \r\n@home-assistant close  \r\nthanks',
+        "home-assistant",
+      ),
+    ).toEqual([
+      { name: "rename", args: ["New title"] },
+      { name: "close", args: [] },
+    ]);
+    expect(parseCommands("@home-assistant rename   Awesome  ", "home-assistant")).toEqual([
+      { name: "rename", args: [], malformed: true },
+    ]);
+  });
+
+  it("parses a line with a huge whitespace run in linear time", () => {
+    const body = `@home-assistant x a${" ".repeat(65_000)}b`;
+    const startedAt = performance.now();
+    expect(parseCommands(body, "home-assistant")).toEqual([
+      { name: "x", args: [], malformed: true },
+    ]);
+    // Quadratic backtracking takes seconds on this input.
+    expect(performance.now() - startedAt).toBeLessThan(500);
+  });
 });
 
 describe("isBotCommand", () => {
@@ -217,6 +250,31 @@ describe("dispatchCommand", () => {
       expect.objectContaining({ command: "ping", reason: 'usage: ping "<arg>"' }),
     );
     logInfoSpy.mockRestore();
+  });
+
+  it("runs a repeated command once, whatever arguments it doesn't take", async () => {
+    const command = noopCommand();
+    const { context, github } = makeContext(
+      '@home-assistant ping\n@home-assistant ping\n@home-assistant ping "1"\n@home-assistant ping "2"',
+      { registry: registryWith(command) },
+    );
+
+    await dispatchCommand(context);
+    expect(command.handle).toHaveBeenCalledTimes(1);
+    // Dropped repeats aren't failures.
+    expectReaction(github, "+1");
+  });
+
+  it("tells repeats of a command with required arguments apart by those arguments", async () => {
+    const command = noopCommand({ args: "required" });
+    const { context, github } = makeContext(
+      '@home-assistant ping "a"\n@home-assistant ping "b"\n@home-assistant ping "a"',
+      { registry: registryWith(command) },
+    );
+
+    await dispatchCommand(context);
+    expect(command.handle).toHaveBeenCalledTimes(2);
+    expectReaction(github, "+1");
   });
 
   it("ignores bot senders entirely", async () => {

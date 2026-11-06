@@ -1,23 +1,24 @@
-import type { Command, RegistryConfig, Rule } from "../engine/types.js";
-import { esphome } from "./esphome.js";
+import type { Command, RegistryConfig, RepoConfig, Rule } from "../engine/types.js";
+import { esphomeOrg } from "./esphome-org.js";
 import { homeAssistantCore } from "./home-assistant-core/index.js";
 import { homeAssistantFrontend } from "./home-assistant-frontend.js";
 import { homeAssistantIntents } from "./home-assistant-intents.js";
 import { homeAssistantIo } from "./home-assistant-io/index.js";
-import { homeAssistantOrgManifests } from "./home-assistant-org.js";
+import { homeAssistantOrg } from "./home-assistant-org.js";
 import { homeAssistantSupervisor } from "./home-assistant-supervisor/index.js";
-import type { RepoManifest } from "./types.js";
+import type { OrgManifest, RepoManifest } from "./types.js";
 
-/** Every repo the bot acts on. Add a repo by authoring a manifest and listing it here. */
+/** Repos with rules of their own. Add a repo by authoring a manifest and listing it here. */
 const MANIFESTS: RepoManifest[] = [
   homeAssistantCore,
   homeAssistantFrontend,
   homeAssistantIntents,
   homeAssistantIo,
   homeAssistantSupervisor,
-  ...homeAssistantOrgManifests,
-  esphome,
 ];
+
+/** Orgs the bot acts in; every repo not in {@link MANIFESTS} runs its org's manifest. */
+const ORG_MANIFESTS: OrgManifest[] = [homeAssistantOrg, esphomeOrg];
 
 /**
  * Boot-time guardrails. The dispatcher silently dedupes rules and commands
@@ -54,28 +55,28 @@ function validate(slug: string, rules: Rule[], commands: Command[]): void {
 }
 
 function build(): RegistryConfig {
-  const repositories: Record<string, Rule[]> = {};
-  const commands: Record<string, Command[]> = {};
-  const integrationPaths: Record<string, (domain: string) => string> = {};
-  const dashboards: Record<string, boolean> = {};
-  for (const manifest of MANIFESTS) {
-    validate(manifest.slug, manifest.rules, manifest.commands ?? []);
-    for (const slug of [manifest.slug, ...(manifest.aliases ?? [])]) {
-      if (repositories[slug]) {
-        throw new Error(`Repository "${slug}" is declared by more than one manifest`);
+  const repositories: Record<string, RepoConfig> = {};
+  for (const { slug, aliases = [], commands = [], ...manifest } of MANIFESTS) {
+    validate(slug, manifest.rules, commands);
+    const config: RepoConfig = { ...manifest, commands };
+    for (const name of [slug, ...aliases]) {
+      if (repositories[name]) {
+        throw new Error(`Repository "${name}" is declared by more than one manifest`);
       }
-      repositories[slug] = manifest.rules;
-      commands[slug] = manifest.commands ?? [];
-      if (manifest.integrationPath) integrationPaths[slug] = manifest.integrationPath;
-      if (manifest.dashboard) dashboards[slug] = true;
+      repositories[name] = config;
     }
   }
-  return { repositories, commands, integrationPaths, dashboards };
+  const orgs: Record<string, RepoConfig> = {};
+  for (const { org, ...config } of ORG_MANIFESTS) {
+    validate(org, config.rules, config.commands);
+    orgs[org] = config;
+  }
+  return { repositories, orgs };
 }
 
 /**
- * The dispatcher's registry, assembled from every {@link RepoManifest}. One
- * config serves both PR and issue webhooks — `matchRules` filters each rule
- * by the events it declares.
+ * The dispatcher's registry, assembled from every {@link RepoManifest} and
+ * {@link OrgManifest}. One config serves both PR and issue webhooks —
+ * `matchRules` filters each rule by the events it declares.
  */
 export const registryConfig: RegistryConfig = build();

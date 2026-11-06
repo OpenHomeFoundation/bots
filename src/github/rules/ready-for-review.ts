@@ -14,7 +14,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
   // Only PRs draft-on-changes-requested drafted get the follow-up; a marker-less draft
   // was the author's own doing and carries no pending reviewers to poke.
   const comments = await ctx.target.issueComments();
-  if (!comments.some((c) => isDraftExplainerComment(c.body))) return;
+  if (!comments.some((c) => ctx.isOwnComment(c) && isDraftExplainerComment(c.body))) return;
 
   const reviews = await ctx.target.reviews();
 

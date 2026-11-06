@@ -13,7 +13,7 @@ export default defineConfig({
       reporter: ["text", "lcov"],
       include: ["src/**/*.ts"],
       // Bootstrap-only modules: never loaded by the supertest app (which
-      // builds AppModule directly); exercised by the /health smoke instead.
+      // builds AppModule directly); exercised by the /__lbheartbeat__ smoke instead.
       exclude: ["src/main.ts", "src/instrument.ts"],
     },
   },

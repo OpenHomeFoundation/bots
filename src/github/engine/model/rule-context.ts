@@ -15,7 +15,7 @@ import type {
 } from "@octokit/webhooks-types";
 import type { Env } from "../../../env.js";
 import { EventType, type RuleEvent, type RuleEventOf } from "../event.js";
-import type { Command, RegistryConfig } from "../types.js";
+import { type RegistryConfig, type RepoConfig, resolveRepo } from "../types.js";
 import { type CodeownersReads, createCodeownersReads, readCodeowners } from "./codeowners.js";
 import { type GetIssueResponse, Issue, type IssueSeed } from "./issue.js";
 import {
@@ -75,7 +75,7 @@ export interface RuleContextParams<E extends EventType> {
   event: RuleEventOf<E>;
   sender: Sender;
   /** Repository identity — plain data, no behavior. */
-  repo: { owner: string; name: string; fullName: string; topics: string[] };
+  repo: { owner: string; name: string; fullName: string };
   /** Organization identity — plain data, no behavior. */
   org: { name: string };
   target: TargetFor<E>;
@@ -92,6 +92,8 @@ export interface RuleContextParams<E extends EventType> {
 export class RuleContext<E extends EventType = EventType> {
   readonly env: Env;
   readonly registry: RegistryConfig;
+  /** This repo's registry entry, org fallback applied. */
+  readonly repoConfig: RepoConfig;
   readonly github: Octokit;
   readonly event: RuleEventOf<E>;
   readonly sender: Sender;
@@ -103,6 +105,7 @@ export class RuleContext<E extends EventType = EventType> {
   constructor(params: RuleContextParams<E>) {
     this.env = params.env;
     this.registry = params.registry;
+    this.repoConfig = resolveRepo(params.registry, params.repo);
     this.github = params.github;
     this.event = params.event;
     this.sender = params.sender;
@@ -128,14 +131,14 @@ export class RuleContext<E extends EventType = EventType> {
     return this.target.number;
   }
 
-  /** Bot's commit-status creator login, e.g. "ha-bot[bot]". */
+  /** Bot's own login (comment author, commit-status creator), e.g. "ha-bot[bot]". */
   get botLogin(): string {
     return `${this.env.BOT_SLUG}[bot]`;
   }
 
-  /** The repo's registered comment commands, for rendering command help. */
-  get commands(): readonly Command[] {
-    return this.registry.commands?.[this.repo.fullName] ?? [];
+  /** Whether the bot wrote this comment: anyone can type a marker, so only ours count. */
+  isOwnComment(comment: { user?: { login: string } | null }): boolean {
+    return comment.user?.login.toLowerCase() === this.botLogin.toLowerCase();
   }
 
   repoParams<T extends Record<string, unknown> = Record<string, never>>(
@@ -368,7 +371,6 @@ function repoFromPayload(payload: WebhookEventPayload): RuleContextParams<EventT
     owner: payload.repository.owner.login,
     name: payload.repository.name,
     fullName: payload.repository.full_name,
-    topics: (payload.repository as { topics?: string[] }).topics ?? [],
   };
 }
 
@@ -396,8 +398,7 @@ export function ruleContextFromWebhook(
 
 /**
  * Build an ISSUES_ON_DEMAND RuleContext from a REST issues.get response.
- * The response carries no repository object, so the caller supplies owner
- * and repo; topics are unknown without an extra fetch and stay empty.
+ * The response carries no repository object, so the caller supplies owner and repo.
  */
 export function ruleContextFromIssue(
   env: Env,
@@ -416,7 +417,6 @@ export function ruleContextFromIssue(
       owner: repoRef.owner,
       name: repoRef.repo,
       fullName: `${repoRef.owner}/${repoRef.repo}`,
-      topics: [],
     },
     org: { name: repoRef.owner },
     target: new Issue(
@@ -439,7 +439,6 @@ export function ruleContextFromPullRequest(
     owner: repoData.owner.login,
     name: repoData.name,
     fullName: repoData.full_name,
-    topics: repoData.topics ?? [],
   };
 
   return new RuleContext<EventType.ON_DEMAND>({

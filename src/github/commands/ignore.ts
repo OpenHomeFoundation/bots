@@ -1,18 +1,16 @@
 import type { CommandContext } from "../engine/model/command-context.js";
-import type { Command, RuleOutput } from "../engine/types.js";
+import type { Command, RuleOutput, StatusSectionClaim } from "../engine/types.js";
 import { UsageError } from "../engine/usage-error.js";
 
 /**
  * Users see a check's title on the dashboard, not its section ID — resolve
  * the title against the registry's section claims.
  */
-function resolveSectionId(context: CommandContext, title: string): string {
-  const claims = (context.registry.repositories[context.repo.fullName] ?? []).flatMap(
-    (rule) => rule.statusSections ?? [],
-  );
+function resolveClaim(context: CommandContext, title: string): StatusSectionClaim {
+  const claims = context.repoConfig.rules.flatMap((rule) => rule.statusSections ?? []);
   const claim = claims.find((c) => c.title.toLowerCase() === title.trim().toLowerCase());
   if (!claim) throw new UsageError(`unknown dashboard check "${title}"`);
-  return claim.id;
+  return claim;
 }
 
 /**
@@ -32,7 +30,11 @@ export const ignore: Command = {
   async handle(context): Promise<RuleOutput> {
     if (context.args.length !== 2) throw new UsageError('usage: ignore "<check name>" "<reason>"');
     const [name, reason] = context.args;
-    return { overrides: [{ id: resolveSectionId(context, name), ignore: { reason } }] };
+    const claim = resolveClaim(context, name);
+    if (claim.waivableBy === "member" && !(await context.senderIsMember())) {
+      throw new UsageError(`only org members can waive "${claim.title}"`);
+    }
+    return { overrides: [{ id: claim.id, ignore: { reason } }] };
   },
 };
 
@@ -46,6 +48,6 @@ export const unignore: Command = {
 
   async handle(context): Promise<RuleOutput> {
     if (context.args.length !== 1) throw new UsageError('usage: unignore "<check name>"');
-    return { overrides: [{ id: resolveSectionId(context, context.args[0]), ignore: null }] };
+    return { overrides: [{ id: resolveClaim(context, context.args[0]).id, ignore: null }] };
   },
 };

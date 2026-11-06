@@ -11,9 +11,10 @@ import { updateBranch } from "../../../src/github/commands/update-branch.js";
 import { dispatchCommand } from "../../../src/github/engine/dispatch.js";
 import { renderStatus } from "../../../src/github/engine/status/render.js";
 import type { Rule } from "../../../src/github/engine/types.js";
+import { registryConfig } from "../../../src/github/manifests/index.js";
 import { expectLoggedErrors } from "../../helpers/log-guard.js";
 import { expectReaction, makeCommandContext, registryWith } from "../helpers/command.js";
-import { createFakeGitHub, type FakeGitHub } from "../helpers/mock-context.js";
+import { BOT_LOGIN, createFakeGitHub, type FakeGitHub } from "../helpers/mock-context.js";
 
 // All commands except `update` are code_owner-gated; `testuser` passes as an
 // org member. The manifest fetch mock feeds the rules that label effects
@@ -193,6 +194,7 @@ describe("ignore / unignore", () => {
       data: [
         {
           id: 7,
+          user: { login: BOT_LOGIN },
           body: renderStatus(
             [
               {
@@ -255,10 +257,62 @@ describe("ignore / unignore", () => {
     expect(github.issues.updateComment).not.toHaveBeenCalled();
     expectReaction(github, "-1");
   });
+
+  describe("member-only checks", () => {
+    const memberOnlyRule: Rule = {
+      ...claimingRule,
+      statusSections: [{ id: "merge-conflict", title: "Merge conflicts", waivableBy: "member" }],
+    };
+
+    it("rejects the non-member author", async () => {
+      const github = withStatusComment({});
+      const { context } = makeCommandContext(
+        '@home-assistant ignore "Merge conflicts" "Will rebase before merge"',
+        { github, registry: registryWith(ignore, [memberOnlyRule]) },
+      );
+
+      await dispatchCommand(context);
+
+      expect(github.issues.updateComment).not.toHaveBeenCalled();
+      expectReaction(github, "-1");
+    });
+
+    it("lets org members waive them", async () => {
+      const github = withStatusComment({});
+      github.world.members = ["testuser"];
+      const { context } = makeCommandContext(
+        '@home-assistant ignore "Merge conflicts" "Will rebase before merge"',
+        { github, registry: registryWith(ignore, [memberOnlyRule]) },
+      );
+
+      await dispatchCommand(context);
+
+      const body = github.issues.updateComment.mock.lastCall?.[0].body as string;
+      expect(body).toContain("Ignored: Will rebase before merge");
+      expectReaction(github, "+1");
+    });
+
+    it.each(["Code owner approval", "Blocking: awaiting-frontend", "CLA"])(
+      "covers core's %s gate",
+      async (title) => {
+        const github = withStatusComment({});
+        const { context } = makeCommandContext(`@home-assistant ignore "${title}" "trivial fix"`, {
+          github,
+          registry: registryConfig,
+        });
+
+        await dispatchCommand(context);
+
+        expect(github.issues.updateComment).not.toHaveBeenCalled();
+        expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
+        expectReaction(github, "-1");
+      },
+    );
+  });
 });
 
 describe("update", () => {
-  it("re-evaluates the item through the registry", async () => {
+  function githubWithPR(): FakeGitHub {
     const github = createFakeGitHub();
     github.pulls.get.mockResolvedValue({
       data: {
@@ -279,11 +333,15 @@ describe("update", () => {
             name: "core",
             full_name: "home-assistant/core",
             owner: { login: "home-assistant" },
-            topics: [],
           },
         },
       },
     });
+    return github;
+  }
+
+  it("re-evaluates the item through the registry", async () => {
+    const github = githubWithPR();
     const { context } = makeCommandContext("@home-assistant update", {
       github,
       registry: registryWith(update),
@@ -291,6 +349,19 @@ describe("update", () => {
 
     await dispatchCommand(context);
     expect(github.pulls.get).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 1 }));
+    expectReaction(github, "+1");
+  });
+
+  it("re-evaluates once for a comment stacking thousands of update lines", async () => {
+    const github = githubWithPR();
+    // Arguments `update` doesn't take must not make the repeats distinct.
+    const body = Array.from({ length: 2800 }, (_, i) =>
+      i % 2 ? `@home-assistant update "${i}"` : "@home-assistant update",
+    ).join("\n");
+    const { context } = makeCommandContext(body, { github, registry: registryWith(update) });
+
+    await dispatchCommand(context);
+    expect(github.pulls.get).toHaveBeenCalledTimes(1);
     expectReaction(github, "+1");
   });
 });

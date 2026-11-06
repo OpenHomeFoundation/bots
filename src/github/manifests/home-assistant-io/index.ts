@@ -8,29 +8,18 @@ import { reopen } from "../../commands/reopen.js";
 import { unassign } from "../../commands/unassign.js";
 import { update } from "../../commands/update.js";
 import { updateBranch } from "../../commands/update-branch.js";
-import type { EventType } from "../../engine/event.js";
-import type { RuleContext } from "../../engine/model/rule-context.js";
-import { domainsFromLabels, INTEGRATION_LABEL_PREFIX } from "../../helpers/integration-domains.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { setIntegration } from "../../rules/set-integration.js";
 import { HomeAssistantRepository, homeAssistantOrgRules } from "../home-assistant-org.js";
 import type { RepoManifest } from "../types.js";
+import { itemIntegrationDomains } from "./helpers/integration-domains.js";
 import { branchLabels } from "./rules/branch-labels.js";
 import { docsParenting } from "./rules/docs-parenting.js";
 import { docsTargetBranch } from "./rules/docs-target-branch.js";
 import { setDocumentationSection } from "./rules/set-documentation-section.js";
 
 const integrationDocPath = (domain: string) => `source/_integrations/${domain}.markdown`;
-
-/**
- * Docs PRs don't touch integration code, so the item's domains come from its
- * `integration:` labels alone (set-integration for issues, humans otherwise).
- */
-async function integrationDomainsFromLabels(ctx: RuleContext<EventType>): Promise<string[]> {
-  if ("label" in ctx.event && !ctx.event.label.startsWith(INTEGRATION_LABEL_PREFIX)) return [];
-  return domainsFromLabels(await ctx.target.labels());
-}
 
 const MANAGEABLE_LABELS = ["needs-more-information"];
 
@@ -40,13 +29,13 @@ export const homeAssistantIo: RepoManifest = {
   integrationPath: integrationDocPath,
   rules: [
     // Integrations
-    setIntegration,
+    setIntegration({ domains: itemIntegrationDomains }),
     mentionCodeOwners({
       pathPattern: integrationDocPath,
-      domains: integrationDomainsFromLabels,
+      domains: itemIntegrationDomains,
       itemLabel: "feedback",
     }),
-    byCodeOwner({ pathPattern: integrationDocPath, domains: integrationDomainsFromLabels }),
+    byCodeOwner({ pathPattern: integrationDocPath, domains: itemIntegrationDomains }),
 
     // Branches
     branchLabels,

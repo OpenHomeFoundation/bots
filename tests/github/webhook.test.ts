@@ -34,7 +34,8 @@ const env: Env = {
   PORT: 0,
 };
 
-const service = new WebhookService(env, octokit);
+// Routing decisions don't consult the registry; empty is enough.
+const service = new WebhookService(env, octokit, { repositories: {} });
 
 function guardContext(body: string, signature: string): ExecutionContext {
   return {

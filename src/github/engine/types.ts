@@ -124,6 +124,12 @@ export type EventHandlers = {
 export interface StatusSectionClaim {
   id: string;
   title: string;
+  /**
+   * Who may waive the section with `ignore`: the PR author or org members
+   * (default), or org members only — for gates that exist to hold the
+   * author back.
+   */
+  waivableBy?: "author" | "member";
 }
 
 export interface Rule {
@@ -159,16 +165,38 @@ export interface Command extends CommandHelpEntry {
   handle(context: CommandContext): Promise<RuleOutput | undefined>;
 }
 
+/** What the bot runs on one repository. */
+export interface RepoConfig {
+  /** Every rule that runs on this repo, in display order. */
+  rules: Rule[];
+  /** Comment commands (`@<slug> <name>`) available on this repo. */
+  commands: Command[];
+  /** Enable the PR dashboard on this repo */
+  dashboard?: boolean;
+  /**
+   * CODEOWNERS path of an integration domain (e.g. `hue` →
+   * `homeassistant/components/hue/*`); backs the code-owner permission check.
+   */
+  integrationPath?: (domain: string) => string;
+}
+
 /**
- * The compiled runtime registry the engine consumes, keyed by full repo slug
- * (aliases included). Manifests are the authoring format; manifests/index.ts
- * compiles them into this shape.
+ * The compiled runtime registry the engine consumes. Manifests are the
+ * authoring format; manifests/index.ts compiles them into this shape.
  */
 export interface RegistryConfig {
-  repositories: Record<string, Rule[]>;
-  commands?: Record<string, Command[]>;
-  /** Per-repo CODEOWNERS path for an integration domain (code-owner checks). */
-  integrationPaths?: Record<string, (domain: string) => string>;
-  /** Repos (by slug, aliases included) where a dashboard should be created */
-  dashboards?: Record<string, boolean>;
+  /** By full repo slug, aliases included. */
+  repositories: Record<string, RepoConfig>;
+  /** By org login: what that org's repos without an entry of their own run. */
+  orgs?: Record<string, RepoConfig>;
+}
+
+const EMPTY_REPO: RepoConfig = { rules: [], commands: [] };
+
+/** A repo's registry entry: its own, else its org's, else nothing. */
+export function resolveRepo(
+  registry: RegistryConfig,
+  repo: { owner: string; fullName: string },
+): RepoConfig {
+  return registry.repositories[repo.fullName] ?? registry.orgs?.[repo.owner] ?? EMPTY_REPO;
 }

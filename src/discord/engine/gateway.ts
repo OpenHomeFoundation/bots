@@ -17,7 +17,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { withCorrelationId } from "../../correlation.js";
+import { addLogContext, withCorrelationId } from "../../correlation.js";
 import { log } from "../../log.js";
 import type { ChannelPort, EffectPorts, ResponderPort } from "./apply.js";
 import { applyDiscordEffects } from "./apply.js";
@@ -288,10 +288,30 @@ export async function startDiscordGateway(
 
   const handle = async (event: DiscordEvent | undefined, responder?: ResponderPort) => {
     if (!event) return;
+    addLogContext({
+      guildId: event.guildId,
+      channel: event.channel.name,
+      user: event.user.username,
+    });
     config.onEvent?.(event);
     const effects = await dispatchDiscordEvent(registry, event, reader);
     await applyDiscordEffects(effects, { ...ports, responder });
   };
+
+  // Gateway health. discord.js reconnects dropped shards on its own, so
+  // disconnect/resume are informational — but Invalidated is terminal: the
+  // client stops and only a process restart brings the bot back.
+  client.on(Events.Error, (err) => log.exception(err));
+  client.on(Events.Warn, (message) => log.warn("discord: client warning", { message }));
+  client.on(Events.ShardDisconnect, (event, shardId) => {
+    log.warn("discord: gateway disconnected", { shardId, code: event.code });
+  });
+  client.on(Events.ShardResume, (shardId, replayedEvents) => {
+    log.info("discord: gateway resumed", { shardId, replayedEvents });
+  });
+  client.on(Events.Invalidated, () => {
+    log.error("discord: session invalidated — gateway stopped, restart required");
+  });
 
   // dc:<snowflake> — the interaction/message ID correlates every log line of
   // one event's handling, mirroring gh:<delivery> on the webhook side.

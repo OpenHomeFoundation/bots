@@ -1,15 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
+import { claCheck } from "../../../src/cla/rule.js";
+import type { ClaStore } from "../../../src/cla/store.js";
 import { dispatch, matchRules } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
+import { on } from "../../../src/github/engine/rule.js";
 import {
+  isStatusComment,
   parseState,
   placeholderBody,
   renderStatus,
 } from "../../../src/github/engine/status/render.js";
+import type { StatusSection } from "../../../src/github/engine/status/types.js";
 import type { RegistryConfig, Rule, RuleOutput } from "../../../src/github/engine/types.js";
 import { log } from "../../../src/log.js";
 import { expectLoggedErrors } from "../../helpers/log-guard.js";
-import { createFakeGitHub, createMockContext } from "../helpers/mock-context.js";
+import {
+  BOT_LOGIN,
+  createFakeGitHub,
+  createMockContext,
+  type FakeGitHub,
+} from "../helpers/mock-context.js";
 
 const testRule: Rule = {
   name: "test-rule",
@@ -27,7 +37,7 @@ const noBotRule: Rule = {
 describe("matchRules", () => {
   it("matches repo rule with correct event type", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [testRule] },
+      repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -40,7 +50,7 @@ describe("matchRules", () => {
 
   it("does not match rule with wrong event type", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [testRule] },
+      repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -52,7 +62,7 @@ describe("matchRules", () => {
 
   it("does not match rule for different repo", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/frontend": [testRule] },
+      repositories: { "home-assistant/frontend": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -64,7 +74,7 @@ describe("matchRules", () => {
 
   it("filters out bots when allowBots is false", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [noBotRule] },
+      repositories: { "home-assistant/core": { rules: [noBotRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -77,7 +87,7 @@ describe("matchRules", () => {
 
   it("allows bots by default", () => {
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [testRule] },
+      repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -115,7 +125,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [labelRule] },
+      repositories: { "home-assistant/core": { rules: [labelRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -143,7 +153,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [removerRule] },
+      repositories: { "home-assistant/core": { rules: [removerRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -176,7 +186,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [conflictRule] },
+      repositories: { "home-assistant/core": { rules: [conflictRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -203,7 +213,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [commentRule] },
+      repositories: { "home-assistant/core": { rules: [commentRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -231,7 +241,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [assignRule] },
+      repositories: { "home-assistant/core": { rules: [assignRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -270,7 +280,9 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [failingRule, succeedingRule] },
+      repositories: {
+        "home-assistant/core": { rules: [failingRule, succeedingRule], commands: [] },
+      },
     };
     const context = createMockContext({
       registry: config,
@@ -323,7 +335,7 @@ describe("dispatch", () => {
       },
     };
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule] },
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -347,8 +359,7 @@ describe("dispatch", () => {
   it("baselines the dashboard on opened for greeting repos, even with no matching rules", async () => {
     const github = createFakeGitHub();
     const config: RegistryConfig = {
-      repositories: {},
-      dashboards: { "home-assistant/core": true },
+      repositories: { "home-assistant/core": { rules: [], commands: [], dashboard: true } },
     };
     const context = createMockContext({
       registry: config,
@@ -407,7 +418,7 @@ describe("dispatch", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule1, rule2] },
+      repositories: { "home-assistant/core": { rules: [rule1, rule2], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -447,8 +458,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -496,6 +506,7 @@ describe("dispatch", () => {
       const section = { id: "x", title: "x", status, message: "msg" };
       return {
         id: 1,
+        user: { login: BOT_LOGIN },
         body: `<!-- ha-bot-dashboard -->\n<!-- section:x:${JSON.stringify(section)} -->`,
       };
     }
@@ -514,8 +525,9 @@ describe("dispatch", () => {
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [claimsX] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [claimsX], commands: [], dashboard: true },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -591,8 +603,9 @@ describe("dispatch", () => {
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [claimsX] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [claimsX], commands: [], dashboard: true },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -618,8 +631,9 @@ describe("dispatch", () => {
       github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
 
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [claimsX] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [claimsX], commands: [], dashboard: true },
+        },
       };
       const context = createMockContext({
         registry: config,
@@ -655,6 +669,7 @@ describe("dispatch", () => {
           {
             id: 555,
             html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
+            user: { login: BOT_LOGIN },
             body: [
               "<!-- ha-bot-dashboard -->",
               `<!-- section:merge-conflict:${JSON.stringify(waivedFailing)} -->`,
@@ -698,8 +713,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -772,6 +786,7 @@ describe("dispatch", () => {
           {
             id: 555,
             html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
+            user: { login: BOT_LOGIN },
             body: [
               "<!-- ha-bot-dashboard -->",
               "<!-- section:still-live:" +
@@ -809,8 +824,7 @@ describe("dispatch", () => {
         },
       };
       const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
       };
       const context = createMockContext({
         registry: config,
@@ -833,90 +847,18 @@ describe("dispatch", () => {
     });
   });
 
-  describe("stale-status sweep", () => {
-    // Must match the mock context's `botLogin` (derived from testEnv's BOT_SLUG).
-    const BOT_LOGIN = "ha-bot[bot]";
-
-    function setupStaleStatusHarness(existingStatuses: { context: string; state: string }[]) {
+  describe("other commit statuses", () => {
+    it("leaves the bot's other statuses on the head alone", async () => {
       const github = createFakeGitHub();
       github.issues.listComments.mockResolvedValue({ data: [] });
       github.issues.createComment.mockResolvedValue({
         data: { id: 111, html_url: "https://github.com/ha/c/pull/1#issuecomment-111" },
       });
-      const allStatuses = existingStatuses.map((s, idx) => ({
-        ...s,
-        id: idx,
-        creator: { login: BOT_LOGIN },
-      }));
-      github.repos.listCommitStatusesForRef.mockResolvedValue({ data: allStatuses });
-      const rule: Rule = {
-        name: "with-dashboard",
-        description: "",
-        statusSections: [{ id: "live", title: "live" }],
-        events: {
-          [EventType.PULL_REQUEST_OPENED]: async () => ({
-            statuses: [{ id: "live", title: "Live", status: "pass", message: "ok" }],
-          }),
-        },
-      };
-      const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
-      };
-      const context = createMockContext({
-        registry: config,
-        eventType: EventType.PULL_REQUEST_OPENED,
-        github,
-      });
-      return { github, context };
-    }
-
-    it("neutralizes stale non-ha-bot statuses we wrote", async () => {
-      const { github, context } = setupStaleStatusHarness([
-        { context: "required-labels", state: "failure" },
-        { context: "code-owner-approval", state: "failure" },
-      ]);
-
-      await dispatch(context);
-
-      // ha-bot itself gets re-written (success now) but is NOT neutralized.
-      expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: "required-labels",
-          state: "success",
-          description: "No longer in use",
-        }),
-      );
-      expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: "code-owner-approval",
-          state: "success",
-          description: "No longer in use",
-        }),
-      );
-      // ha-bot got overwritten by the aggregate, not by the sweep.
-      const haBotCalls = github.repos.createCommitStatus.mock.calls.filter(
-        (call) => call[0].context === "ha-bot",
-      );
-      expect(haBotCalls).toHaveLength(1);
-      expect(haBotCalls[0][0].description).not.toBe("No longer in use");
-    });
-
-    it("does not touch statuses created by other users", async () => {
-      const github = createFakeGitHub();
-      github.issues.listComments.mockResolvedValue({ data: [] });
-      github.issues.createComment.mockResolvedValue({
-        data: { id: 111, html_url: "https://github.com/ha/c/pull/1#issuecomment-111" },
-      });
-      // A status from another bot — the sweep must leave it alone.
+      // Legacy contexts written by the same app (testEnv's BOT_SLUG); rulesets may still require them.
       github.repos.listCommitStatusesForRef.mockResolvedValue({
         data: [
-          {
-            id: 1,
-            context: "external-ci",
-            state: "failure",
-            creator: { login: "some-other-bot[bot]" },
-          },
+          { id: 1, context: "cla-bot", state: "failure", creator: { login: "ha-bot[bot]" } },
+          { id: 2, context: "docs-missing", state: "failure", creator: { login: "ha-bot[bot]" } },
         ],
       });
       const rule: Rule = {
@@ -929,83 +871,18 @@ describe("dispatch", () => {
           }),
         },
       };
-      const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
-      };
       const context = createMockContext({
-        registry: config,
-        eventType: EventType.PULL_REQUEST_OPENED,
-        github,
-      });
-
-      await dispatch(context);
-
-      const neutralizing = github.repos.createCommitStatus.mock.calls.filter(
-        (call) => call[0].description === "No longer in use",
-      );
-      expect(neutralizing).toHaveLength(0);
-    });
-
-    it("runs on first dispatch even with no prior ha-bot status", async () => {
-      const github = createFakeGitHub();
-      github.issues.listComments.mockResolvedValue({ data: [] });
-      github.issues.createComment.mockResolvedValue({
-        data: { id: 111, html_url: "https://github.com/ha/c/pull/1#issuecomment-111" },
-      });
-      // No ha-bot status in history yet — sweep uses `context.botLogin` directly
-      // so it can still neutralize any stale status the bot wrote previously.
-      github.repos.listCommitStatusesForRef.mockResolvedValue({
-        data: [
-          {
-            id: 1,
-            context: "required-labels",
-            state: "failure",
-            creator: { login: BOT_LOGIN },
-          },
-        ],
-      });
-      const rule: Rule = {
-        name: "rule",
-        description: "",
-        statusSections: [{ id: "live", title: "live" }],
-        events: {
-          [EventType.PULL_REQUEST_OPENED]: async () => ({
-            statuses: [{ id: "live", title: "Live", status: "pass", message: "ok" }],
-          }),
+        registry: {
+          repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
         },
-      };
-      const config: RegistryConfig = {
-        repositories: { "home-assistant/core": [rule] },
-        dashboards: { "home-assistant/core": true },
-      };
-      const context = createMockContext({
-        registry: config,
         eventType: EventType.PULL_REQUEST_OPENED,
         github,
       });
 
       await dispatch(context);
 
-      expect(github.repos.createCommitStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: "required-labels",
-          state: "success",
-          description: "No longer in use",
-        }),
-      );
-    });
-
-    it("skips statuses already in success state", async () => {
-      const { github, context } = setupStaleStatusHarness([
-        { context: "required-labels", state: "success" },
-      ]);
-      await dispatch(context);
-
-      const neutralizing = github.repos.createCommitStatus.mock.calls.filter(
-        (call) => call[0].description === "No longer in use",
-      );
-      expect(neutralizing).toHaveLength(0);
+      const contexts = github.repos.createCommitStatus.mock.calls.map(([p]) => p.context);
+      expect(contexts).toEqual(["ha-bot"]);
     });
   });
 });
@@ -1036,7 +913,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [labeler, reactor] },
+      repositories: { "home-assistant/core": { rules: [labeler, reactor], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1067,7 +944,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule] },
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1094,7 +971,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [rule] },
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1130,7 +1007,7 @@ describe("label independence", () => {
     };
 
     const config: RegistryConfig = {
-      repositories: { "home-assistant/core": [remover, reactor] },
+      repositories: { "home-assistant/core": { rules: [remover, reactor], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
@@ -1166,8 +1043,9 @@ describe("dashboard placeholder on opened", () => {
     };
     const context = createMockContext({
       registry: {
-        repositories: { "home-assistant/core": [observer] },
-        dashboards: { "home-assistant/core": true },
+        repositories: {
+          "home-assistant/core": { rules: [observer], commands: [], dashboard: true },
+        },
       },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
@@ -1183,13 +1061,12 @@ describe("dashboard placeholder on opened", () => {
   it("an empty opened dispatch upgrades the placeholder to the greeting dashboard", async () => {
     const github = createFakeGitHub();
     github.issues.listComments.mockResolvedValue({
-      data: [{ id: 7, body: placeholderBody() }],
+      data: [{ id: 7, body: placeholderBody(), user: { login: BOT_LOGIN } }],
     });
 
     const context = createMockContext({
       registry: {
-        repositories: { "home-assistant/core": [] },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules: [], commands: [], dashboard: true } },
       },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
@@ -1207,7 +1084,7 @@ describe("dashboard placeholder on opened", () => {
     const github = createFakeGitHub();
 
     const context = createMockContext({
-      registry: { repositories: { "home-assistant/core": [testRule] } },
+      registry: { repositories: { "home-assistant/core": { rules: [testRule], commands: [] } } },
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
     });
@@ -1219,12 +1096,127 @@ describe("dashboard placeholder on opened", () => {
   });
 });
 
+describe("first contact with a PR that has no dashboard", () => {
+  const unsignedStore: ClaStore = {
+    hasSigned: async () => false,
+    recordPendingSigners: async () => {},
+    getPendingSigner: async () => undefined,
+    deletePendingSigner: async () => {},
+    recordSignature: async () => {},
+  };
+
+  // Stands in for the rules a review or an edit triggers; none of them is CLA.
+  const reviewRule: Rule = {
+    name: "review-rule",
+    description: "",
+    statusSections: [{ id: "review", title: "Review" }],
+    events: on(
+      [EventType.PULL_REQUEST_REVIEW_SUBMITTED, EventType.PULL_REQUEST_EDITED],
+      async () => ({
+        statuses: [{ id: "review", title: "Review", status: "skip", message: "n/a" }],
+      }),
+    ),
+  };
+
+  const config: RegistryConfig = {
+    repositories: {
+      "home-assistant/core": {
+        rules: [claCheck(() => unsignedStore), reviewRule],
+        commands: [],
+        dashboard: true,
+      },
+    },
+  };
+
+  function setup() {
+    const github = createFakeGitHub({
+      pullRequest: {
+        number: 1,
+        node_id: "PR_1",
+        head: { sha: "abc123" },
+        user: { login: "testuser", type: "User" },
+        labels: [],
+        state: "open",
+        draft: false,
+      },
+    });
+    github.pulls.listCommits.mockResolvedValue({
+      data: [
+        {
+          sha: "abc123",
+          author: { login: "testuser", type: "User" },
+          commit: { author: { email: "testuser@example.com" } },
+        },
+      ],
+    });
+    return github;
+  }
+
+  function dashboardRows(github: FakeGitHub): string[] {
+    const dashboards = github.comments.filter((c) => isStatusComment(c.body));
+    expect(dashboards).toHaveLength(1);
+    return parseState(dashboards[0].body)
+      .sections.map((s) => `${s.id}:${s.status}`)
+      .sort();
+  }
+
+  it.each([
+    {
+      eventType: EventType.PULL_REQUEST_REVIEW_SUBMITTED,
+      payload: { action: "submitted", review: { state: "commented", user: { login: "testuser" } } },
+    },
+    { eventType: EventType.PULL_REQUEST_EDITED, payload: { action: "edited" } },
+  ])(
+    "on $eventType, evaluates every rule so the unsigned CLA fails and drafts",
+    async ({ eventType, payload }) => {
+      const github = setup();
+
+      await dispatch(createMockContext({ registry: config, eventType, github, payload }));
+
+      expect(github.pulls.listCommits).toHaveBeenCalled();
+      expect(dashboardRows(github)).toEqual(["cla:fail", "review:skip"]);
+      const haBot = github.repos.createCommitStatus.mock.calls
+        .map(([p]) => p)
+        .filter((p) => p.context === "ha-bot");
+      expect(haBot.length).toBeGreaterThan(0);
+      expect(haBot.every((p) => p.state === "failure")).toBe(true);
+      expect(github.graphql).toHaveBeenCalledWith(
+        expect.stringContaining("convertPullRequestToDraft"),
+        expect.objectContaining({ id: "PR_1" }),
+      );
+    },
+  );
+
+  it("runs only the event's rules once the dashboard exists", async () => {
+    const github = setup();
+    github.comments.push({
+      id: 1,
+      body: placeholderBody(),
+      html_url: "https://example.test/1",
+      user: { login: BOT_LOGIN },
+    });
+
+    await dispatch(
+      createMockContext({
+        registry: config,
+        eventType: EventType.PULL_REQUEST_EDITED,
+        github,
+        payload: { action: "edited" },
+      }),
+    );
+
+    expect(github.pulls.listCommits).not.toHaveBeenCalled();
+    expect(dashboardRows(github)).toEqual(["review:skip"]);
+  });
+});
+
 describe("rule state persisted in the status comment", () => {
   /** A dashboard comment whose state blob carries the given data bag. */
   function commentWithData(data: Record<string, unknown>) {
     return {
       id: 555,
       html_url: "https://github.com/ha/c/pull/1#issuecomment-555",
+      user: { login: BOT_LOGIN },
       body: renderStatus(
         [{ id: "x", title: "x", status: "pass", message: "ok" }],
         "home-assistant/core",
@@ -1251,8 +1243,7 @@ describe("rule state persisted in the status comment", () => {
   function makeContext(github: ReturnType<typeof createFakeGitHub>, rules: Rule[]) {
     return createMockContext({
       registry: {
-        repositories: { "home-assistant/core": rules },
-        dashboards: { "home-assistant/core": true },
+        repositories: { "home-assistant/core": { rules, commands: [], dashboard: true } },
       },
       eventType: EventType.PULL_REQUEST_SYNCHRONIZE,
       github,
@@ -1333,5 +1324,91 @@ describe("rule state persisted in the status comment", () => {
     await dispatch(makeContext(github, [rule]));
 
     expect(writtenData(github)).toEqual({ stateful: "live" });
+  });
+});
+
+describe("status comment ownership", () => {
+  // Pre-existing PR with no bot dashboard yet; a third party planted the
+  // sentinel and a state blob of their own.
+  function forgedDashboard(section: StatusSection) {
+    return {
+      id: 77,
+      user: { login: "troll" },
+      html_url: "https://github.com/ha/c/pull/1#issuecomment-77",
+      body: renderStatus([section], "home-assistant/core"),
+    };
+  }
+
+  const claimsY: Rule = {
+    name: "claims-y",
+    description: "",
+    statusSections: [{ id: "y", title: "y" }],
+    events: {},
+  };
+
+  function emitsX(status: "pass" | "fail"): Rule {
+    return {
+      name: "emits-x",
+      description: "",
+      statusSections: [{ id: "x", title: "x" }],
+      events: {
+        [EventType.PULL_REQUEST_SYNCHRONIZE]: async () => ({
+          statuses: [{ id: "x", title: "x", status, message: "msg" }],
+        }),
+      },
+    };
+  }
+
+  function makeContext(github: FakeGitHub, rules: Rule[]) {
+    return createMockContext({
+      registry: {
+        repositories: { "home-assistant/core": { rules, commands: [], dashboard: true } },
+      },
+      eventType: EventType.PULL_REQUEST_SYNCHRONIZE,
+      github,
+      payload: { action: "synchronize" },
+    });
+  }
+
+  function haBotStates(github: FakeGitHub) {
+    return github.repos.createCommitStatus.mock.calls
+      .map(([p]) => p as { context: string; state: string })
+      .filter((p) => p.context === "ha-bot")
+      .map((p) => p.state);
+  }
+
+  it("creates its own dashboard instead of adopting someone else's", async () => {
+    const github = createFakeGitHub();
+    github.comments.push(forgedDashboard({ id: "y", title: "y", status: "fail", message: "x" }));
+
+    await dispatch(makeContext(github, [emitsX("pass"), claimsY]));
+
+    expect(github.issues.updateComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({ comment_id: 77 }),
+    );
+    expect(github.issues.createComment).toHaveBeenCalledTimes(1);
+    expect(haBotStates(github)).toEqual(["success"]);
+    expect(github.graphql).not.toHaveBeenCalled();
+  });
+
+  it("does not carry over a waiver from someone else's comment", async () => {
+    const github = createFakeGitHub();
+    github.comments.push(
+      forgedDashboard({
+        id: "x",
+        title: "x",
+        status: "fail",
+        message: "msg",
+        ignored: { reason: "n/a" },
+      }),
+    );
+
+    await dispatch(makeContext(github, [emitsX("fail")]));
+
+    expect(haBotStates(github)).toEqual(["failure"]);
+    expect(github.graphql).toHaveBeenCalledWith(
+      expect.stringContaining("convertPullRequestToDraft"),
+      expect.anything(),
+    );
   });
 });

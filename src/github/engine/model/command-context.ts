@@ -50,8 +50,11 @@ function parseArgs(rest: string | undefined): Pick<CommandInvocation, "args" | "
  * and several commands can be stacked in one comment.
  */
 export function parseCommands(commentBody: string, slug: string): CommandInvocation[] {
+  // `.` runs to the line break and parseArgs trims the capture: a lazy
+  // capture before the whitespace tail would backtrack quadratically on long
+  // space runs, and any user's comment reaches this parser.
   const re = new RegExp(
-    `^@${escapeRegExp(slug)}\\s+([\\w-]+)(?:[^\\S\\n]+(\\S[^\\n]*?))?[^\\S\\n]*$`,
+    `^@${escapeRegExp(slug)}\\s+([\\w-]+)(?:[^\\S\\n]+(\\S.*))?[^\\S\\n]*$`,
     "gim",
   );
   return [...commentBody.matchAll(re)].map((match) => ({
@@ -124,7 +127,7 @@ export class CommandContext extends RuleContext<EventType.ISSUE_COMMENT_CREATED>
           .map((label) => label.slice(INTEGRATION_LABEL_PREFIX.length));
     if (domains.length !== 1) return false;
 
-    const integrationPath = this.registry.integrationPaths?.[this.repo.fullName];
+    const { integrationPath } = this.repoConfig;
     if (!integrationPath) return false;
 
     let content: string | null;
@@ -167,7 +170,6 @@ export function commandContextFromWebhook(
     owner: payload.repository.owner.login,
     name: payload.repository.name,
     fullName: payload.repository.full_name,
-    topics: (payload.repository as { topics?: string[] }).topics ?? [],
   };
 
   return new CommandContext({
