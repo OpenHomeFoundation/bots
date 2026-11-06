@@ -75,7 +75,7 @@ const RETRY_MAX_MS = 5 * 60_000;
  * growing delay (30 s, 60 s, ... capped at 5 min) until the schema is up to
  * date. While the database is unreachable only the CLA check degrades: its
  * store calls fail, and the engine logs a failing rule and runs the others,
- * so GitHub and Discord keep working, as they did when DynamoDB was down.
+ * so GitHub and Discord keep working.
  *
  * A failed run applies nothing: Postgres has transactional DDL, and Kysely
  * runs the pending migrations in one transaction.
