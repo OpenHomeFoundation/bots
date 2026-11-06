@@ -9,10 +9,10 @@ import { DRAFT_ON_CHANGES_REQUESTED_MARKER } from "../../../src/github/rules/dra
 import { createE2EHarness, prOpenedPayload } from "../helpers/e2e.js";
 import { createMockContext } from "../helpers/mock-context.js";
 
-// The production store reads DynamoDB; here nobody has signed.
+// The production store reads Postgres; here nobody has signed.
 vi.mock("../../../src/cla/store.js", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  dynamoClaStore: (): ClaStore => ({
+  postgresClaStore: (): ClaStore => ({
     hasSigned: async () => false,
     recordPendingSigners: async () => {},
     getPendingSigner: async () => undefined,

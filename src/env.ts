@@ -20,11 +20,9 @@ export const envSchema = z.object({
   DISCORD_TOKEN: z.string().optional(),
 
   // CLA storage and sign flow. The CLA check and the /cla-sign endpoints
-  // only activate when the DynamoDB settings are set — absence means
+  // only activate when the database URL is set — absence means
   // "no CLA", not a misconfiguration.
-  CLA_DDB_REGION: z.string().optional(),
-  CLA_SIGNERS_TABLE: z.string().optional(),
-  CLA_PENDING_SIGNERS_TABLE: z.string().optional(),
+  CLA_DATABASE_URL: z.string().optional(),
   // OAuth app backing the sign form's GitHub login.
   CLA_SIGN_CLIENT_ID: z.string().optional(),
   CLA_SIGN_CLIENT_SECRET: z.string().optional(),

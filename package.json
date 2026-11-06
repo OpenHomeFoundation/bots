@@ -22,6 +22,7 @@
     "capture": "node scripts/capture-webhooks.ts",
     "scrub": "node scripts/capture-webhooks.ts scrub",
     "capture-discord": "pnpm build && node scripts/capture-discord.ts",
+    "migrate-cla": "pnpm build && node scripts/migrate-cla-from-dynamodb.ts",
     "sync-templates": "node scripts/sync-templates.ts",
     "check-io-sections": "pnpm build && node scripts/check-io-sections.ts"
   },
@@ -29,7 +30,6 @@
     "*": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1090.0",
     "@nestjs/common": "^11.1.29",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.29",
@@ -42,7 +42,9 @@
     "@octokit/webhooks-types": "^7.6.1",
     "@sentry/nestjs": "^10.70.0",
     "discord.js": "^14.26.5",
+    "kysely": "^0.29.5",
     "mustache": "^4.2.0",
+    "pg": "^8.23.0",
     "pino": "^10.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -50,6 +52,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1121.0",
     "@biomejs/biome": "^2.5.8",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/testing": "^11.1.29",
@@ -58,6 +61,7 @@
     "@types/express": "^5.0.6",
     "@types/mustache": "^4.2.6",
     "@types/node": "^26.1.1",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.10",
     "chokidar": "^5.0.0",
