@@ -1,10 +1,10 @@
 name: Release Please
 
 # Maintains a release PR from the conventional commits on main (squash-merged
-# PR titles). Merging it bumps package.json, updates CHANGELOG.md, tags, and
-# cuts a *draft* GitHub release — publishing that draft stays a human act so
-# the `release: published` deploy in release.yml is triggered by a user, not
-# by GITHUB_TOKEN (whose events don't start workflows).
+# PR titles). Merging it bumps package.json, updates CHANGELOG.md, then tags
+# and publishes the GitHub release, which starts the deploy in release.yml.
+# The release is created with RELEASE_PLEASE_TOKEN because events created with
+# GITHUB_TOKEN do not start workflows.
 
 on:
   push:
@@ -20,5 +20,9 @@ jobs:
     name: Release Please
     runs-on: ubuntu-latest
     steps:
-      - name: Update the release PR / cut a draft release
+      - name: Update the release PR / publish the release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
