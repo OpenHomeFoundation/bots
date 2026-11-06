@@ -23,6 +23,7 @@
     "scrub": "node scripts/capture-webhooks.ts scrub",
     "capture-discord": "pnpm build && node scripts/capture-discord.ts",
     "migrate-cla": "pnpm build && node scripts/migrate-cla-from-dynamodb.ts",
+    "verify-cla": "pnpm build && node scripts/verify-cla-migration.ts",
     "sync-templates": "node scripts/sync-templates.ts",
     "check-io-sections": "pnpm build && node scripts/check-io-sections.ts"
   },
