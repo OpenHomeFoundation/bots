@@ -17,9 +17,6 @@ jobs:
   deploy-container:
     name: Deploy container
     runs-on: ubuntu-latest
-    env:
-      TFC_TOKEN: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
-      TFC_VARSET_ID: ${{ secrets.TERRAFORM_CLOUD_VARSET_ID }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,7 +34,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ghcr.io/${{ github.repository_owner }}/ohf-bots
+          images: ghcr.io/${{ github.repository_owner }}/bots
           tags: type=semver,pattern={{version}}
           flavor: latest=false
 
@@ -51,27 +48,84 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
 
-      - name: Update the Terraform variable set
-        if: env.TFC_TOKEN != '' && env.TFC_VARSET_ID != ''
-        shell: bash
+      # Bump the image tag in the Terraform Cloud variable set, then queue a
+      # run that applies itself.
+      # Whether the service actually runs is the workspace's
+      # bots_desired_count, not this workflow: a release before the cutover
+      # rolls the task definition forward while the service stays at 0 tasks.
+      - name: Update Terraform variable set
         env:
-          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+          TF_TOKEN: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+          VARSET_ID: ${{ secrets.TERRAFORM_CLOUD_VARSET_ID }}
+          VAR_KEY: bots_image_tag
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          variable_id=$(curl -sSL --fail-with-body \
-            --header "Authorization: Bearer ${TFC_TOKEN}" \
+          variable_id=$(curl -sSL \
+            --header "Authorization: Bearer $TF_TOKEN" \
             --header "Content-Type: application/vnd.api+json" \
             --request GET \
-            "https://app.terraform.io/api/v2/varsets/${TFC_VARSET_ID}" \
-            | jq -r '.data.relationships.vars.data[0].id // empty')
+              "https://app.terraform.io/api/v2/varsets/$VARSET_ID/relationships/vars" \
+              | jq -r --arg k "$VAR_KEY" '.data[] | select(.attributes.key == $k) | .id')
 
-          if [ -z "${variable_id}" ]; then
-            echo "::error::Could not resolve a variable id from the varset"
+          if [ -z "$variable_id" ] || [ "$variable_id" = "null" ]; then
+            echo "::error::Variable '$VAR_KEY' not found in the configured variable set" >&2
             exit 1
           fi
 
-          curl -sSL --fail-with-body \
-            --header "Authorization: Bearer ${TFC_TOKEN}" \
+          # The response body echoes the full variable object, so it is
+          # discarded, and --fail makes a non-2xx fail the step.
+          curl -sSL --fail -o /dev/null \
+            --header "Authorization: Bearer $TF_TOKEN" \
             --header "Content-Type: application/vnd.api+json" \
             --request PATCH \
-            --data "{\"data\": {\"type\": \"vars\", \"attributes\": {\"value\": \"${IMAGE_VERSION}\"}}}" \
-            "https://app.terraform.io/api/v2/varsets/${TFC_VARSET_ID}/relationships/vars/${variable_id}"
+            --data "$(jq -n --arg v "$VERSION" '{data: {type: "vars", attributes: {value: $v}}}')" \
+              "https://app.terraform.io/api/v2/varsets/$VARSET_ID/relationships/vars/$variable_id"
+
+      - name: Trigger Terraform apply
+        env:
+          TF_TOKEN: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+          TF_ORG: ohf
+          TF_WORKSPACE: bots
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # The variable set update above does not queue a run on its own, so we
+          # create one explicitly and let Terraform Cloud apply it without manual
+          # confirmation. bots is its own workspace/state, so this only
+          # deploys the bots service; shared infrastructure is untouched.
+          workspace_id=$(curl -sSL \
+            --header "Authorization: Bearer $TF_TOKEN" \
+            --header "Content-Type: application/vnd.api+json" \
+            --request GET \
+              "https://app.terraform.io/api/v2/organizations/$TF_ORG/workspaces/$TF_WORKSPACE" \
+              | jq -r '.data.id')
+
+          if [ -z "$workspace_id" ] || [ "$workspace_id" = "null" ]; then
+            echo "::error::Could not resolve Terraform Cloud workspace '$TF_WORKSPACE'" >&2
+            exit 1
+          fi
+
+          run_id=$(curl -sSL \
+            --header "Authorization: Bearer $TF_TOKEN" \
+            --header "Content-Type: application/vnd.api+json" \
+            --request POST \
+            --data "$(jq -n --arg ws "$workspace_id" --arg v "$VERSION" '{
+              data: {
+                type: "runs",
+                attributes: {
+                  message: "Deploy bots \($v) (release action)",
+                  "auto-apply": true
+                },
+                relationships: {
+                  workspace: { data: { type: "workspaces", id: $ws } }
+                }
+              }
+            }')" \
+              "https://app.terraform.io/api/v2/runs" \
+              | jq -r '.data.id')
+
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::Failed to create Terraform Cloud run" >&2
+            exit 1
+          fi
+
+          echo "Triggered Terraform Cloud run $run_id (auto-apply) for $TF_WORKSPACE"
