@@ -46,6 +46,17 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
+  const hasDiagnostics = parsed.some(
+    (p) => p.type === "component" && p.filename === "diagnostics.py",
+  );
+  if (hasDiagnostics) {
+    issues.push(
+      "Remove `diagnostics.py` — diagnostics should be added in a follow-up PR once the " +
+        "integration is merged. See the " +
+        "[review process](https://developers.home-assistant.io/docs/review-process/#home-assistant-core).",
+    );
+  }
+
   if (issues.length === 0) {
     return { status: "pass", message: "Validation passed." };
   }
@@ -55,7 +66,8 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
 export const newIntegrationValidation = check({
   id: "new-integration-validation",
   title: "New integration validation",
-  description: "Validates new-integration PRs for platform count and brand folder placement",
+  description:
+    "Validates new-integration PRs for platform count, brand folder placement and diagnostics",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,

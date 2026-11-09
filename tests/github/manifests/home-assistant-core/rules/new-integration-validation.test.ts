@@ -100,6 +100,40 @@ describe("new-integration-validation", () => {
     expect(result?.section?.message).toContain("brand");
   });
 
+  it("fails when diagnostics are included", async () => {
+    const context = createMockContext({
+      eventType: EventType.ON_DEMAND,
+      payload: {
+        label: { name: "new-integration" },
+        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
+      },
+    });
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/sensor.py"),
+      makeFile("homeassistant/components/mydevice/diagnostics.py"),
+      makeFile("tests/components/mydevice/test_diagnostics.py"),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.section?.message).toContain("diagnostics.py");
+    expect(result?.section?.message).not.toContain("single platform");
+  });
+
+  it("does not flag diagnostics on PRs that don't add a new integration", async () => {
+    const context = createMockContext({
+      eventType: EventType.ON_DEMAND,
+      payload: {
+        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-feature" }] },
+      },
+    });
+    mockPRFiles(context, [makeFile("homeassistant/components/mydevice/diagnostics.py")]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "skip" });
+  });
+
   it("reports both issues when multiple platforms AND brand folder", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,
