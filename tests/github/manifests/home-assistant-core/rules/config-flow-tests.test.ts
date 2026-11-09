@@ -45,17 +45,6 @@ describe("config-flow-tests", () => {
     expect(result?.section).toMatchObject({ id: "config-flow-tests", status: "pass" });
   });
 
-  it("passes when a modified config flow comes with updated tests", async () => {
-    const context = prContext();
-    mockPRFiles(context, [
-      makeFile("homeassistant/components/hue/config_flow.py", "modified"),
-      makeFile("tests/components/hue/test_config_flow.py", "modified"),
-    ]);
-
-    const result = await runRule(configFlowTests, context);
-    expect(result?.section?.status).toBe("pass");
-  });
-
   it("fails when a config flow is added without tests", async () => {
     const context = prContext();
     mockPRFiles(context, [
@@ -70,21 +59,20 @@ describe("config-flow-tests", () => {
     expect(result?.section?.message).toContain("test_config_flow.py");
   });
 
-  it("fails when a config flow is modified without tests", async () => {
+  it("skips when an existing config flow is modified without tests", async () => {
     const context = prContext();
     mockPRFiles(context, [makeFile("homeassistant/components/hue/config_flow.py", "modified")]);
 
     const result = await runRule(configFlowTests, context);
-    expect(result?.section?.status).toBe("fail");
-    expect(result?.section?.message).toContain("`hue`");
+    expect(result?.section).toMatchObject({ id: "config-flow-tests", status: "skip" });
   });
 
   it("does not count another integration's config flow tests", async () => {
     const context = prContext();
     mockPRFiles(context, [
-      makeFile("homeassistant/components/hue/config_flow.py", "modified"),
-      makeFile("homeassistant/components/deconz/config_flow.py", "modified"),
-      makeFile("tests/components/deconz/test_config_flow.py", "modified"),
+      makeFile("homeassistant/components/hue/config_flow.py"),
+      makeFile("homeassistant/components/deconz/config_flow.py"),
+      makeFile("tests/components/deconz/test_config_flow.py"),
     ]);
 
     const result = await runRule(configFlowTests, context);
@@ -115,7 +103,7 @@ describe("config-flow-tests", () => {
         },
       },
     });
-    mockPRFiles(context, [makeFile("homeassistant/components/hue/config_flow.py", "modified")]);
+    mockPRFiles(context, [makeFile("homeassistant/components/hue/config_flow.py")]);
 
     const result = await runRule(configFlowTests, context);
     expect(result?.section).toMatchObject({ id: "config-flow-tests", status: "skip" });

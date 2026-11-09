@@ -10,7 +10,7 @@ statuses:
   - id: config-flow-tests
     title: Config flow tests
     status: pass
-    message: Config flow changes come with config flow tests.
+    message: New config flows come with config flow tests.
   - id: docs-missing
     title: Documentation
     status: fail

@@ -10,7 +10,7 @@ statuses:
   - id: config-flow-tests
     title: Config flow tests
     status: skip
-    message: No config flow changes.
+    message: No new config flows added.
   - id: docs-missing
     title: Documentation
     status: skip
