@@ -1,6 +1,7 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
-import { type CheckOutcome, check } from "../../../engine/rule.js";
+import { on } from "../../../engine/rule.js";
+import type { Rule, RuleOutput } from "../../../engine/types.js";
 import {
   fetchResultingIntegrationManifest,
   manifestDependencies,
@@ -34,16 +35,12 @@ function expectedSuffixes(dependencies: readonly string[]): string[] {
   return [...new Set(suffixes)];
 }
 
-async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
-  if ("label" in ctx.event && ctx.event.label !== NEW_INTEGRATION_LABEL) return;
-  if (await isReleasePR(ctx.target)) {
-    return { status: "skip", message: "Not checked on release PRs." };
-  }
+/** One suggestion per new integration whose domain misses its transport suffix. */
+async function suggestions(ctx: RuleContext<HandledEvent>): Promise<string[]> {
+  if (await isReleasePR(ctx.target)) return [];
 
   const parsed = await parseFiles(ctx, await ctx.target.files());
-  if (!(await isNewIntegrationPR(ctx, parsed))) {
-    return { status: "skip", message: "Not a new-integration PR." };
-  }
+  if (!(await isNewIntegrationPR(ctx, parsed))) return [];
 
   // The integration being added is the one whose manifest the PR adds.
   const newDomains = [
@@ -56,51 +53,56 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     ),
   ].sort();
 
-  const suggestions: string[] = [];
-  const conforming: string[] = [];
+  const result: string[] = [];
   for (const domain of newDomains) {
     const manifest = await fetchResultingIntegrationManifest(ctx, domain);
     if (!manifest) continue;
     const suffixes = expectedSuffixes(manifestDependencies(manifest));
     if (suffixes.length === 0) continue;
-    if (suffixes.some((suffix) => domain.endsWith(suffix))) {
-      conforming.push(domain);
-      continue;
-    }
+    if (suffixes.some((suffix) => domain.endsWith(suffix))) continue;
+
     const names = suffixes.map((suffix) => `\`${domain}${suffix}\``).join(" or ");
     const suffixList = suffixes.map((suffix) => `\`${suffix}\``).join(" or ");
-    suggestions.push(
+    result.push(
       `Consider renaming \`${domain}\` to ${names}, following the ${suffixList} suffix ` +
         "core uses for integrations on this transport.",
     );
   }
-
-  if (suggestions.length > 0) {
-    return { status: "warn", message: suggestions.join("\n") };
-  }
-  if (conforming.length > 0) {
-    return {
-      status: "pass",
-      message: `Domain follows the transport naming convention: ${conforming.map((d) => `\`${d}\``).join(", ")}.`,
-    };
-  }
-  return { status: "skip", message: "No transport naming convention applies." };
+  return result;
 }
 
-export const integrationDomainName = check({
-  id: "integration-domain-name",
-  title: "Integration domain name",
+async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+  if ("label" in ctx.event && ctx.event.label !== NEW_INTEGRATION_LABEL) return;
+  // Plain rule (blocks, not check()): guard closed PRs itself.
+  if ((await ctx.target.state()) !== "open") return;
+
+  const found = await suggestions(ctx);
+  return {
+    blocks: [
+      {
+        block: "domain-name-suggestions",
+        args: found.length === 0 ? null : { suggestions: found },
+      },
+    ],
+  };
+}
+
+export const integrationDomainName: Rule = {
+  name: "integration-domain-name",
   description:
     "Suggests a transport suffix for new integration domains (`_ble` for Bluetooth, " +
-    "`_infrared` for infrared, `_modbus` for Modbus), read from the manifest the PR adds",
-  events: [
-    EventType.PULL_REQUEST_OPENED,
-    EventType.PULL_REQUEST_REOPENED,
-    EventType.PULL_REQUEST_EDITED,
-    EventType.PULL_REQUEST_LABELED,
-    EventType.PULL_REQUEST_UNLABELED,
-    EventType.PULL_REQUEST_SYNCHRONIZE,
-    EventType.ON_DEMAND,
-  ],
-  evaluate,
-});
+    "`_infrared` for infrared, `_radio_frequency` for radio frequency, `_modbus` for " +
+    "Modbus) on the PR dashboard, read from the manifest the PR adds",
+  events: on(
+    [
+      EventType.PULL_REQUEST_OPENED,
+      EventType.PULL_REQUEST_REOPENED,
+      EventType.PULL_REQUEST_EDITED,
+      EventType.PULL_REQUEST_LABELED,
+      EventType.PULL_REQUEST_UNLABELED,
+      EventType.PULL_REQUEST_SYNCHRONIZE,
+      EventType.ON_DEMAND,
+    ],
+    evaluate,
+  ),
+};

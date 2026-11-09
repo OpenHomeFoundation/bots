@@ -7,10 +7,6 @@ statuses:
     title: Single new platform
     status: skip
     message: New-integration PRs are checked by new integration validation.
-  - id: integration-domain-name
-    title: Integration domain name
-    status: skip
-    message: No transport naming convention applies.
   - id: docs-missing
     title: Documentation
     status: fail

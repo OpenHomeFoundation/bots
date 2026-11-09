@@ -7,10 +7,6 @@ statuses:
     title: Single new platform
     status: skip
     message: Not checked on release PRs.
-  - id: integration-domain-name
-    title: Integration domain name
-    status: skip
-    message: Not checked on release PRs.
   - id: docs-missing
     title: Documentation
     status: skip

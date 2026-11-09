@@ -32,8 +32,8 @@ interface Transport {
   carrier?: true;
   /**
    * The domain suffix core uses for integrations on this transport
-   * (`xiaomi_ble`, `lg_infrared`, `solaredge_modbus`), suggested by
-   * integration-domain-name. Unset where core has no such convention.
+   * (`xiaomi_ble`, `lg_infrared`, `solaredge_modbus`, `<name>_radio_frequency`),
+   * suggested by integration-domain-name. Unset where core has no such convention.
    */
   domainSuffix?: string;
 }
@@ -44,7 +44,7 @@ export const TRANSPORTS: readonly Transport[] = [
   // reach for `bluetooth` itself.
   { label: "bluetooth", domains: ["bluetooth", "bluetooth_adapters"], domainSuffix: "_ble" },
   { label: "ir", domains: ["infrared"], domainSuffix: "_infrared" },
-  { label: "rf", domains: ["radio_frequency"] },
+  { label: "rf", domains: ["radio_frequency"], domainSuffix: "_radio_frequency" },
   { label: "modbus", domains: ["modbus"], domainSuffix: "_modbus" },
   // `usb` is core's serial transport — discovery plus the port handle.
   // `homeassistant_hardware` sits on top of it for the first-party radios.

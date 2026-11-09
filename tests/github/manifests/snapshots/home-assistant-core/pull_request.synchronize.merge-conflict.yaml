@@ -7,10 +7,6 @@ statuses:
     title: Single new platform
     status: skip
     message: No new platforms added.
-  - id: integration-domain-name
-    title: Integration domain name
-    status: skip
-    message: Not a new-integration PR.
   - id: docs-missing
     title: Documentation
     status: skip
