@@ -21,6 +21,7 @@ import { itemIntegrationDomains } from "./helpers/integration-domains.js";
 import { coreIssueContext } from "./issue-context.js";
 import { changeType } from "./rules/change-type.js";
 import { dependencyBump } from "./rules/dependency-bump.js";
+import { discoveryExemption } from "./rules/discovery-exemption.js";
 import { docsPrPresent } from "./rules/docs-pr-present.js";
 import { fileShape } from "./rules/file-shape.js";
 import { integrationTopRank } from "./rules/integration-top-rank.js";
@@ -53,6 +54,7 @@ export const homeAssistantCore: RepoManifest = {
     setIntegration({ domains: itemIntegrationDomains }),
     integrationTopRank,
     qualityScale,
+    discoveryExemption,
     newIntegrationValidation,
     singleNewPlatform,
     integrationTransport,

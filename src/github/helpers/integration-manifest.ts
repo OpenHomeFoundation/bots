@@ -23,6 +23,13 @@ const IntegrationManifestSchema = z.object({
   documentation: z.string().default(""),
   requirements: z.array(z.string()).default([]),
   iot_class: z.string().default(""),
+  integration_type: z.string().default("hub"),
+  // Discovery matchers: only their presence is read, so their shape isn't
+  // validated here.
+  zeroconf: z.unknown().optional(),
+  dhcp: z.unknown().optional(),
+  ssdp: z.unknown().optional(),
+  homekit: z.unknown().optional(),
 });
 
 export type IntegrationManifest = z.infer<typeof IntegrationManifestSchema>;

@@ -1,4 +1,8 @@
 statuses:
+  - id: discovery-exemption
+    title: Discovery exemption
+    status: skip
+    message: No quality_scale.yaml changed.
   - id: new-integration-validation
     title: New integration validation
     status: skip
