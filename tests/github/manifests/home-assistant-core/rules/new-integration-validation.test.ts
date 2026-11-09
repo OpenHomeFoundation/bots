@@ -11,10 +11,11 @@ import {
   runRule,
 } from "../../../helpers/mock-context.js";
 
-function makeFile(filename: string, status = "added") {
+function makeFile(filename: string, status = "added", patch?: string) {
   return {
     filename,
     status,
+    ...(patch === undefined ? {} : { patch }),
     additions: 10,
     deletions: 0,
     changes: 10,
@@ -119,6 +120,126 @@ describe("new-integration-validation", () => {
     expect(result?.section?.status).toBe("fail");
     expect(result?.section?.message).toContain("single platform");
     expect(result?.section?.message).toContain("brand");
+  });
+
+  describe("reauth and reconfigure flows", () => {
+    const FLOW_HEADER = [
+      "@@ -0,0 +1,20 @@",
+      "+class MyDeviceConfigFlow(ConfigFlow, domain=DOMAIN):",
+      "+    async def async_step_user(self, user_input=None):",
+      "+        pass",
+    ];
+
+    function newIntegrationContext(github = createFakeGitHub()) {
+      return createMockContext({
+        eventType: EventType.ON_DEMAND,
+        github,
+        payload: {
+          pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
+        },
+      });
+    }
+
+    it("fails when the config flow adds a reauth flow", async () => {
+      const context = newIntegrationContext();
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/mydevice/__init__.py"),
+        makeFile(
+          "homeassistant/components/mydevice/config_flow.py",
+          "added",
+          [
+            ...FLOW_HEADER,
+            "+    async def async_step_reauth(self, entry_data):",
+            "+        return await self.async_step_reauth_confirm()",
+            "+    async def async_step_reauth_confirm(self, user_input=None):",
+            "+        pass",
+          ].join("\n"),
+        ),
+      ]);
+
+      const result = await runRule(newIntegrationValidation, context);
+      expect(result?.section?.status).toBe("fail");
+      expect(result?.section?.message).toContain("`reauth` flow");
+      expect(result?.section?.message).not.toContain("reconfigure");
+    });
+
+    it("fails when the config flow adds a reconfigure flow", async () => {
+      const context = newIntegrationContext();
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/mydevice/__init__.py"),
+        makeFile(
+          "homeassistant/components/mydevice/config_flow.py",
+          "added",
+          [
+            ...FLOW_HEADER,
+            "+    async def async_step_reconfigure(self, user_input=None):",
+            "+        pass",
+          ].join("\n"),
+        ),
+      ]);
+
+      const result = await runRule(newIntegrationValidation, context);
+      expect(result?.section?.status).toBe("fail");
+      expect(result?.section?.message).toContain("`reconfigure` flow");
+    });
+
+    it("names both flows when both are added", async () => {
+      const context = newIntegrationContext();
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/mydevice/__init__.py"),
+        makeFile(
+          "homeassistant/components/mydevice/config_flow.py",
+          "added",
+          [
+            ...FLOW_HEADER,
+            "+    async def async_step_reconfigure(self, user_input=None):",
+            "+        pass",
+            "+    async def async_step_reauth(self, entry_data):",
+            "+        pass",
+          ].join("\n"),
+        ),
+      ]);
+
+      const result = await runRule(newIntegrationValidation, context);
+      expect(result?.section?.status).toBe("fail");
+      expect(result?.section?.message).toContain("`reauth` and `reconfigure` flows");
+    });
+
+    it("passes when the config flow only has a user step", async () => {
+      const context = newIntegrationContext();
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/mydevice/__init__.py"),
+        makeFile(
+          "homeassistant/components/mydevice/config_flow.py",
+          "added",
+          FLOW_HEADER.join("\n"),
+        ),
+      ]);
+
+      const result = await runRule(newIntegrationValidation, context);
+      expect(result?.section?.status).toBe("pass");
+    });
+
+    it("reads the file at the head commit when GitHub omits the patch", async () => {
+      const github = createFakeGitHub({
+        contents: {
+          "homeassistant/components/mydevice/config_flow.py": [
+            "class MyDeviceConfigFlow(ConfigFlow, domain=DOMAIN):",
+            "    async def async_step_reauth(self, entry_data):",
+            "        pass",
+          ].join("\n"),
+        },
+      });
+      const context = newIntegrationContext(github);
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/mydevice/__init__.py"),
+        makeFile("homeassistant/components/mydevice/config_flow.py"),
+      ]);
+
+      const result = await runRule(newIntegrationValidation, context);
+      expect(result?.section?.status).toBe("fail");
+      expect(result?.section?.message).toContain("`reauth` flow");
+    });
   });
 
   it("skips release PRs", async () => {
