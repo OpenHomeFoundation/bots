@@ -119,6 +119,25 @@ const scenarios: Record<string, Scenario> = {
     state: { files: [{ filename: "requirements_all.txt", additions: 2 }] },
   },
 
+  "pull_request.opened.pylint-checker": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: prPayload("opened", {
+      number: 28,
+      title: "Add pylint checker for untyped config entries",
+      body: prBody({ checked: ["code-quality"], text: "Adds a pylint checker." }),
+    }),
+    state: {
+      files: [
+        {
+          filename: "packages/pylint-home-assistant/pylint_home_assistant/checkers/typed_entry.py",
+          status: "added",
+          additions: 120,
+        },
+        { filename: "tests/pylint/test_typed_entry.py", status: "added", additions: 180 },
+      ],
+    },
+  },
+
   "pull_request.opened.new-integration-no-docs": {
     eventType: EventType.PULL_REQUEST_OPENED,
     payload: prPayload("opened", {
