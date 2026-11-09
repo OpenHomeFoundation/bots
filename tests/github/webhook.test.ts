@@ -173,4 +173,54 @@ describe("webhook handler", () => {
     expect(result).toBe("OK");
     expect(dispatch).toHaveBeenCalled();
   });
+
+  const repository = {
+    full_name: "home-assistant/core",
+    name: "core",
+    owner: { login: "home-assistant" },
+  };
+  const staleBot = { login: "issue-triage-workflows[bot]", type: "Bot" };
+
+  it.each([
+    ["pull_request", "labeled", { pull_request: { number: 1, head: { sha: "abc" } } }],
+    ["pull_request", "unlabeled", { pull_request: { number: 1, head: { sha: "abc" } } }],
+    ["issues", "labeled", { issue: { number: 1 } }],
+  ])("ignores the stale bot's %s.%s of the stale label", async (event, action, item) => {
+    dispatch.mockClear();
+
+    const payload = { action, repository, sender: staleBot, label: { name: "stale" }, ...item };
+    const result = await service.handle(JSON.stringify(payload), event);
+
+    expect(result).toBe("OK");
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("still dispatches when a person adds the stale label", async () => {
+    dispatch.mockClear();
+
+    const payload = {
+      action: "labeled",
+      repository,
+      sender: { login: "testuser", type: "User" },
+      label: { name: "stale" },
+      pull_request: { number: 1, head: { sha: "abc" } },
+    };
+    await service.handle(JSON.stringify(payload), "pull_request");
+
+    expect(dispatch).toHaveBeenCalled();
+  });
+
+  it("still dispatches when the stale bot closes a PR", async () => {
+    dispatch.mockClear();
+
+    const payload = {
+      action: "closed",
+      repository,
+      sender: staleBot,
+      pull_request: { number: 1, head: { sha: "abc" }, merged: false },
+    };
+    await service.handle(JSON.stringify(payload), "pull_request");
+
+    expect(dispatch).toHaveBeenCalled();
+  });
 });

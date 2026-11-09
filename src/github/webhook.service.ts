@@ -6,7 +6,11 @@ import { log } from "../log.js";
 import { dispatch, dispatchCommand } from "./engine/dispatch.js";
 import { EventType } from "./engine/event.js";
 import { commandContextFromWebhook, isBotCommand } from "./engine/model/command-context.js";
-import { ruleContextFromWebhook, type WebhookEventPayload } from "./engine/model/rule-context.js";
+import {
+  type RuleContext,
+  ruleContextFromWebhook,
+  type WebhookEventPayload,
+} from "./engine/model/rule-context.js";
 import type { RegistryConfig } from "./engine/types.js";
 import { OCTOKIT } from "./octokit.provider.js";
 import { logRace } from "./race-monitor.js";
@@ -14,6 +18,21 @@ import { REGISTRY_CONFIG } from "./registry.provider.js";
 import type { IssueCommentCreatedEvent } from "./webhook-events.js";
 
 const KNOWN_EVENT_TYPES = new Set<string>(Object.values(EventType));
+
+/**
+ * actions/stale removes its label again once the item changes after it was
+ * marked, so anything we do in response to its label changes would undo them.
+ */
+function isStaleLabelChangeByBot(context: RuleContext): boolean {
+  const { event } = context;
+  return (
+    context.senderIsBot &&
+    (event.type === EventType.PULL_REQUEST_LABELED ||
+      event.type === EventType.PULL_REQUEST_UNLABELED ||
+      event.type === EventType.ISSUES_LABELED) &&
+    event.label === "stale"
+  );
+}
 
 @Injectable()
 export class WebhookService {
@@ -84,6 +103,7 @@ export class WebhookService {
       payload,
       eventType,
     );
+    if (isStaleLabelChangeByBot(context)) return "OK";
     addLogContext({
       repository: context.repo.fullName,
       number: context.number,
