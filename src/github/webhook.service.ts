@@ -1,6 +1,5 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import type { Octokit } from "@octokit/rest";
-import type { IssueCommentCreatedEvent } from "@octokit/webhooks-types";
 import { addLogContext } from "../correlation.js";
 import { ENV, type Env } from "../env.js";
 import { log } from "../log.js";
@@ -12,6 +11,7 @@ import type { RegistryConfig } from "./engine/types.js";
 import { OCTOKIT } from "./octokit.provider.js";
 import { logRace } from "./race-monitor.js";
 import { REGISTRY_CONFIG } from "./registry.provider.js";
+import type { IssueCommentCreatedEvent } from "./webhook-events.js";
 
 const KNOWN_EVENT_TYPES = new Set<string>(Object.values(EventType));
 

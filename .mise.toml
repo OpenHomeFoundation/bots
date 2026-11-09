@@ -4,7 +4,7 @@
 
 [tools]
 node = "26"
-pnpm = "11.24.0" # keep in sync with package.json's packageManager
+pnpm = "12.18.0" # keep in sync with package.json's packageManager
 
 [env]
 # Loaded into every task's environment when present; missing file is ignored.
