@@ -30,6 +30,7 @@ import { issueLinks } from "./rules/issue-links.js";
 import { newIntegrationValidation } from "./rules/new-integration-validation.js";
 import { platinumApproval } from "./rules/platinum-approval.js";
 import { qualityScale } from "./rules/quality-scale.js";
+import { singleNewPlatform } from "./rules/single-new-platform.js";
 
 const componentCodeowners = (domain: string) => `homeassistant/components/${domain}/*`;
 
@@ -53,6 +54,7 @@ export const homeAssistantCore: RepoManifest = {
     integrationTopRank,
     qualityScale,
     newIntegrationValidation,
+    singleNewPlatform,
     integrationTransport,
     mentionCodeOwners({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
     byCodeOwner({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
