@@ -28,6 +28,7 @@ import { integrationTransport } from "./rules/integration-transport.js";
 import { issueContext } from "./rules/issue-context.js";
 import { issueLinks } from "./rules/issue-links.js";
 import { newIntegrationValidation } from "./rules/new-integration-validation.js";
+import { noDeviceAutomations } from "./rules/no-device-automations.js";
 import { platinumApproval } from "./rules/platinum-approval.js";
 import { qualityScale } from "./rules/quality-scale.js";
 import { singleNewPlatform } from "./rules/single-new-platform.js";
@@ -55,6 +56,7 @@ export const homeAssistantCore: RepoManifest = {
     qualityScale,
     newIntegrationValidation,
     singleNewPlatform,
+    noDeviceAutomations,
     integrationTransport,
     mentionCodeOwners({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
     byCodeOwner({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),

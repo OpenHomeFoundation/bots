@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: No new platforms added.
+  - id: no-device-automations
+    title: No new device automations
+    status: pass
+    message: No device automations added.
   - id: docs-missing
     title: Documentation
     status: skip

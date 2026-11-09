@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: New-integration PRs are checked by new integration validation.
+  - id: no-device-automations
+    title: No new device automations
+    status: pass
+    message: No device automations added.
   - id: docs-missing
     title: Documentation
     status: fail
