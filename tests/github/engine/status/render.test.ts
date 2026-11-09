@@ -230,6 +230,35 @@ describe("status renderer", () => {
       expect(parseState(result).blocks["integration-links"]).toBeDefined();
     });
 
+    it.each(["pull_request", "issue"] as const)(
+      "renders the code-owners ping on the %s dashboard, above the checks",
+      (target) => {
+        const sections: StatusSection[] = [{ id: "a", title: "A", status: "pass", message: "ok" }];
+        const result = renderStatus(sections, REPO, target, {
+          blocks: {
+            "code-owners": {
+              itemLabel: "pull request",
+              integrations: [
+                {
+                  mentions: "@balloob, @frenck",
+                  integration: "hue",
+                  codeownersLine: "https://c#L1",
+                },
+                { mentions: "@marcel", integration: "zha", codeownersLine: "https://c#L2" },
+              ],
+            },
+          },
+        });
+        expect(result).toContain(
+          "The following users are code owners of the integrations in this pull request:\n" +
+            "- `hue`: @balloob, @frenck ([CODEOWNERS](https://c#L1))\n" +
+            "- `zha`: @marcel ([CODEOWNERS](https://c#L2))\n",
+        );
+        expect(result.indexOf("code owners")).toBeLessThan(result.indexOf("## Checks"));
+        expect(parseState(result).blocks["code-owners"]).toBeDefined();
+      },
+    );
+
     it("omits the ## Checks block entirely when only blocks are visible", () => {
       const result = renderStatus([], REPO, "issue", {
         blocks: { "reporting-guidance": { paragraphs: ["First advice.", "Second advice."] } },

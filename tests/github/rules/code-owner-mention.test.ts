@@ -11,8 +11,15 @@ import {
   createMockContext,
   createMockIssueContext,
   mockPRFiles,
+  type RuleSummary,
   runRule,
 } from "../helpers/mock-context.js";
+
+/** The `code-owners` block args a rule run emitted, if any. */
+function codeOwnersBlock(result: RuleSummary | undefined) {
+  const update = result?.blocks.find((b) => b.block === "code-owners");
+  return update?.block === "code-owners" ? update.args : undefined;
+}
 
 const rule = mentionCodeOwners({
   domains: itemIntegrationDomains,
@@ -32,7 +39,7 @@ describe("mention-code-owners", () => {
     expect(result).toBeUndefined();
   });
 
-  it("assigns code owners and comments when integration is found", async () => {
+  it("assigns code owners and pings them in the dashboard when integration is found", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob @frenck`;
 
@@ -59,9 +66,39 @@ describe("mention-code-owners", () => {
     const result = await runRule(rule, context);
     expect(result?.assignees).toContain("balloob");
     expect(result?.assignees).toContain("frenck");
-    expect(result?.comment).toContain("@balloob");
-    expect(result?.comment).toContain("@frenck");
-    expect(result?.comment).toContain("code owner");
+    expect(result?.comments).toEqual([]);
+    expect(codeOwnersBlock(result)).toEqual({
+      itemLabel: "issue",
+      integrations: [
+        {
+          mentions: "@balloob, @frenck",
+          integration: "hue",
+          codeownersLine: "https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L1",
+        },
+      ],
+    });
+    expect(result?.state).toEqual({ mentioned: true });
+  });
+
+  it("does not ping again once the dashboard ping was sent", async () => {
+    const github = createFakeGitHub();
+    github.repos.getContent.mockResolvedValue({
+      data: { content: btoa(`homeassistant/components/hue/* @balloob`) },
+    });
+    github.issues.listComments.mockResolvedValue({ data: [] });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: hue" },
+        issue: { assignees: [], labels: [{ name: "integration: hue" }] },
+      },
+    });
+
+    const result = await runRule(rule, context, { mentioned: true });
+    expect(result).toBeUndefined();
   });
 
   it("does not mention owners already assigned", async () => {
@@ -90,8 +127,9 @@ describe("mention-code-owners", () => {
 
     const result = await runRule(rule, context);
     expect(result?.assignees).toContain("balloob");
-    // Comment should be undefined since the only owner is already assigned
-    expect(result?.comment).toBeUndefined();
+    // No ping since the only owner is already assigned
+    expect(codeOwnersBlock(result)).toBeUndefined();
+    expect(result?.state).toBeUndefined();
   });
 
   it("does not post again when a mention comment already exists", async () => {
@@ -149,7 +187,7 @@ describe("mention-code-owners", () => {
     });
 
     const result = await runRule(rule, context);
-    expect(result?.comment).toContain("@balloob");
+    expect(codeOwnersBlock(result)?.integrations[0].mentions).toBe("@balloob");
   });
 
   it("does not post again when the legacy bot already mentioned owners", async () => {
@@ -284,6 +322,7 @@ describe("mention-code-owners", () => {
           "home-assistant/core": {
             rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
             commands: [],
+            dashboard: true,
           },
         },
       };
@@ -312,9 +351,14 @@ describe("mention-code-owners", () => {
       expect(github.issues.addAssignees).toHaveBeenCalledWith(
         expect.objectContaining({ assignees: expect.arrayContaining(["balloob", "frenck"]) }),
       );
-      expect(github.issues.createComment).toHaveBeenCalledWith(
-        expect.objectContaining({ body: expect.stringContaining("@balloob") }),
+      // The ping lands in the dashboard, not in a comment of its own.
+      expect(github.issues.updateComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringMatching(/ha-bot-dashboard[\s\S]*`hue`: @balloob, @frenck/),
+        }),
       );
+      const created = github.issues.createComment.mock.calls.map((c) => c[0].body as string);
+      expect(created.some((b) => b.includes("@balloob"))).toBe(false);
     });
 
     it("does nothing on opened when the PR touches no integration files", async () => {
@@ -361,7 +405,7 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("uses custom itemLabel in comment", async () => {
+  it("uses custom itemLabel in the ping", async () => {
     const docsRule = mentionCodeOwners({
       domains: itemIntegrationDomains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
@@ -397,6 +441,6 @@ describe("mention-code-owners", () => {
     });
 
     const result = await runRule(docsRule, context);
-    expect(result?.comment).toContain("feedback");
+    expect(codeOwnersBlock(result)?.itemLabel).toBe("feedback");
   });
 });

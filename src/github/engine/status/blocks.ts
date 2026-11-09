@@ -18,6 +18,11 @@ export interface BlockArgsMap {
   "reporting-guidance": {
     paragraphs: string[];
   };
+  /** One-time code-owner ping per labeled integration (see code-owner-mention). */
+  "code-owners": {
+    itemLabel: string;
+    integrations: { mentions: string; integration: string; codeownersLine: string }[];
+  };
 }
 
 export type BlockId = keyof BlockArgsMap;
@@ -33,4 +38,8 @@ export type BlockStates = Partial<BlockArgsMap>;
  */
 export type BlockUpdates = ReadonlyMap<BlockId, BlockArgsMap[BlockId] | null>;
 
-export const BLOCK_IDS: readonly BlockId[] = ["integration-links", "reporting-guidance"];
+export const BLOCK_IDS: readonly BlockId[] = [
+  "integration-links",
+  "reporting-guidance",
+  "code-owners",
+];

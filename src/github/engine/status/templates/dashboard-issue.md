@@ -18,6 +18,13 @@ Before we dive in, please make sure this isn't a duplicate by searching through 
 {{/domains}}
 
 {{/blocks.integration-links}}
+{{#blocks.code-owners}}
+The following users are code owners of the integrations in this {{itemLabel}}:
+{{#integrations}}
+- `{{integration}}`: {{mentions}} ([CODEOWNERS]({{codeownersLine}}))
+{{/integrations}}
+
+{{/blocks.code-owners}}
 {{#hasChecks}}
 ## Checks
 

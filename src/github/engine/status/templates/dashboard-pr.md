@@ -24,6 +24,13 @@ Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one pe
 {{/hasCommands}}
 </details>
 
+{{#blocks.code-owners}}
+The following users are code owners of the integrations in this {{itemLabel}}:
+{{#integrations}}
+- `{{integration}}`: {{mentions}} ([CODEOWNERS]({{codeownersLine}}))
+{{/integrations}}
+
+{{/blocks.code-owners}}
 {{#hasChecks}}
 ## Checks
 

@@ -1,10 +1,8 @@
-import { readFileSync } from "node:fs";
-import Mustache from "mustache";
-import { commandsForTarget, commandViews } from "../engine/command-render.js";
 import { EventType } from "../engine/event.js";
 import { matchCodeOwners, parseCodeOwners } from "../engine/model/codeowners.js";
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
+import type { BlockArgsMap } from "../engine/status/blocks.js";
 import type { Effect, Rule, RuleOutput } from "../engine/types.js";
 import { isNonIntegrationLabelEvent } from "../helpers/integration-domains.js";
 
@@ -18,30 +16,33 @@ type HandledEvent =
   | EventType.ISSUES_ON_DEMAND
   | EventType.ON_DEMAND;
 
-// One ping per item: a comment carrying this marker means owners were already
-// mentioned, and no further mention comments are posted — even if new
-// integrations or code owners show up later. Assignment can fail silently
-// (owners without repo access), so comment presence is the only reliable state.
+type MentionEntry = BlockArgsMap["code-owners"]["integrations"][number];
+
+// One ping per item: once owners were mentioned, no further mentions are made
+// — even if new integrations or code owners show up later. The ping lives in
+// the dashboard's `code-owners` block; this rule's persisted state records
+// that it was sent. Assignment can fail silently (owners without repo
+// access), so assignees can't serve as that record.
+interface MentionState {
+  mentioned: true;
+}
+
+function wasMentioned(state: unknown): boolean {
+  return (state as MentionState | undefined)?.mentioned === true;
+}
+
+// Before the ping moved into the dashboard, it was a separate comment carrying
+// this marker. Still recognized, so items pinged that way aren't pinged again.
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
 // recognized by their template prose instead — the raw markdown including the
-// link opener, which no human types verbatim. The current template (and thus
-// every new mention comment) contains the same phrase, so this alone would
-// suffice; the marker stays as the primary, prose-independent signal.
+// link opener, which no human types verbatim.
 export const LEGACY_MENTION_SENTINEL = "you are listed as a [code owner](";
 
-/** Whether this comment is a code-owner mention (current or legacy deploy). */
+/** Whether this comment is a separate code-owner mention comment (earlier or legacy deploy). */
 export function isMentionComment(body: string | null | undefined): boolean {
   return !!body && (body.includes(MENTION_MARKER) || body.includes(LEGACY_MENTION_SENTINEL));
-}
-
-// Layout and prose live in the template; this rule only builds the view.
-// The marker is written literally there but grepped for here — fail at load
-// if a template edit breaks the pair (one-ping detection depends on it).
-const MENTION_TEMPLATE = readFileSync(new URL("./code-owner-mention.md", import.meta.url), "utf-8");
-if (!MENTION_TEMPLATE.includes(MENTION_MARKER)) {
-  throw new Error("code-owner-mention template lost its marker comment");
 }
 
 function processIntegration(
@@ -49,16 +50,15 @@ function processIntegration(
   integrationName: string,
   codeownersContent: string,
   pathPattern: (name: string) => string,
-  itemLabel: string,
   authorLogin: string,
   assignees: string[],
   commenters: string[],
-): Effect[] {
-  if (!codeownersContent.includes(integrationName)) return [];
+): { effects: Effect[]; mention?: MentionEntry } {
+  if (!codeownersContent.includes(integrationName)) return { effects: [] };
 
   const entries = parseCodeOwners(codeownersContent);
   const match = matchCodeOwners(pathPattern(integrationName), entries);
-  if (!match) return [];
+  if (!match) return { effects: [] };
 
   const owners = match.owners.map((o) => o.substring(1).toLowerCase());
   const codeownersLine = `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS#L${match.line}`;
@@ -74,29 +74,11 @@ function processIntegration(
     .filter((usr) => !assignees.includes(usr) && !commenters.includes(usr))
     .map((usr) => `@${usr}`);
 
-  if (mentions.length > 0) {
-    const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
-    effects.push({
-      type: "comment",
-      // Escaping disabled: the output is markdown, not HTML.
-      body: Mustache.render(
-        MENTION_TEMPLATE,
-        {
-          mentions: mentions.join(", "),
-          itemLabel,
-          integrationName,
-          codeownersLine,
-          commandSlug: ctx.env.COMMAND_SLUG,
-          hasCommands: applicable.length > 0,
-          commands: commandViews(ctx.env.COMMAND_SLUG, applicable),
-        },
-        undefined,
-        { escape: String },
-      ),
-    });
-  }
-
-  return effects;
+  if (mentions.length === 0) return { effects };
+  return {
+    effects,
+    mention: { mentions: mentions.join(", "), integration: integrationName, codeownersLine },
+  };
 }
 
 export function mentionCodeOwners(config: {
@@ -108,11 +90,16 @@ export function mentionCodeOwners(config: {
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
   itemLabel?: string;
 }): Rule {
-  async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+  async function handle(
+    ctx: RuleContext<HandledEvent>,
+    state: unknown,
+  ): Promise<RuleOutput | undefined> {
     if (isNonIntegrationLabelEvent(ctx)) return;
 
     // Never mention or assign on closed items — label events and ON_DEMAND fire on them too.
     if ((await ctx.target.state()) !== "open") return;
+
+    if (wasMentioned(state)) return;
 
     const integrationNames = await config.domains(ctx);
     if (integrationNames.length === 0) return;
@@ -134,22 +121,29 @@ export function mentionCodeOwners(config: {
     const itemLabel = config.itemLabel ?? (ctx.target.kind === "issue" ? "issue" : "pull request");
 
     const effects: Effect[] = [];
+    const integrations: MentionEntry[] = [];
     for (const integrationName of integrationNames) {
-      effects.push(
-        ...processIntegration(
-          ctx,
-          integrationName,
-          codeownersContent,
-          config.pathPattern,
-          itemLabel,
-          authorLogin,
-          assignees,
-          commenters,
-        ),
+      const result = processIntegration(
+        ctx,
+        integrationName,
+        codeownersContent,
+        config.pathPattern,
+        authorLogin,
+        assignees,
+        commenters,
       );
+      effects.push(...result.effects);
+      if (result.mention) integrations.push(result.mention);
     }
 
-    return effects.length > 0 ? { effects } : undefined;
+    if (integrations.length === 0) return effects.length > 0 ? { effects } : undefined;
+
+    const mentioned: MentionState = { mentioned: true };
+    return {
+      effects,
+      blocks: [{ block: "code-owners", args: { itemLabel, integrations } }],
+      state: mentioned,
+    };
   }
 
   return {
