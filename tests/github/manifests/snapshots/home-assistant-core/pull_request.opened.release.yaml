@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: Not checked on release PRs.
+  - id: no-translations
+    title: No generated translations
+    status: pass
+    message: No generated translation files included.
   - id: docs-missing
     title: Documentation
     status: skip
