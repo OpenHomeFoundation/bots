@@ -8,6 +8,7 @@ import {
   renderStatus,
 } from "../../../../src/github/engine/status/render.js";
 import type { StatusSection } from "../../../../src/github/engine/status/types.js";
+import { MENTION_MARKER } from "../../../../src/github/rules/code-owner-mention.js";
 
 const REPO = "home-assistant/core";
 
@@ -255,6 +256,8 @@ describe("status renderer", () => {
             "- `zha`: @marcel ([CODEOWNERS](https://c#L2))\n",
         );
         expect(result.indexOf("code owners")).toBeLessThan(result.indexOf("## Checks"));
+        // The marker is the rule's one-ping record (see code-owner-mention).
+        expect(result).toContain(MENTION_MARKER);
         expect(parseState(result).blocks["code-owners"]).toBeDefined();
       },
     );

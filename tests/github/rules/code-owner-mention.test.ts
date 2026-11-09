@@ -21,6 +21,20 @@ function codeOwnersBlock(result: RuleSummary | undefined) {
   return update?.block === "code-owners" ? update.args : undefined;
 }
 
+/** Both repos with the dashboard enabled, so the ping renders as a block. */
+const DASHBOARD: RegistryConfig = {
+  repositories: {
+    "home-assistant/core": { rules: [], commands: [], dashboard: true },
+    "home-assistant/home-assistant.io": { rules: [], commands: [], dashboard: true },
+  },
+};
+
+const IO_REPOSITORY = {
+  full_name: "home-assistant/home-assistant.io",
+  name: "home-assistant.io",
+  owner: { login: "home-assistant" },
+};
+
 const rule = mentionCodeOwners({
   domains: itemIntegrationDomains,
   pathPattern: (name) => `homeassistant/components/${name}/*`,
@@ -50,6 +64,7 @@ describe("mention-code-owners", () => {
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
     const context = createMockIssueContext({
+      registry: DASHBOARD,
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
@@ -77,28 +92,42 @@ describe("mention-code-owners", () => {
         },
       ],
     });
-    expect(result?.state).toEqual({ mentioned: true });
   });
 
-  it("does not ping again once the dashboard ping was sent", async () => {
+  it("pings once through the dashboard, then never again", async () => {
     const github = createFakeGitHub();
     github.repos.getContent.mockResolvedValue({
       data: { content: btoa(`homeassistant/components/hue/* @balloob`) },
     });
-    github.issues.listComments.mockResolvedValue({ data: [] });
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
-    const context = createMockIssueContext({
-      eventType: EventType.ISSUES_LABELED,
-      github,
-      payload: {
-        label: { name: "integration: hue" },
-        issue: { assignees: [], labels: [{ name: "integration: hue" }] },
-      },
-    });
+    const registry: RegistryConfig = {
+      repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
+    };
+    // Owners stay unassigned (e.g. no repo access), so only the marker in the
+    // dashboard can stop the second ping.
+    const labeled = () =>
+      createMockIssueContext({
+        registry,
+        eventType: EventType.ISSUES_LABELED,
+        github,
+        payload: {
+          label: { name: "integration: hue" },
+          issue: { assignees: [], labels: [{ name: "integration: hue" }] },
+        },
+      });
 
-    const result = await runRule(rule, context, { mentioned: true });
-    expect(result).toBeUndefined();
+    await dispatch(labeled());
+    expect(github.comments).toHaveLength(1);
+    expect(github.comments[0].body).toContain("ha-bot-dashboard");
+    expect(github.comments[0].body).toContain(MENTION_MARKER);
+    expect(github.comments[0].body).toContain("`hue`: @balloob");
+    const firstBody = github.comments[0].body;
+
+    await dispatch(labeled());
+    expect(github.comments).toHaveLength(1);
+    expect(github.comments[0].body).toBe(firstBody);
+    expect(github.issues.addAssignees).toHaveBeenCalledTimes(1);
   });
 
   it("does not mention owners already assigned", async () => {
@@ -129,7 +158,6 @@ describe("mention-code-owners", () => {
     expect(result?.assignees).toContain("balloob");
     // No ping since the only owner is already assigned
     expect(codeOwnersBlock(result)).toBeUndefined();
-    expect(result?.state).toBeUndefined();
   });
 
   it("does not post again when a mention comment already exists", async () => {
@@ -150,6 +178,7 @@ describe("mention-code-owners", () => {
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
     const context = createMockIssueContext({
+      registry: DASHBOARD,
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
@@ -178,6 +207,7 @@ describe("mention-code-owners", () => {
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
     const context = createMockIssueContext({
+      registry: DASHBOARD,
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
@@ -216,6 +246,7 @@ describe("mention-code-owners", () => {
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
     const context = createMockIssueContext({
+      registry: DASHBOARD,
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
@@ -370,6 +401,7 @@ describe("mention-code-owners", () => {
           "home-assistant/core": {
             rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
             commands: [],
+            dashboard: true,
           },
         },
       };
@@ -384,9 +416,11 @@ describe("mention-code-owners", () => {
       await dispatch(context);
 
       expect(github.issues.addAssignees).not.toHaveBeenCalled();
-      // Only the dashboard placeholder may be posted on opened — no mention.
-      const bodies = github.issues.createComment.mock.calls.map((c) => c[0].body as string);
-      expect(bodies.some((b) => b.includes(MENTION_MARKER))).toBe(false);
+      // The greeting dashboard is posted on opened, but without a ping.
+      expect(github.comments).toHaveLength(1);
+      expect(github.comments[0].body).toContain("ha-bot-dashboard");
+      expect(github.comments[0].body).not.toContain(MENTION_MARKER);
+      expect(github.comments[0].body).not.toContain("code owners");
     });
 
     it("subscribes to creation, change, and label events plus on_demand", () => {
@@ -422,6 +456,7 @@ describe("mention-code-owners", () => {
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
     const context = createMockIssueContext({
+      registry: DASHBOARD,
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
@@ -442,5 +477,125 @@ describe("mention-code-owners", () => {
 
     const result = await runRule(docsRule, context);
     expect(codeOwnersBlock(result)?.itemLabel).toBe("feedback");
+  });
+
+  it("folds several integrations into one block, leaving out ones with nobody to ping", async () => {
+    const github = createFakeGitHub();
+    github.repos.getContent.mockResolvedValue({
+      data: {
+        content: btoa(
+          "homeassistant/components/hue/* @balloob\nhomeassistant/components/zha/* @dmulcahey",
+        ),
+      },
+    });
+    github.issues.listComments.mockResolvedValue({ data: [] });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      registry: DASHBOARD,
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: zha" },
+        issue: {
+          user: { login: "reporter" },
+          assignees: [{ login: "dmulcahey" }],
+          body: "",
+          labels: [{ name: "integration: hue" }, { name: "integration: zha" }],
+        },
+      },
+    });
+
+    const result = await runRule(rule, context);
+    expect(result?.assignees).toEqual(expect.arrayContaining(["balloob", "dmulcahey"]));
+    expect(codeOwnersBlock(result)?.integrations).toEqual([
+      {
+        mentions: "@balloob",
+        integration: "hue",
+        codeownersLine: "https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L1",
+      },
+    ]);
+  });
+
+  describe("separate comment instead of the dashboard block", () => {
+    const docsRule = mentionCodeOwners({
+      domains: itemIntegrationDomains,
+      pathPattern: (name) => `source/_integrations/${name}.markdown`,
+      itemLabel: "feedback",
+      commentOn: ["issue"],
+    });
+
+    function fakeGitHub() {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({
+        data: { content: btoa(`source/_integrations/hue.markdown @balloob`) },
+      });
+      github.issues.listComments.mockResolvedValue({ data: [] });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+      return github;
+    }
+
+    it("comments on the target kinds listed in commentOn", async () => {
+      const context = createMockIssueContext({
+        registry: DASHBOARD,
+        eventType: EventType.ISSUES_LABELED,
+        github: fakeGitHub(),
+        payload: {
+          label: { name: "integration: hue" },
+          repository: IO_REPOSITORY,
+          issue: { assignees: [], labels: [{ name: "integration: hue" }] },
+        },
+      });
+
+      const result = await runRule(docsRule, context);
+      expect(result?.blocks).toEqual([]);
+      expect(result?.comments).toHaveLength(1);
+      expect(result?.comment).toContain(MENTION_MARKER);
+      expect(result?.comment).toContain("Hey there @balloob");
+      expect(result?.comment).toContain("this feedback");
+    });
+
+    it("keeps the dashboard block on target kinds not in commentOn", async () => {
+      const context = createMockContext({
+        registry: DASHBOARD,
+        eventType: EventType.PULL_REQUEST_LABELED,
+        github: fakeGitHub(),
+        payload: {
+          label: { name: "integration: hue" },
+          repository: IO_REPOSITORY,
+          pull_request: {
+            user: { login: "contributor" },
+            assignees: [],
+            labels: [{ name: "integration: hue" }],
+          },
+        },
+      });
+      mockPRFiles(context, []);
+
+      const result = await runRule(docsRule, context);
+      expect(result?.comments).toEqual([]);
+      expect(codeOwnersBlock(result)?.integrations[0].mentions).toBe("@balloob");
+    });
+
+    it("comments on repos without a dashboard", async () => {
+      const context = createMockIssueContext({
+        eventType: EventType.ISSUES_LABELED,
+        github: fakeGitHub(),
+        payload: {
+          label: { name: "integration: hue" },
+          issue: { assignees: [], labels: [{ name: "integration: hue" }] },
+        },
+      });
+
+      const result = await runRule(
+        mentionCodeOwners({
+          domains: itemIntegrationDomains,
+          pathPattern: (name) => `source/_integrations/${name}.markdown`,
+        }),
+        context,
+      );
+      expect(result?.blocks).toEqual([]);
+      expect(result?.comment).toContain("Hey there @balloob");
+    });
   });
 });

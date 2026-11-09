@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import Mustache from "mustache";
+import { commandsForTarget, commandViews } from "../engine/command-render.js";
 import { EventType } from "../engine/event.js";
 import { matchCodeOwners, parseCodeOwners } from "../engine/model/codeowners.js";
 import type { RuleContext } from "../engine/model/rule-context.js";
@@ -18,21 +21,15 @@ type HandledEvent =
 
 type MentionEntry = BlockArgsMap["code-owners"]["integrations"][number];
 
-// One ping per item: once owners were mentioned, no further mentions are made
-// — even if new integrations or code owners show up later. The ping lives in
-// the dashboard's `code-owners` block; this rule's persisted state records
-// that it was sent. Assignment can fail silently (owners without repo
-// access), so assignees can't serve as that record.
-interface MentionState {
-  mentioned: true;
-}
-
-function wasMentioned(state: unknown): boolean {
-  return (state as MentionState | undefined)?.mentioned === true;
-}
-
-// Before the ping moved into the dashboard, it was a separate comment carrying
-// this marker. Still recognized, so items pinged that way aren't pinged again.
+// One ping per item: a bot comment carrying this marker means owners were
+// already mentioned, and no further mentions are made — even if new
+// integrations or code owners show up later. Assignment can fail silently
+// (owners without repo access), so the marker is the only reliable state.
+// The dashboard's `code-owners` block writes it (see the dashboard
+// templates), or the separate mention comment on targets without a dashboard
+// (and on every target in earlier deploys).
+// Like all dashboard state, the block can be lost when two dispatches race on
+// the dashboard write — the owners would then be pinged again.
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
@@ -40,9 +37,48 @@ export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 // link opener, which no human types verbatim.
 export const LEGACY_MENTION_SENTINEL = "you are listed as a [code owner](";
 
-/** Whether this comment is a separate code-owner mention comment (earlier or legacy deploy). */
+/**
+ * Whether this comment carries a code-owner ping: the dashboard showing the
+ * `code-owners` block, or a separate mention comment (targets without a
+ * dashboard or listed in `commentOn`, and earlier or legacy deploys).
+ */
 export function isMentionComment(body: string | null | undefined): boolean {
   return !!body && (body.includes(MENTION_MARKER) || body.includes(LEGACY_MENTION_SENTINEL));
+}
+
+// The separate comment's layout and prose live in the template; this rule
+// only builds the view. The marker is written literally there but grepped for
+// here — fail at load if a template edit breaks the pair (one-ping detection
+// depends on it).
+const MENTION_TEMPLATE = readFileSync(new URL("./code-owner-mention.md", import.meta.url), "utf-8");
+if (!MENTION_TEMPLATE.includes(MENTION_MARKER)) {
+  throw new Error("code-owner-mention template lost its marker comment");
+}
+
+function mentionComment(
+  ctx: RuleContext<HandledEvent>,
+  itemLabel: string,
+  mention: MentionEntry,
+): Effect {
+  const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
+  return {
+    type: "comment",
+    // Escaping disabled: the output is markdown, not HTML.
+    body: Mustache.render(
+      MENTION_TEMPLATE,
+      {
+        mentions: mention.mentions,
+        itemLabel,
+        integrationName: mention.integration,
+        codeownersLine: mention.codeownersLine,
+        commandSlug: ctx.env.COMMAND_SLUG,
+        hasCommands: applicable.length > 0,
+        commands: commandViews(ctx.env.COMMAND_SLUG, applicable),
+      },
+      undefined,
+      { escape: String },
+    ),
+  };
 }
 
 function processIntegration(
@@ -81,6 +117,11 @@ function processIntegration(
   };
 }
 
+/**
+ * Assigns the code owners and pings them in the dashboard's `code-owners`
+ * block, or in a separate comment per integration on repos without a
+ * dashboard and on the target kinds listed in `commentOn`.
+ */
 export function mentionCodeOwners(config: {
   pathPattern: (integration: string) => string;
   /**
@@ -89,17 +130,18 @@ export function mentionCodeOwners(config: {
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
   itemLabel?: string;
+  /**
+   * Target kinds that get the ping as a separate comment instead of the
+   * dashboard block — for targets whose dashboard would otherwise exist only
+   * for the ping (e.g. home-assistant.io issues).
+   */
+  commentOn?: readonly ("pull_request" | "issue")[];
 }): Rule {
-  async function handle(
-    ctx: RuleContext<HandledEvent>,
-    state: unknown,
-  ): Promise<RuleOutput | undefined> {
+  async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
     if (isNonIntegrationLabelEvent(ctx)) return;
 
     // Never mention or assign on closed items — label events and ON_DEMAND fire on them too.
     if ((await ctx.target.state()) !== "open") return;
-
-    if (wasMentioned(state)) return;
 
     const integrationNames = await config.domains(ctx);
     if (integrationNames.length === 0) return;
@@ -138,12 +180,11 @@ export function mentionCodeOwners(config: {
 
     if (integrations.length === 0) return effects.length > 0 ? { effects } : undefined;
 
-    const mentioned: MentionState = { mentioned: true };
-    return {
-      effects,
-      blocks: [{ block: "code-owners", args: { itemLabel, integrations } }],
-      state: mentioned,
-    };
+    if (!ctx.repoConfig.dashboard || config.commentOn?.includes(ctx.target.kind)) {
+      effects.push(...integrations.map((mention) => mentionComment(ctx, itemLabel, mention)));
+      return { effects };
+    }
+    return { effects, blocks: [{ block: "code-owners", args: { itemLabel, integrations } }] };
   }
 
   return {
