@@ -174,6 +174,30 @@ describe("file-shape", () => {
       const result = await runRule(fileShape, context);
       expect(result?.labels).toContain("small-pr");
     });
+
+    it("counts package files towards small-pr threshold", async () => {
+      const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/hue/__init__.py", { additions: 5 }),
+        makeFile("packages/pylint-home-assistant/pylint_home_assistant/checkers/foo.py", {
+          additions: 100,
+        }),
+      ]);
+
+      const result = await runRule(fileShape, context);
+      expect(result?.labels ?? []).not.toContain("small-pr");
+    });
+
+    it("excludes package test files from small-pr threshold count", async () => {
+      const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/hue/__init__.py", { additions: 5 }),
+        makeFile("packages/hassfest/tests/test_foo.py", { additions: 200 }),
+      ]);
+
+      const result = await runRule(fileShape, context);
+      expect(result?.labels).toContain("small-pr");
+    });
   });
 
   describe("metadata-only", () => {
