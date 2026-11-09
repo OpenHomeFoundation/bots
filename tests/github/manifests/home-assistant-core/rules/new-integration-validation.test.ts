@@ -11,10 +11,11 @@ import {
   runRule,
 } from "../../../helpers/mock-context.js";
 
-function makeFile(filename: string, status = "added") {
+function makeFile(filename: string, status = "added", patch?: string) {
   return {
     filename,
     status,
+    patch,
     additions: 10,
     deletions: 0,
     changes: 10,
@@ -132,6 +133,53 @@ describe("new-integration-validation", () => {
 
     const result = await runRule(newIntegrationValidation, context);
     expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "skip" });
+  });
+
+  it("fails when actions are added alongside a platform", async () => {
+    const context = createMockContext({
+      eventType: EventType.ON_DEMAND,
+      payload: {
+        label: { name: "new-integration" },
+        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
+      },
+    });
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/sensor.py"),
+      makeFile("homeassistant/components/mydevice/services.py"),
+      makeFile(
+        "homeassistant/components/mydevice/services.yaml",
+        "added",
+        "@@ -0,0 +1,2 @@\n+reboot:\n+  fields:",
+      ),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.section?.message).toContain("`mydevice.reboot`");
+    expect(result?.section?.message).not.toContain("single platform");
+  });
+
+  it("passes an action-only new integration", async () => {
+    const context = createMockContext({
+      eventType: EventType.ON_DEMAND,
+      payload: {
+        label: { name: "new-integration" },
+        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
+      },
+    });
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/services.py"),
+      makeFile(
+        "homeassistant/components/mydevice/services.yaml",
+        "added",
+        "@@ -0,0 +1,2 @@\n+reboot:\n+  fields:",
+      ),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "pass" });
   });
 
   it("reports both issues when multiple platforms AND brand folder", async () => {

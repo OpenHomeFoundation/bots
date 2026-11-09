@@ -3,10 +3,11 @@ import { EventType } from "../../../../../src/github/engine/event.js";
 import { singleNewPlatform } from "../../../../../src/github/manifests/home-assistant-core/rules/single-new-platform.js";
 import { createMockContext, mockPRFiles, runRule } from "../../../helpers/mock-context.js";
 
-function makeFile(filename: string, status = "added") {
+function makeFile(filename: string, status = "added", patch?: string) {
   return {
     filename,
     status,
+    patch,
     additions: 10,
     deletions: 0,
     changes: 10,
@@ -88,6 +89,62 @@ describe("single-new-platform", () => {
 
     const result = await runRule(singleNewPlatform, context);
     expect(result?.section?.status).toBe("pass");
+  });
+
+  it("fails when actions are added alongside a new platform", async () => {
+    const context = prContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/hue/sensor.py"),
+      makeFile(
+        "homeassistant/components/hue/services.yaml",
+        "modified",
+        "@@ -1,2 +1,4 @@\n set_scene:\n   fields:\n+activate_scene:\n+  fields:",
+      ),
+    ]);
+
+    const result = await runRule(singleNewPlatform, context);
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.section?.message).toContain("new actions (`hue.activate_scene`)");
+    expect(result?.section?.message).not.toContain("new platforms");
+  });
+
+  it("reports both issues when multiple platforms and actions are added", async () => {
+    const context = prContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/hue/sensor.py"),
+      makeFile("homeassistant/components/hue/switch.py"),
+      makeFile("homeassistant/components/hue/services.yaml", "added", "+activate_scene:"),
+    ]);
+
+    const result = await runRule(singleNewPlatform, context);
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.section?.message).toContain("2 new platforms");
+    expect(result?.section?.message).toContain("`hue.activate_scene`");
+  });
+
+  it("passes a new platform that only extends existing actions", async () => {
+    const context = prContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/hue/sensor.py"),
+      makeFile(
+        "homeassistant/components/hue/services.yaml",
+        "modified",
+        "@@ -3,3 +3,3 @@\n     entity:\n-      domain: light\n+      domain: [light, sensor]",
+      ),
+    ]);
+
+    const result = await runRule(singleNewPlatform, context);
+    expect(result?.section).toMatchObject({ id: "single-new-platform", status: "pass" });
+  });
+
+  it("skips actions added without a new platform", async () => {
+    const context = prContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/hue/services.yaml", "modified", "+activate_scene:"),
+    ]);
+
+    const result = await runRule(singleNewPlatform, context);
+    expect(result?.section).toMatchObject({ id: "single-new-platform", status: "skip" });
   });
 
   it("skips new-integration PRs", async () => {
