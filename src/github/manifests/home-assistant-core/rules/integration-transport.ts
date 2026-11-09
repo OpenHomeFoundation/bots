@@ -30,16 +30,22 @@ interface Transport {
    * Modbus, while a Zigbee dongle — no label of its own — stays `serial`.
    */
   carrier?: true;
+  /**
+   * The domain suffix core uses for integrations on this transport
+   * (`xiaomi_ble`, `lg_infrared`, `solaredge_modbus`), suggested by
+   * integration-domain-name. Unset where core has no such convention.
+   */
+  domainSuffix?: string;
 }
 
-const TRANSPORTS: readonly Transport[] = [
+export const TRANSPORTS: readonly Transport[] = [
   { label: "mqtt", domains: ["mqtt"] },
   // `bluetooth_adapters` is the seam most BLE integrations depend on; a few
   // reach for `bluetooth` itself.
-  { label: "bluetooth", domains: ["bluetooth", "bluetooth_adapters"] },
-  { label: "ir", domains: ["infrared"] },
+  { label: "bluetooth", domains: ["bluetooth", "bluetooth_adapters"], domainSuffix: "_ble" },
+  { label: "ir", domains: ["infrared"], domainSuffix: "_infrared" },
   { label: "rf", domains: ["radio_frequency"] },
-  { label: "modbus", domains: ["modbus"] },
+  { label: "modbus", domains: ["modbus"], domainSuffix: "_modbus" },
   // `usb` is core's serial transport — discovery plus the port handle.
   // `homeassistant_hardware` sits on top of it for the first-party radios.
   { label: "serial", domains: ["usb", "homeassistant_hardware"], carrier: true },

@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: New-integration PRs are checked by new integration validation.
+  - id: integration-domain-name
+    title: Integration domain name
+    status: warn
+    message: Consider renaming `awesome` to `awesome_modbus`, following the `_modbus` suffix core uses for integrations on this transport.
   - id: docs-missing
     title: Documentation
     status: fail
