@@ -1187,6 +1187,97 @@ describe("first contact with a PR that has no dashboard", () => {
     },
   );
 
+  const staleBotLabel = {
+    action: "labeled",
+    label: { name: "stale" },
+    sender: { login: "issue-triage[bot]", type: "Bot" },
+  };
+
+  it("does not create the dashboard when the stale bot marks the PR stale", async () => {
+    const github = setup();
+    // A rule that would otherwise show something on the dashboard.
+    const labelRule: Rule = {
+      name: "label-rule",
+      description: "",
+      statusSections: [{ id: "labels", title: "Labels" }],
+      events: {
+        [EventType.PULL_REQUEST_LABELED]: async () => ({
+          statuses: [{ id: "labels", title: "Labels", status: "fail", message: "nope" }],
+        }),
+      },
+    };
+    const registry: RegistryConfig = {
+      repositories: {
+        "home-assistant/core": { rules: [labelRule], commands: [], dashboard: true },
+      },
+    };
+
+    await dispatch(
+      createMockContext({
+        registry,
+        eventType: EventType.PULL_REQUEST_LABELED,
+        github,
+        payload: staleBotLabel,
+      }),
+    );
+
+    expect(github.pulls.listCommits).not.toHaveBeenCalled();
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+    expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
+    expect(github.graphql).not.toHaveBeenCalled();
+  });
+
+  it("still baselines the dashboard when a person adds the stale label", async () => {
+    const github = setup();
+
+    await dispatch(
+      createMockContext({
+        registry: config,
+        eventType: EventType.PULL_REQUEST_LABELED,
+        github,
+        payload: { ...staleBotLabel, sender: { login: "testuser", type: "User" } },
+      }),
+    );
+
+    expect(dashboardRows(github)).toEqual(["cla:fail"]);
+  });
+
+  it("keeps updating an existing dashboard when the stale bot marks the PR stale", async () => {
+    const github = setup();
+    github.comments.push({
+      id: 1,
+      body: placeholderBody(),
+      html_url: "https://example.test/1",
+      user: { login: BOT_LOGIN },
+    });
+    const labelRule: Rule = {
+      name: "label-rule",
+      description: "",
+      statusSections: [{ id: "labels", title: "Labels" }],
+      events: {
+        [EventType.PULL_REQUEST_LABELED]: async () => ({
+          statuses: [{ id: "labels", title: "Labels", status: "pass", message: "ok" }],
+        }),
+      },
+    };
+
+    await dispatch(
+      createMockContext({
+        registry: {
+          repositories: {
+            "home-assistant/core": { rules: [labelRule], commands: [], dashboard: true },
+          },
+        },
+        eventType: EventType.PULL_REQUEST_LABELED,
+        github,
+        payload: staleBotLabel,
+      }),
+    );
+
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+    expect(dashboardRows(github)).toEqual(["labels:pass"]);
+  });
+
   it("runs only the event's rules once the dashboard exists", async () => {
     const github = setup();
     github.comments.push({

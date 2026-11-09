@@ -25,6 +25,18 @@ export function matchRules(context: RuleContext): Rule[] {
   );
 }
 
+/** The label actions/stale puts on PRs it marks stale. */
+const STALE_LABEL = "stale";
+
+/** Whether the event is a bot (the stale workflow) adding the stale label. */
+function isStaleBotEvent(context: RuleContext): boolean {
+  return (
+    context.senderIsBot &&
+    context.event.type === EventType.PULL_REQUEST_LABELED &&
+    context.event.label === STALE_LABEL
+  );
+}
+
 /** Collect every statusSection ID claimed by some rule in this repo's registry. */
 function collectKnownStatusSectionIds(context: RuleContext): Set<string> {
   const ids = new Set<string>();
@@ -352,11 +364,17 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
     ? await locateStatusComment(context, { createIfMissing: greeting })
     : null;
 
+  // Whether this dispatch may write the dashboard. A PR without one only gets
+  // it from an event that isn't the stale bot marking it stale: posting the
+  // dashboard then would count as fresh activity and un-stale the PR, so every
+  // pre-dashboard PR going stale would get its life extended.
+  const dashboardActive = dashboardEnabled && (comment !== null || !isStaleBotEvent(context));
+
   // First contact with a PR that predates the deploy or whose `opened` was
   // missed: a dashboard built from this event's rules alone would count every
   // other check as passing, so baseline it with a full evaluation first.
   if (
-    dashboardEnabled &&
+    dashboardActive &&
     !comment &&
     context.eventType !== EventType.ON_DEMAND &&
     context.target.kind === "pull_request" &&
@@ -390,7 +408,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   // a status comment; there'd be nothing to act on.
   const showsAnything =
     output.statuses.size > 0 || [...output.blocks.values()].some((args) => args !== null);
-  if (dashboardEnabled && !comment && showsAnything) {
+  if (dashboardActive && !comment && showsAnything) {
     comment = await locateStatusComment(context, { createIfMissing: true });
     if (comment && !comment.fresh) previous = parseState(comment.body);
   }
@@ -398,7 +416,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   // Greeting dispatches sync unconditionally: the placeholder must become the
   // greeting dashboard even when no rule emitted anything.
   const syncNeeded =
-    dashboardEnabled &&
+    dashboardActive &&
     (greeting ||
       comment?.fresh ||
       output.statuses.size > 0 ||
