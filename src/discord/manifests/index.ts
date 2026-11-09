@@ -1,10 +1,9 @@
 import type { GuildConfig, GuildRegistry } from "../engine/dispatch.js";
-import { esphomeGuild } from "./esphome.js";
 import { homeAssistantGuild } from "./home-assistant.js";
 import type { GuildManifest } from "./types.js";
 
 /** Every guild the bot serves. Add a guild by authoring a manifest and listing it here. */
-const MANIFESTS: GuildManifest[] = [homeAssistantGuild, esphomeGuild];
+const MANIFESTS: GuildManifest[] = [homeAssistantGuild];
 
 /**
  * Boot-time guardrails, mirroring the GitHub manifests: a duplicate command
