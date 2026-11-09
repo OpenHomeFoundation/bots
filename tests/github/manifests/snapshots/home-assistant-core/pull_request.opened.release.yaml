@@ -3,6 +3,10 @@ statuses:
     title: New integration validation
     status: skip
     message: Not checked on release PRs.
+  - id: single-new-platform
+    title: Single new platform
+    status: skip
+    message: Not checked on release PRs.
   - id: docs-missing
     title: Documentation
     status: skip

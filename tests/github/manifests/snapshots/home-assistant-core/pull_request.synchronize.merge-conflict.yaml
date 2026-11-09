@@ -3,6 +3,10 @@ statuses:
     title: New integration validation
     status: skip
     message: Not a new-integration PR.
+  - id: single-new-platform
+    title: Single new platform
+    status: skip
+    message: No new platforms added.
   - id: docs-missing
     title: Documentation
     status: skip
