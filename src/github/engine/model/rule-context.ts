@@ -1,4 +1,5 @@
 import type { Octokit } from "@octokit/rest";
+import type { Env } from "../../../env.js";
 import type {
   IssueCommentCreatedEvent,
   IssuesLabeledEvent,
@@ -12,8 +13,7 @@ import type {
   PullRequestReviewSubmittedEvent,
   PullRequestSynchronizeEvent,
   PullRequestUnlabeledEvent,
-} from "@octokit/webhooks-types";
-import type { Env } from "../../../env.js";
+} from "../../webhook-events.js";
 import { EventType, type RuleEvent, type RuleEventOf } from "../event.js";
 import { type RegistryConfig, type RepoConfig, resolveRepo } from "../types.js";
 import { type CodeownersReads, createCodeownersReads, readCodeowners } from "./codeowners.js";
