@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/OpenHomeFoundation/bots/compare/v0.3.1...v0.4.0) (2026-11-09)
+
+
+### ✨ New features
+
+* **core:** fail PRs that add more than one new platform ([#48](https://github.com/OpenHomeFoundation/bots/issues/48)) ([cb0848c](https://github.com/OpenHomeFoundation/bots/commit/cb0848cd71f64870383efafee7d1d325150262d0))
+* **github:** fail new-integration PRs that include diagnostics ([#47](https://github.com/OpenHomeFoundation/bots/issues/47)) ([706f6cf](https://github.com/OpenHomeFoundation/bots/commit/706f6cf538d7b12f69186a3f1f00b8f703bf94cb))
+
+
+### 🐛 Bug fixes
+
+* **discord:** point /info links at the OpenHomeFoundation/bots repository ([#46](https://github.com/OpenHomeFoundation/bots/issues/46)) ([fd70747](https://github.com/OpenHomeFoundation/bots/commit/fd707472d32653b3ed67037a600c1bc5e605eeee))
+* **discord:** stop serving the ESPHome guild ([#45](https://github.com/OpenHomeFoundation/bots/issues/45)) ([ace5356](https://github.com/OpenHomeFoundation/bots/commit/ace5356452a259c66ffe01913bd2377f8f4c408f))
+* **github:** ignore the stale bot's stale-label changes ([#109](https://github.com/OpenHomeFoundation/bots/issues/109)) ([b9d6486](https://github.com/OpenHomeFoundation/bots/commit/b9d648689ce3ae8b2323059768233d4fbe3876a0))
+
+
+### 🧰 Maintenance
+
+* **deps:** update all deps, move to openapi-webhooks-types ([#107](https://github.com/OpenHomeFoundation/bots/issues/107)) ([1921822](https://github.com/OpenHomeFoundation/bots/commit/1921822244fedc510b8c2c89f2211b0c382f288d))
+
 ## [0.3.1](https://github.com/OpenHomeFoundation/bots/compare/v0.3.0...v0.3.1) (2026-11-06)
 
 
