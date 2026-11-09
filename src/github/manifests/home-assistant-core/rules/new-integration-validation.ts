@@ -6,6 +6,17 @@ import { parseFiles } from "../helpers/parse-path.js";
 import { isReleasePR } from "../helpers/release-pr.js";
 import { NEW_INTEGRATION_LABEL } from "./change-type.js";
 
+/** Custom-integration leftovers that don't belong in a core integration folder. */
+const STRAY_INTEGRATION_FILES = new Set(["readme.md", "hacs.json", "info.md"]);
+
+/** Repository tooling and AI-agent config that a new-integration PR shouldn't touch. */
+const STRAY_REPO_FILES = new Set([
+  "copilot-instructions.md",
+  "claude.md",
+  "agents.md",
+  ".pre-commit-config.yaml",
+]);
+
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
   | EventType.PULL_REQUEST_REOPENED
@@ -57,6 +68,33 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
+  const strayIntegrationFiles = parsed
+    .filter(
+      (p) =>
+        p.type === "component" &&
+        p.path.startsWith("homeassistant/components/") &&
+        p.path.split("/").length === 4 &&
+        STRAY_INTEGRATION_FILES.has(p.filename.toLowerCase()),
+    )
+    .map((p) => `\`${p.path}\``);
+  if (strayIntegrationFiles.length > 0) {
+    issues.push(
+      `Remove ${strayIntegrationFiles.join(", ")} — README, HACS and info files are for ` +
+        "custom integrations and don't belong in core. Documentation goes in the " +
+        "[home-assistant.io](https://github.com/home-assistant/home-assistant.io) repository.",
+    );
+  }
+
+  const strayRepoFiles = parsed
+    .filter((p) => STRAY_REPO_FILES.has(p.filename.toLowerCase()))
+    .map((p) => `\`${p.path}\``);
+  if (strayRepoFiles.length > 0) {
+    issues.push(
+      `Revert the changes to ${strayRepoFiles.join(", ")} — a new-integration PR shouldn't ` +
+        "change repository tooling or AI-agent instructions.",
+    );
+  }
+
   if (issues.length === 0) {
     return { status: "pass", message: "Validation passed." };
   }
@@ -67,7 +105,8 @@ export const newIntegrationValidation = check({
   id: "new-integration-validation",
   title: "New integration validation",
   description:
-    "Validates new-integration PRs for platform count, brand folder placement and diagnostics",
+    "Validates new-integration PRs for platform count, brand folder placement, diagnostics " +
+    "and stray files",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,
