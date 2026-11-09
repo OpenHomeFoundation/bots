@@ -1,31 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`discord fixture snapshots > esphome > command.component 1`] = `
-[
-  {
-    "embeds": [
-      {
-        "fields": [
-          {
-            "inline": true,
-            "name": "Documentation",
-            "value": "[View the documentation](https://esphome.io/components/switch/gpio.html)",
-          },
-          {
-            "inline": true,
-            "name": "Source",
-            "value": "[View the source on GitHub](https://github.com/esphome/esphome/tree/dev/esphome/components/switch/gpio)",
-          },
-        ],
-        "thumbnail": "https://esphome.io/_images/gpio.svg",
-        "title": "GPIO Switch",
-      },
-    ],
-    "type": "reply",
-  },
-]
-`;
-
 exports[`discord fixture snapshots > home-assistant > autocomplete.integration 1`] = `
 [
   {

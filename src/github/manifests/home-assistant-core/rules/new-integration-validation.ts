@@ -71,6 +71,17 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
+  const hasDiagnostics = parsed.some(
+    (p) => p.type === "component" && p.filename === "diagnostics.py",
+  );
+  if (hasDiagnostics) {
+    issues.push(
+      "Remove `diagnostics.py` — diagnostics should be added in a follow-up PR once the " +
+        "integration is merged. See the " +
+        "[review process](https://developers.home-assistant.io/docs/review-process/#home-assistant-core).",
+    );
+  }
+
   const flows = await deferredFlows(ctx, parsed);
   if (flows.size > 0) {
     const names = [...flows]
@@ -94,7 +105,7 @@ export const newIntegrationValidation = check({
   id: "new-integration-validation",
   title: "New integration validation",
   description:
-    "Validates new-integration PRs for platform count, brand folder placement, " +
+    "Validates new-integration PRs for platform count, brand folder placement, diagnostics, " +
     "and reauth/reconfigure flows (which belong in follow-up PRs)",
   events: [
     EventType.PULL_REQUEST_OPENED,

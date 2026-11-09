@@ -15,13 +15,13 @@ export const info: SlashCommand = {
               { name: "Version", value: packageJson.version, inline: true },
               {
                 name: "Source",
-                value: "[Source Repository](https://github.com/home-assistant/service-hub)",
+                value: "[Source Repository](https://github.com/OpenHomeFoundation/bots)",
                 inline: true,
               },
               {
                 name: "Messages",
                 value:
-                  "[Data for the /message command](https://github.com/home-assistant/service-hub/tree/main/src/discord/messages)",
+                  "[Data for the /message command](https://github.com/OpenHomeFoundation/bots/tree/main/src/discord/messages)",
                 inline: true,
               },
             ],
