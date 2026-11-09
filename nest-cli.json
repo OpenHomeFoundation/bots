@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "builder": "swc",
+    "tsConfigPath": "tsconfig.build.json",
     "typeCheck": true,
     "deleteOutDir": true,
     "assets": ["**/*.md", "**/*.yaml"],

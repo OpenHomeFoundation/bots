@@ -38,7 +38,7 @@ run = "script/cibuild"
 [tasks.build]
 description = "Compile the production bundle (skipped when dist/ is up to date)"
 run = "pnpm run build"
-sources = ["src/**/*", "package.json", "pnpm-lock.yaml", "tsconfig.json", ".swcrc", "nest-cli.json"]
+sources = ["src/**/*", "package.json", "pnpm-lock.yaml", "tsconfig.json", "tsconfig.build.json", ".swcrc", "nest-cli.json"]
 outputs = ["dist/**/*"]
 
 [tasks.lint]
