@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/OpenHomeFoundation/bots/compare/v0.3.0...v0.3.1) (2026-11-06)
+
+
+### 🧰 Maintenance
+
+* align the release workflows with web-api ([#41](https://github.com/OpenHomeFoundation/bots/issues/41)) ([5cfa86d](https://github.com/OpenHomeFoundation/bots/commit/5cfa86d423ef3b991f979bf11c62149e8cc15bc1))
+
 ## [0.3.0](https://github.com/OpenHomeFoundation/bots/compare/v0.2.0...v0.3.0) (2026-11-06)
 
 
