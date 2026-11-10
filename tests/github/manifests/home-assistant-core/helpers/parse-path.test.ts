@@ -119,6 +119,35 @@ describe("ParsedPath", () => {
     });
   });
 
+  describe("tooling files", () => {
+    it.each([
+      "packages/pylint-home-assistant/pylint_home_assistant/checkers/foo.py",
+      "mypy_plugins/enum_identity_compare.py",
+      "script/hassfest/manifest.py",
+    ])("detects tooling source file %s", (filename) => {
+      const p = makeParsed(filename);
+      expect(p.type).toBe("tooling");
+      expect(p.component).toBeNull();
+      expect(p.core).toBe(false);
+    });
+
+    it.each([
+      "packages/hassfest/tests/test_foo.py",
+      "tests/pylint/test_foo.py",
+      "tests/mypy_plugins/test_enum_identity_compare.py",
+      "tests/script/test_gen_requirements_all.py",
+    ])("detects tooling test file %s", (filename) => {
+      expect(makeParsed(filename).type).toBe("test");
+    });
+
+    it("leaves generated tooling files untyped", () => {
+      const p = makeParsed(
+        "packages/pylint-home-assistant/pylint_home_assistant/generated/mdi_icons.py",
+      );
+      expect(p.type).toBeNull();
+    });
+  });
+
   describe("non-matching files", () => {
     it("returns null type for files outside homeassistant/tests", () => {
       const p = makeParsed("README.md");

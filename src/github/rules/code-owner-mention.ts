@@ -28,8 +28,6 @@ type MentionEntry = BlockArgsMap["code-owners"]["integrations"][number];
 // The dashboard's `code-owners` block writes it (see the dashboard
 // templates), or the separate mention comment on targets without a dashboard
 // (and on every target in earlier deploys).
-// Like all dashboard state, the block can be lost when two dispatches race on
-// the dashboard write — the owners would then be pinged again.
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
@@ -55,72 +53,39 @@ if (!MENTION_TEMPLATE.includes(MENTION_MARKER)) {
   throw new Error("code-owner-mention template lost its marker comment");
 }
 
-function mentionComment(
-  ctx: RuleContext<HandledEvent>,
-  itemLabel: string,
-  mention: MentionEntry,
-): Effect {
-  const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
-  return {
-    type: "comment",
-    // Escaping disabled: the output is markdown, not HTML.
-    body: Mustache.render(
-      MENTION_TEMPLATE,
-      {
-        mentions: mention.mentions,
-        itemLabel,
-        integrationName: mention.integration,
-        codeownersLine: mention.codeownersLine,
-        commandSlug: ctx.env.COMMAND_SLUG,
-        hasCommands: applicable.length > 0,
-        commands: commandViews(ctx.env.COMMAND_SLUG, applicable),
-      },
-      undefined,
-      { escape: String },
-    ),
-  };
+interface OwnedIntegration {
+  integrationName: string;
+  codeownersLine: string;
+  /** Lowercased owner logins, the item's author excluded. */
+  owners: string[];
 }
 
-function processIntegration(
+function ownedIntegration(
   ctx: RuleContext<HandledEvent>,
   integrationName: string,
   codeownersContent: string,
   pathPattern: (name: string) => string,
   authorLogin: string,
-  assignees: string[],
-  commenters: string[],
-): { effects: Effect[]; mention?: MentionEntry } {
-  if (!codeownersContent.includes(integrationName)) return { effects: [] };
+): OwnedIntegration | undefined {
+  if (!codeownersContent.includes(integrationName)) return;
 
   const entries = parseCodeOwners(codeownersContent);
   const match = matchCodeOwners(pathPattern(integrationName), entries);
-  if (!match) return { effects: [] };
+  if (!match) return;
 
-  const owners = match.owners.map((o) => o.substring(1).toLowerCase());
-  const codeownersLine = `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS#L${match.line}`;
-
-  const ownersMinusAuthor = owners.filter((usr) => usr !== authorLogin);
-
-  const effects: Effect[] = [];
-  if (ownersMinusAuthor.length > 0) {
-    effects.push({ type: "addAssignees", assignees: ownersMinusAuthor });
-  }
-
-  const mentions = ownersMinusAuthor
-    .filter((usr) => !assignees.includes(usr) && !commenters.includes(usr))
-    .map((usr) => `@${usr}`);
-
-  if (mentions.length === 0) return { effects };
   return {
-    effects,
-    mention: { mentions: mentions.join(", "), integration: integrationName, codeownersLine },
+    integrationName,
+    codeownersLine: `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS#L${match.line}`,
+    owners: match.owners
+      .map((o) => o.substring(1).toLowerCase())
+      .filter((usr) => usr !== authorLogin),
   };
 }
 
 /**
  * Assigns the code owners and pings them in the dashboard's `code-owners`
- * block, or in a separate comment per integration on repos without a
- * dashboard and on the target kinds listed in `commentOn`.
+ * block, or in one separate comment on repos without a dashboard and on the
+ * target kinds listed in `commentOn`.
  */
 export function mentionCodeOwners(config: {
   pathPattern: (integration: string) => string;
@@ -162,28 +127,60 @@ export function mentionCodeOwners(config: {
 
     const itemLabel = config.itemLabel ?? (ctx.target.kind === "issue" ? "issue" : "pull request");
 
-    const effects: Effect[] = [];
-    const integrations: MentionEntry[] = [];
+    const toAssign = new Set<string>();
+    const mentioned: { integrationName: string; codeownersLine: string; mentions: string }[] = [];
     for (const integrationName of integrationNames) {
-      const result = processIntegration(
+      const owned = ownedIntegration(
         ctx,
         integrationName,
         codeownersContent,
         config.pathPattern,
         authorLogin,
-        assignees,
-        commenters,
       );
-      effects.push(...result.effects);
-      if (result.mention) integrations.push(result.mention);
+      if (!owned) continue;
+      for (const usr of owned.owners) toAssign.add(usr);
+      const mentions = owned.owners
+        .filter((usr) => !assignees.includes(usr) && !commenters.includes(usr))
+        .map((usr) => `@${usr}`);
+      if (mentions.length > 0) {
+        mentioned.push({ ...owned, mentions: mentions.join(", ") });
+      }
     }
 
-    if (integrations.length === 0) return effects.length > 0 ? { effects } : undefined;
+    const effects: Effect[] = [];
+    if (toAssign.size > 0) {
+      effects.push({ type: "addAssignees", assignees: [...toAssign] });
+    }
+    if (mentioned.length === 0) return effects.length > 0 ? { effects } : undefined;
 
     if (!ctx.repoConfig.dashboard || config.commentOn?.includes(ctx.target.kind)) {
-      effects.push(...integrations.map((mention) => mentionComment(ctx, itemLabel, mention)));
+      const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
+      effects.push({
+        type: "comment",
+        // Escaping disabled: the output is markdown, not HTML.
+        body: Mustache.render(
+          MENTION_TEMPLATE,
+          {
+            itemLabel,
+            single: mentioned.length === 1 ? mentioned[0] : null,
+            integrations: mentioned,
+            codeownersUrl: `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS`,
+            commandSlug: ctx.env.COMMAND_SLUG,
+            hasCommands: applicable.length > 0,
+            commands: commandViews(ctx.env.COMMAND_SLUG, applicable),
+          },
+          undefined,
+          { escape: String },
+        ),
+      });
       return { effects };
     }
+
+    const integrations: MentionEntry[] = mentioned.map((m) => ({
+      mentions: m.mentions,
+      integration: m.integrationName,
+      codeownersLine: m.codeownersLine,
+    }));
     return { effects, blocks: [{ block: "code-owners", args: { itemLabel, integrations } }] };
   }
 

@@ -130,6 +130,53 @@ describe("mention-code-owners", () => {
     expect(github.issues.addAssignees).toHaveBeenCalledTimes(1);
   });
 
+  it("posts one comment listing every integration's owners", async () => {
+    const github = createFakeGitHub();
+    const codeowners = [
+      "homeassistant/components/hue/* @balloob @frenck",
+      "homeassistant/components/lifx/* @djelibeybi",
+      "homeassistant/components/shelly/* @frenck",
+    ].join("\n");
+
+    github.repos.getContent.mockResolvedValue({
+      data: { content: btoa(codeowners) },
+    });
+    github.issues.listComments.mockResolvedValue({ data: [] });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: shelly" },
+        issue: {
+          user: { login: "reporter" },
+          assignees: [],
+          body: "",
+          labels: [
+            { name: "integration: hue" },
+            { name: "integration: lifx" },
+            { name: "integration: shelly" },
+          ],
+        },
+      },
+    });
+
+    const result = await runRule(rule, context);
+    expect(result?.comments).toHaveLength(1);
+    expect(result?.assignees).toEqual(["balloob", "frenck", "djelibeybi"]);
+    expect(result?.comment).toContain(
+      "- `hue` ([owners](https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L1)): @balloob, @frenck",
+    );
+    expect(result?.comment).toContain(
+      "- `lifx` ([owners](https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L2)): @djelibeybi",
+    );
+    expect(result?.comment).toContain(
+      "- `shelly` ([owners](https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L3)): @frenck",
+    );
+    expect(result?.comment).toContain("you are listed as a [code owner](");
+  });
+
   it("does not mention owners already assigned", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;

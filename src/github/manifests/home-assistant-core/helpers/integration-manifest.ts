@@ -13,7 +13,7 @@ function manifestPath(domain: string): string {
 }
 
 /** The lines a patch adds, with the `+` marker stripped. */
-function addedLines(patch: string): string {
+export function addedLines(patch: string): string {
   return patch
     .split("\n")
     .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
