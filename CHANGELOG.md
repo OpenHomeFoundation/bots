@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/OpenHomeFoundation/bots/compare/v0.4.0...v0.4.1) (2026-11-10)
+
+
+### 🐛 Bug fixes
+
+* **github:** serialize dispatches per item ([#110](https://github.com/OpenHomeFoundation/bots/issues/110)) ([e9e4435](https://github.com/OpenHomeFoundation/bots/commit/e9e4435e4b08ba917257d54b91e084fa4436828d))
+
 ## [0.4.0](https://github.com/OpenHomeFoundation/bots/compare/v0.3.1...v0.4.0) (2026-11-09)
 
 
