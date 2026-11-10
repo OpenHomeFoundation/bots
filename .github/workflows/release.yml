@@ -21,6 +21,8 @@ jobs:
       # Required to mint a signed build provenance attestation via Sigstore.
       id-token: write
       attestations: write
+      # Lets the attest step list the image on the org's Linked Artifacts page.
+      artifact-metadata: write
     steps:
       - name: Checkout the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
