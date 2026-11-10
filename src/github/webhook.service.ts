@@ -12,6 +12,7 @@ import {
   type WebhookEventPayload,
 } from "./engine/model/rule-context.js";
 import type { RegistryConfig } from "./engine/types.js";
+import { withItemLock } from "./item-lock.js";
 import { OCTOKIT } from "./octokit.provider.js";
 import { logRace } from "./race-monitor.js";
 import { REGISTRY_CONFIG } from "./registry.provider.js";
@@ -89,9 +90,8 @@ export class WebhookService {
           eventType,
         });
         log.info("webhook: dispatching");
-        await logRace(`${context.repo.fullName}#${context.number}`, eventType, () =>
-          dispatchCommand(context),
-        );
+        const key = `${context.repo.fullName}#${context.number}`;
+        await logRace(key, eventType, () => withItemLock(key, () => dispatchCommand(context)));
       }
       return "OK";
     }
@@ -110,7 +110,10 @@ export class WebhookService {
       eventType,
     });
     log.info("webhook: dispatching");
-    await logRace(`${context.repo.fullName}#${context.number}`, eventType, () => dispatch(context));
+    // One dispatch per item at a time, so each sees the previous one's
+    // comments (see item-lock.ts).
+    const key = `${context.repo.fullName}#${context.number}`;
+    await logRace(key, eventType, () => withItemLock(key, () => dispatch(context)));
 
     return "OK";
   }
