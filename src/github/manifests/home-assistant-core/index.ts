@@ -12,11 +12,13 @@ import { blockingLabels } from "../../rules/blocking-labels.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { docsParenting } from "../../rules/docs-parenting.js";
+import { forbiddenFiles } from "../../rules/forbidden-files.js";
 import { mergeConflict } from "../../rules/merge-conflict.js";
 import { mergeTarget } from "../../rules/merge-target.js";
 import { setIntegration } from "../../rules/set-integration.js";
 import { HomeAssistantRepository, homeAssistantOrgRules } from "../home-assistant-org.js";
 import type { RepoManifest } from "../types.js";
+import { coreForbiddenFiles } from "./forbidden-files.js";
 import { itemIntegrationDomains } from "./helpers/integration-domains.js";
 import { coreIssueContext } from "./issue-context.js";
 import { changeType } from "./rules/change-type.js";
@@ -55,6 +57,7 @@ export const homeAssistantCore: RepoManifest = {
     qualityScale,
     newIntegrationValidation,
     singleNewPlatform,
+    forbiddenFiles({ base: "dev", files: coreForbiddenFiles }),
     integrationTransport,
     mentionCodeOwners({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
     byCodeOwner({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
