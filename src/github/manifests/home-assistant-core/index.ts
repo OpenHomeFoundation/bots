@@ -19,6 +19,7 @@ import { HomeAssistantRepository, homeAssistantOrgRules } from "../home-assistan
 import type { RepoManifest } from "../types.js";
 import { itemIntegrationDomains } from "./helpers/integration-domains.js";
 import { coreIssueContext } from "./issue-context.js";
+import { bumpTitle } from "./rules/bump-title.js";
 import { changeType } from "./rules/change-type.js";
 import { dependencyBump } from "./rules/dependency-bump.js";
 import { docsPrPresent } from "./rules/docs-pr-present.js";
@@ -78,6 +79,7 @@ export const homeAssistantCore: RepoManifest = {
     changeType,
     fileShape,
     dependencyBump,
+    bumpTitle,
     blockingLabels({
       "awaiting-frontend": { message: "This PR is awaiting changes to the frontend" },
     }),
