@@ -17,11 +17,18 @@ function makeFile(filename: string, overrides: { status?: string; additions?: nu
   };
 }
 
-function mockAnalytics(integrations: Record<string, number>) {
-  globalThis.fetch = vi.fn().mockResolvedValue({
+/** Serves install counts and `integrations.json`; every domain is a hub unless typed. */
+function mockAnalytics(integrations: Record<string, number>, types: Record<string, string> = {}) {
+  const details = Object.fromEntries(
+    Object.keys(integrations).map((domain) => [
+      domain,
+      { integration_type: types[domain] ?? "hub" },
+    ]),
+  );
+  globalThis.fetch = vi.fn().mockImplementation(async (url: string) => ({
     ok: true,
-    json: async () => ({ integrations }),
-  });
+    json: async () => (String(url).includes("integrations.json") ? details : { integrations }),
+  }));
 }
 
 describe("integration-top-rank", () => {
@@ -74,5 +81,20 @@ describe("integration-top-rank", () => {
 
     const result = await runRule(integrationTopRank, context);
     expect(result).toBeUndefined();
+  });
+
+  it("ranks only the integration types the analytics page ranks", async () => {
+    const installs = Object.fromEntries(
+      Array.from({ length: 50 }, (_, i) => [`hub${i}`, 1000 - i] as const),
+    );
+    mockAnalytics({ automation: 100000, ...installs }, { automation: "system" });
+
+    const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+    mockPRFiles(context, [makeFile("homeassistant/components/hub49/sensor.py")]);
+    expect((await runRule(integrationTopRank, context))?.labels).toContain("Top 50");
+
+    const automation = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+    mockPRFiles(automation, [makeFile("homeassistant/components/automation/__init__.py")]);
+    expect(await runRule(integrationTopRank, automation)).toBeUndefined();
   });
 });
