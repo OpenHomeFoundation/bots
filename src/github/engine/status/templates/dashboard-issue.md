@@ -20,6 +20,7 @@ Before we dive in, please make sure this isn't a duplicate by searching through 
 {{/blocks.integration-links}}
 {{#blocks.code-owners}}
 <!-- ha-bot-mention -->
+<!-- ha-bot-mention-integrations: {{covered}} -->
 The following users are code owners of the integrations in this {{itemLabel}}:
 {{#integrations}}
 - `{{integration}}`: {{mentions}} ([CODEOWNERS]({{codeownersLine}}))

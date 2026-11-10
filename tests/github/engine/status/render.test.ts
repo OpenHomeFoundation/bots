@@ -126,6 +126,23 @@ describe("status renderer", () => {
       expect(parseState(result).sections).toEqual(waived);
     });
 
+    it("keeps a waive reason from mentioning anyone", () => {
+      const waived: StatusSection[] = [
+        {
+          id: "merge-conflict",
+          title: "Merge conflicts",
+          status: "fail",
+          message: "Branch has merge conflicts.",
+          ignored: { reason: "@home-assistant/core please look" },
+        },
+      ];
+      const result = renderStatus(waived, REPO);
+
+      expect(result).toContain("Ignored: @\u200Bhome-assistant/core please look");
+      // The persisted waiver keeps the reason as typed.
+      expect(parseState(result).sections).toEqual(waived);
+    });
+
     it("renders passing checks inside a collapsed details block", () => {
       const result = renderStatus(sections, REPO);
 
@@ -239,6 +256,7 @@ describe("status renderer", () => {
           blocks: {
             "code-owners": {
               itemLabel: "pull request",
+              covered: "hue,zha",
               integrations: [
                 {
                   mentions: "@balloob, @frenck",
@@ -258,6 +276,7 @@ describe("status renderer", () => {
         expect(result.indexOf("code owners")).toBeLessThan(result.indexOf("## Checks"));
         // The marker is the rule's one-ping record (see code-owner-mention).
         expect(result).toContain(MENTION_MARKER);
+        expect(result).toContain("<!-- ha-bot-mention-integrations: hue,zha -->");
         expect(parseState(result).blocks["code-owners"]).toBeDefined();
       },
     );

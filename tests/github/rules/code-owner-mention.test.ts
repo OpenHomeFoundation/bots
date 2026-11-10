@@ -84,6 +84,7 @@ describe("mention-code-owners", () => {
     expect(result?.comments).toEqual([]);
     expect(codeOwnersBlock(result)).toEqual({
       itemLabel: "issue",
+      covered: "hue",
       integrations: [
         {
           mentions: "@balloob, @frenck",
@@ -94,7 +95,7 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("pings once through the dashboard, then never again", async () => {
+  it("pings once through the dashboard while the integrations are unchanged", async () => {
     const github = createFakeGitHub();
     github.repos.getContent.mockResolvedValue({
       data: { content: btoa(`homeassistant/components/hue/* @balloob`) },
@@ -177,7 +178,7 @@ describe("mention-code-owners", () => {
     expect(result?.comment).toContain("you are listed as a [code owner](");
   });
 
-  it("does not mention owners already assigned", async () => {
+  it("does not mention or reassign owners already assigned", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;
 
@@ -202,12 +203,10 @@ describe("mention-code-owners", () => {
     });
 
     const result = await runRule(rule, context);
-    expect(result?.assignees).toContain("balloob");
-    // No ping since the only owner is already assigned
-    expect(codeOwnersBlock(result)).toBeUndefined();
+    expect(result).toBeUndefined();
   });
 
-  it("does not post again when a mention comment already exists", async () => {
+  it("rewrites a mention comment that lacks the integrations line", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;
 
@@ -217,6 +216,7 @@ describe("mention-code-owners", () => {
     github.issues.listComments.mockResolvedValue({
       data: [
         {
+          id: 7,
           user: { login: BOT_LOGIN },
           body: `${MENTION_MARKER}\n\nHey there @someone-else, mind taking a look?`,
         },
@@ -240,7 +240,147 @@ describe("mention-code-owners", () => {
     });
 
     const result = await runRule(rule, context);
-    expect(result).toBeUndefined();
+    expect(result?.comment).toBeUndefined();
+    expect(result?.assignees).toEqual(["balloob"]);
+    expect(result?.effects).toContainEqual({
+      type: "updateComment",
+      commentId: 7,
+      body: expect.stringContaining("<!-- ha-bot-mention-integrations: hue -->"),
+    });
+    expect(result?.effects).toContainEqual(
+      expect.objectContaining({ body: expect.stringContaining("Hey there @balloob,") }),
+    );
+  });
+
+  describe("integration list changes", () => {
+    const codeowners = [
+      "homeassistant/components/hue/* @balloob @frenck",
+      "homeassistant/components/lifx/* @djelibeybi @frenck @joostlek",
+    ].join("\n");
+    const registry: RegistryConfig = {
+      repositories: { "home-assistant/core": { rules: [rule], commands: [] } },
+    };
+
+    function labeledContext(
+      github: ReturnType<typeof createFakeGitHub>,
+      labels: string[],
+      assignees: string[],
+      repoRegistry = registry,
+    ) {
+      return createMockIssueContext({
+        eventType: EventType.ISSUES_LABELED,
+        github,
+        registry: repoRegistry,
+        payload: {
+          label: { name: labels.at(-1) },
+          issue: {
+            user: { login: "reporter" },
+            assignees: assignees.map((login) => ({ login })),
+            body: "",
+            labels: labels.map((name) => ({ name })),
+          },
+        },
+      });
+    }
+
+    it("edits the mention comment when an integration is added", async () => {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      await dispatch(labeledContext(github, ["integration: hue"], []));
+      expect(github.comments).toHaveLength(1);
+
+      // frenck stays named (already pinged); joostlek is assigned but was never
+      // mentioned, so the usual "skip assignees" filter applies.
+      await dispatch(
+        labeledContext(
+          github,
+          ["integration: hue", "integration: lifx"],
+          ["balloob", "frenck", "joostlek"],
+        ),
+      );
+
+      expect(github.issues.createComment).toHaveBeenCalledTimes(1);
+      expect(github.issues.updateComment).toHaveBeenCalledWith(
+        expect.objectContaining({ comment_id: github.comments[0].id }),
+      );
+      const body = github.comments[0].body;
+      expect(body).toContain("<!-- ha-bot-mention-integrations: hue,lifx -->");
+      expect(body).toMatch(/^- `hue` .*\): @balloob, @frenck$/m);
+      expect(body).toMatch(/^- `lifx` .*\): @djelibeybi, @frenck$/m);
+      expect(github.issues.addAssignees).toHaveBeenLastCalledWith(
+        expect.objectContaining({ assignees: ["djelibeybi"] }),
+      );
+    });
+
+    it("edits the dashboard ping when an integration is added", async () => {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+      const dashboard: RegistryConfig = {
+        repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
+      };
+
+      await dispatch(labeledContext(github, ["integration: hue"], [], dashboard));
+      await dispatch(
+        labeledContext(
+          github,
+          ["integration: hue", "integration: lifx"],
+          ["balloob", "frenck"],
+          dashboard,
+        ),
+      );
+
+      expect(github.comments).toHaveLength(1);
+      const body = github.comments[0].body;
+      expect(body).toContain("ha-bot-dashboard");
+      expect(body).toContain("<!-- ha-bot-mention-integrations: hue,lifx -->");
+      expect(body).toContain("- `hue`: @balloob, @frenck (");
+      expect(body).toContain("- `lifx`: @djelibeybi, @frenck, @joostlek (");
+      expect(github.issues.addAssignees).toHaveBeenLastCalledWith(
+        expect.objectContaining({ assignees: ["djelibeybi", "joostlek"] }),
+      );
+    });
+
+    it("lists integrations alphabetically", async () => {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      await dispatch(labeledContext(github, ["integration: lifx", "integration: hue"], []));
+
+      const body = github.comments[0].body;
+      expect(body).toContain("<!-- ha-bot-mention-integrations: hue,lifx -->");
+      expect(body.indexOf("- `hue`")).toBeLessThan(body.indexOf("- `lifx`"));
+    });
+
+    it("leaves the comment alone when the integrations are unchanged", async () => {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      await dispatch(labeledContext(github, ["integration: hue"], []));
+      await dispatch(labeledContext(github, ["integration: hue"], ["balloob", "frenck"]));
+
+      expect(github.issues.createComment).toHaveBeenCalledTimes(1);
+      expect(github.issues.updateComment).not.toHaveBeenCalled();
+      expect(github.issues.addAssignees).toHaveBeenCalledTimes(1);
+    });
+
+    it("follows a swapped integration label", async () => {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      await dispatch(labeledContext(github, ["integration: hue"], []));
+      await dispatch(labeledContext(github, ["integration: lifx"], ["balloob", "frenck"]));
+
+      const body = github.comments[0].body;
+      expect(body).toContain("<!-- ha-bot-mention-integrations: lifx -->");
+      expect(body).toContain("Hey there @djelibeybi, @frenck, @joostlek, mind taking a look");
+      expect(body).not.toContain("hue");
+    });
   });
 
   it("still mentions owners when only someone else's comment carries the marker", async () => {
@@ -267,9 +407,12 @@ describe("mention-code-owners", () => {
     expect(codeOwnersBlock(result)?.integrations[0].mentions).toBe("@balloob");
   });
 
-  it("does not post again when the legacy bot already mentioned owners", async () => {
+  it("rewrites the legacy bot's mention instead of posting another", async () => {
     const github = createFakeGitHub();
-    const codeowners = `homeassistant/components/hue/* @balloob`;
+    const codeowners = [
+      "homeassistant/components/hue/* @balloob",
+      "homeassistant/components/lifx/* @djelibeybi",
+    ].join("\n");
 
     github.repos.getContent.mockResolvedValue({
       data: { content: btoa(codeowners) },
@@ -279,6 +422,7 @@ describe("mention-code-owners", () => {
     github.issues.listComments.mockResolvedValue({
       data: [
         {
+          id: 7,
           user: { login: BOT_LOGIN },
           body:
             "\nHey there @balloob, mind taking a look at this pull request as it has been " +
@@ -297,18 +441,25 @@ describe("mention-code-owners", () => {
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
-        label: { name: "integration: hue" },
+        label: { name: "integration: lifx" },
         issue: {
           user: { login: "reporter" },
-          assignees: [],
+          assignees: [{ login: "balloob" }],
           body: "",
-          labels: [{ name: "integration: hue" }],
+          labels: [{ name: "integration: hue" }, { name: "integration: lifx" }],
         },
       },
     });
 
     const result = await runRule(rule, context);
-    expect(result).toBeUndefined();
+    expect(result?.comment).toBeUndefined();
+    expect(result?.assignees).toEqual(["djelibeybi"]);
+    const update = result?.effects.find((e) => e.type === "updateComment");
+    expect(update).toMatchObject({ commentId: 7 });
+    const body = update?.type === "updateComment" ? update.body : "";
+    expect(body).toContain("<!-- ha-bot-mention-integrations: hue,lifx -->");
+    expect(body).toMatch(/^- `hue` .*\): @balloob$/m);
+    expect(body).toMatch(/^- `lifx` .*\): @djelibeybi$/m);
   });
 
   it("does not mention or assign the PR author", async () => {
@@ -554,7 +705,8 @@ describe("mention-code-owners", () => {
     });
 
     const result = await runRule(rule, context);
-    expect(result?.assignees).toEqual(expect.arrayContaining(["balloob", "dmulcahey"]));
+    expect(result?.assignees).toEqual(["balloob"]);
+    expect(codeOwnersBlock(result)?.covered).toBe("hue,zha");
     expect(codeOwnersBlock(result)?.integrations).toEqual([
       {
         mentions: "@balloob",

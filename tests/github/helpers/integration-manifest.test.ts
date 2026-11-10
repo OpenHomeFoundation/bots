@@ -33,6 +33,16 @@ describe("fetchIntegrationManifest", () => {
     });
   });
 
+  it("never fetches for anything that is not a domain", async () => {
+    const fetch = mockFetch({ hue: HUE });
+
+    for (const input of ["../../../evil/dev/x", "Hue", "hue?ref=x", "hue manifest", ""]) {
+      expect(await fetchIntegrationManifest(input)).toBeUndefined();
+    }
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("fetches a domain once however many rules ask for it", async () => {
     const fetch = mockFetch({ hue: HUE });
 

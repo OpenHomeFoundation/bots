@@ -26,6 +26,7 @@ Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one pe
 
 {{#blocks.code-owners}}
 <!-- ha-bot-mention -->
+<!-- ha-bot-mention-integrations: {{covered}} -->
 The following users are code owners of the integrations in this {{itemLabel}}:
 {{#integrations}}
 - `{{integration}}`: {{mentions}} ([CODEOWNERS]({{codeownersLine}}))

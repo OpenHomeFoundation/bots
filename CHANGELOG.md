@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/OpenHomeFoundation/bots/compare/v0.4.1...v0.5.0) (2026-11-10)
+
+
+### ✨ New features
+
+* **core:** fail PRs that commit forbidden files ([#117](https://github.com/OpenHomeFoundation/bots/issues/117)) ([a75cb87](https://github.com/OpenHomeFoundation/bots/commit/a75cb87966fabdd81a6d1664bd94e66d88956f3a))
+* **github:** edit the mention comment when integrations change ([#119](https://github.com/OpenHomeFoundation/bots/issues/119)) ([f5b5500](https://github.com/OpenHomeFoundation/bots/commit/f5b5500e910d8c5dd7db36908375c3bed97509ac))
+* **github:** fail new-integration PRs that define async_migrate_entry ([#102](https://github.com/OpenHomeFoundation/bots/issues/102)) ([7276c42](https://github.com/OpenHomeFoundation/bots/commit/7276c429b023d7abda90c5ffe4c0c6269b0755b3))
+
+
+### 🐛 Bug fixes
+
+* **core:** count repo tooling in small-pr and has-tests ([#114](https://github.com/OpenHomeFoundation/bots/issues/114)) ([3f1861a](https://github.com/OpenHomeFoundation/bots/commit/3f1861a20e083c3c2f6171a0d2f6fc26661c38a2))
+
 ## [0.4.1](https://github.com/OpenHomeFoundation/bots/compare/v0.4.0...v0.4.1) (2026-11-10)
 
 

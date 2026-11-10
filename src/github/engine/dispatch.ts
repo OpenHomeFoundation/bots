@@ -184,6 +184,15 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       case "updateBranch":
         ops.push({ op: effect.type, run: () => updateBranchOrExplain(context) });
         break;
+      case "updateComment":
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.issues.updateComment(
+              context.repoParams({ comment_id: effect.commentId, body: effect.body }),
+            ),
+        });
+        break;
       case "commentOnce":
         ops.push({ op: effect.type, run: () => commentOnce(context, effect.marker, effect.body) });
         break;
@@ -336,11 +345,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   const startedAt = Date.now();
   // Redundant on the webhook path (webhook.service stamps it), but callers
   // like the CLA re-evaluation reach dispatch without going through there.
-  addLogContext({
-    repository: context.repo.fullName,
-    number: context.number,
-    eventType: context.eventType,
-  });
+  addLogContext(context.logContext);
   const knownSectionIds = collectKnownStatusSectionIds(context);
   const dashboardEnabled = context.repoConfig.dashboard ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;
