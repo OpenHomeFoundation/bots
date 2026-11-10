@@ -18,10 +18,10 @@ type HandledEvent =
   | EventType.ISSUES_ON_DEMAND
   | EventType.ON_DEMAND;
 
-// One ping per item: a comment carrying this marker means owners were already
-// mentioned, and no further mention comments are posted — even if new
-// integrations or code owners show up later. Assignment can fail silently
-// (owners without repo access), so comment presence is the only reliable state.
+// One ping per integration: the bot's mention comments name the integrations
+// they pinged, and those are never pinged again — integrations added later
+// still get theirs. Assignment can fail silently (owners without repo access,
+// GitHub's 10-assignee cap), so the comments are the only reliable state.
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
@@ -34,6 +34,17 @@ export const LEGACY_MENTION_SENTINEL = "you are listed as a [code owner](";
 /** Whether this comment is a code-owner mention (current or legacy deploy). */
 export function isMentionComment(body: string | null | undefined): boolean {
   return !!body && (body.includes(MENTION_MARKER) || body.includes(LEGACY_MENTION_SENTINEL));
+}
+
+// Where a mention comment names its integrations: "an integration (`hue`)"
+// in single-integration comments (this deploy and the legacy bot's), and
+// "- `hue` ([owners](" rows in multi-integration ones. Anchored on the prose
+// around the domain so the command help's backticked names never match.
+const MENTIONED_DOMAIN_PATTERNS = [/integration \(`([\w-]+)`\)/g, /^- `([\w-]+)` \(\[owners\]\(/gm];
+
+/** The integrations a mention comment pinged the owners of. */
+export function mentionedIntegrations(body: string): string[] {
+  return MENTIONED_DOMAIN_PATTERNS.flatMap((re) => [...body.matchAll(re)].map((m) => m[1]));
 }
 
 // Layout and prose live in the template; this rule only builds the view.
@@ -99,7 +110,13 @@ export function mentionCodeOwners(config: {
     }
 
     const comments = await ctx.target.issueComments();
-    if (comments.some((c) => ctx.isOwnComment(c) && isMentionComment(c.body))) return;
+    const alreadyMentioned = new Set(
+      comments
+        .filter((c) => ctx.isOwnComment(c) && isMentionComment(c.body))
+        .flatMap((c) => mentionedIntegrations(c.body ?? "")),
+    );
+    const pending = integrationNames.filter((name) => !alreadyMentioned.has(name));
+    if (pending.length === 0) return;
 
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
     const assignees = (await ctx.target.assigneeLogins()).map((a) => a.toLowerCase());
@@ -109,7 +126,7 @@ export function mentionCodeOwners(config: {
 
     const toAssign = new Set<string>();
     const mentioned: { integrationName: string; codeownersLine: string; mentions: string }[] = [];
-    for (const integrationName of integrationNames) {
+    for (const integrationName of pending) {
       const owned = ownedIntegration(
         ctx,
         integrationName,

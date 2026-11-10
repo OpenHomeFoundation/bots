@@ -141,7 +141,7 @@ describe("mention-code-owners", () => {
     expect(result?.comment).toBeUndefined();
   });
 
-  it("does not post again when a mention comment already exists", async () => {
+  it("does not post again for an integration a mention comment already pinged", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;
 
@@ -152,7 +152,10 @@ describe("mention-code-owners", () => {
       data: [
         {
           user: { login: BOT_LOGIN },
-          body: `${MENTION_MARKER}\n\nHey there @someone-else, mind taking a look?`,
+          body:
+            `${MENTION_MARKER}\n\nHey there @someone-else, mind taking a look at this issue ` +
+            "as it has been labeled with an integration (`hue`) you are listed as a " +
+            "[code owner](https://github.com/home-assistant/core/blob/HEAD/CODEOWNERS#L1) for?",
         },
       ],
     });
@@ -174,6 +177,63 @@ describe("mention-code-owners", () => {
 
     const result = await runRule(rule, context);
     expect(result).toBeUndefined();
+  });
+
+  // home-assistant/core#191549: labels added one by one, each `labeled`
+  // dispatch running after the previous one. The first pinged its owners;
+  // the later integrations' owners must still get theirs.
+  it("mentions owners of integrations added after an earlier mention", async () => {
+    const github = createFakeGitHub();
+    github.repos.getContent.mockResolvedValue({
+      data: {
+        content: btoa(
+          [
+            "homeassistant/components/hue/* @balloob",
+            "homeassistant/components/lifx/* @djelibeybi",
+            "homeassistant/components/roku/* @ctalkington",
+          ].join("\n"),
+        ),
+      },
+    });
+    github.issues.listComments.mockResolvedValue({
+      data: [
+        {
+          user: { login: BOT_LOGIN },
+          // A multi-integration comment, command help included: its
+          // backticked command names must not count as integrations.
+          body:
+            `${MENTION_MARKER}\n\nHey there, mind taking a look at this issue as it has been ` +
+            "labeled with integrations you are listed as a [code owner](https://x) for? Thanks!\n\n" +
+            "- `hue` ([owners](https://x#L1)): @balloob\n" +
+            "- `lifx` ([owners](https://x#L2)): @djelibeybi\n" +
+            "<details><summary>Code owner commands</summary>\n\n- `roku` — not a command\n</details>",
+        },
+      ],
+    });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+    const context = createMockIssueContext({
+      eventType: EventType.ISSUES_LABELED,
+      github,
+      payload: {
+        label: { name: "integration: roku" },
+        issue: {
+          user: { login: "reporter" },
+          assignees: [],
+          body: "",
+          labels: [
+            { name: "integration: hue" },
+            { name: "integration: lifx" },
+            { name: "integration: roku" },
+          ],
+        },
+      },
+    });
+
+    const result = await runRule(rule, context);
+    expect(result?.comment).toContain("@ctalkington");
+    expect(result?.comment).not.toContain("@balloob");
+    expect(result?.comment).not.toContain("@djelibeybi");
   });
 
   it("still mentions owners when only someone else's comment carries the marker", async () => {
