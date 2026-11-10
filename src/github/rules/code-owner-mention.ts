@@ -25,7 +25,7 @@ export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
 // The integrations a mention comment covers, so a later dispatch can tell
 // whether the list changed and edit the comment instead of posting another.
-// Comments without it (legacy bot, older deploys) are never edited.
+// Comments without it (legacy bot, older deploys) cover nothing, so they get rewritten.
 const COVERED_PATTERN = /<!-- ha-bot-mention-integrations: ([a-z0-9_,]*) -->/;
 
 function coveredIntegrations(body: string | null | undefined): Set<string> | undefined {
@@ -110,8 +110,7 @@ export function mentionCodeOwners(config: {
 
     const comments = await ctx.target.issueComments();
     const existing = comments.find((c) => ctx.isOwnComment(c) && isMentionComment(c.body));
-    const covered = existing ? coveredIntegrations(existing.body) : new Set<string>();
-    if (!covered) return;
+    const covered = coveredIntegrations(existing?.body) ?? new Set<string>();
 
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
     const owned = integrationNames

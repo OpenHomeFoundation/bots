@@ -139,7 +139,7 @@ describe("mention-code-owners", () => {
     expect(result).toBeUndefined();
   });
 
-  it("does not post again when a mention comment already exists", async () => {
+  it("rewrites a mention comment that lacks the integrations line", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob`;
 
@@ -149,6 +149,7 @@ describe("mention-code-owners", () => {
     github.issues.listComments.mockResolvedValue({
       data: [
         {
+          id: 7,
           user: { login: BOT_LOGIN },
           body: `${MENTION_MARKER}\n\nHey there @someone-else, mind taking a look?`,
         },
@@ -171,7 +172,16 @@ describe("mention-code-owners", () => {
     });
 
     const result = await runRule(rule, context);
-    expect(result).toBeUndefined();
+    expect(result?.comment).toBeUndefined();
+    expect(result?.assignees).toEqual(["balloob"]);
+    expect(result?.effects).toContainEqual({
+      type: "updateComment",
+      commentId: 7,
+      body: expect.stringContaining("<!-- ha-bot-mention-integrations: hue -->"),
+    });
+    expect(result?.effects).toContainEqual(
+      expect.objectContaining({ body: expect.stringContaining("Hey there @balloob,") }),
+    );
   });
 
   describe("integration list changes", () => {
@@ -286,9 +296,12 @@ describe("mention-code-owners", () => {
     expect(result?.comment).toContain("@balloob");
   });
 
-  it("does not post again when the legacy bot already mentioned owners", async () => {
+  it("rewrites the legacy bot's mention instead of posting another", async () => {
     const github = createFakeGitHub();
-    const codeowners = `homeassistant/components/hue/* @balloob`;
+    const codeowners = [
+      "homeassistant/components/hue/* @balloob",
+      "homeassistant/components/lifx/* @djelibeybi",
+    ].join("\n");
 
     github.repos.getContent.mockResolvedValue({
       data: { content: btoa(codeowners) },
@@ -298,6 +311,7 @@ describe("mention-code-owners", () => {
     github.issues.listComments.mockResolvedValue({
       data: [
         {
+          id: 7,
           user: { login: BOT_LOGIN },
           body:
             "\nHey there @balloob, mind taking a look at this pull request as it has been " +
@@ -315,18 +329,25 @@ describe("mention-code-owners", () => {
       eventType: EventType.ISSUES_LABELED,
       github,
       payload: {
-        label: { name: "integration: hue" },
+        label: { name: "integration: lifx" },
         issue: {
           user: { login: "reporter" },
-          assignees: [],
+          assignees: [{ login: "balloob" }],
           body: "",
-          labels: [{ name: "integration: hue" }],
+          labels: [{ name: "integration: hue" }, { name: "integration: lifx" }],
         },
       },
     });
 
     const result = await runRule(rule, context);
-    expect(result).toBeUndefined();
+    expect(result?.comment).toBeUndefined();
+    expect(result?.assignees).toEqual(["djelibeybi"]);
+    const update = result?.effects.find((e) => e.type === "updateComment");
+    expect(update).toMatchObject({ commentId: 7 });
+    const body = update?.type === "updateComment" ? update.body : "";
+    expect(body).toContain("<!-- ha-bot-mention-integrations: hue,lifx -->");
+    expect(body).toMatch(/^- `hue` .*\): @balloob$/m);
+    expect(body).toMatch(/^- `lifx` .*\): @djelibeybi$/m);
   });
 
   it("does not mention or assign the PR author", async () => {
