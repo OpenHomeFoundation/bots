@@ -119,6 +119,20 @@ describe("ParsedPath", () => {
     });
   });
 
+  describe("package files", () => {
+    it("detects package source files", () => {
+      const p = makeParsed("packages/pylint-home-assistant/pylint_home_assistant/checkers/foo.py");
+      expect(p.type).toBe("package");
+      expect(p.component).toBeNull();
+      expect(p.core).toBe(false);
+    });
+
+    it("detects package test files", () => {
+      const p = makeParsed("packages/hassfest/tests/test_foo.py");
+      expect(p.type).toBe("test");
+    });
+  });
+
   describe("non-matching files", () => {
     it("returns null type for files outside homeassistant/tests", () => {
       const p = makeParsed("README.md");

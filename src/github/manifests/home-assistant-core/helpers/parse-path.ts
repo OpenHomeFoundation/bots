@@ -25,6 +25,7 @@ const FILE_TYPES = [
   "component",
   "platform",
   "brand",
+  "package",
 ] as const;
 
 export type FileType = (typeof FILE_TYPES)[number] | null;
@@ -50,6 +51,11 @@ export class ParsedPath {
     this.file = file;
     const parts = file.filename.split("/");
     const rootFolder = parts.length > 1 ? parts.shift() : undefined;
+
+    if (rootFolder === "packages") {
+      this.type = parts[1] === "tests" ? "test" : "package";
+      return;
+    }
 
     if (!rootFolder || !["tests", "homeassistant"].includes(rootFolder)) {
       return;
