@@ -235,6 +235,18 @@ describe("mention-code-owners", () => {
       );
     });
 
+    it("lists integrations alphabetically", async () => {
+      const github = createFakeGitHub();
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      await dispatch(labeledContext(github, ["integration: lifx", "integration: hue"], []));
+
+      const body = github.comments[0].body;
+      expect(body).toContain("<!-- ha-bot-mention-integrations: hue,lifx -->");
+      expect(body.indexOf("- `hue`")).toBeLessThan(body.indexOf("- `lifx`"));
+    });
+
     it("leaves the comment alone when the integrations are unchanged", async () => {
       const github = createFakeGitHub();
       github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });

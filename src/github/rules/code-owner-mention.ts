@@ -98,7 +98,8 @@ export function mentionCodeOwners(config: {
     // Never mention or assign on closed items — label events and ON_DEMAND fire on them too.
     if ((await ctx.target.state()) !== "open") return;
 
-    const integrationNames = await config.domains(ctx);
+    // Alphabetical, so the comment doesn't depend on label or file order.
+    const integrationNames = [...(await config.domains(ctx))].sort();
     if (integrationNames.length === 0) return;
 
     // The rule is only registered on repos that have a CODEOWNERS file, so a
