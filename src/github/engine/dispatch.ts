@@ -345,11 +345,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   const startedAt = Date.now();
   // Redundant on the webhook path (webhook.service stamps it), but callers
   // like the CLA re-evaluation reach dispatch without going through there.
-  addLogContext({
-    repository: context.repo.fullName,
-    number: context.number,
-    eventType: context.eventType,
-  });
+  addLogContext(context.logContext);
   const knownSectionIds = collectKnownStatusSectionIds(context);
   const dashboardEnabled = context.repoConfig.dashboard ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;

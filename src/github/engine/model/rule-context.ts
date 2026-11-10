@@ -131,6 +131,17 @@ export class RuleContext<E extends EventType = EventType> {
     return this.target.number;
   }
 
+  /** Identity fields every log line of this item's unit of work carries. */
+  get logContext(): { repository: string; number: number; url: string; eventType: E } {
+    const path = this.target.kind === "pull_request" ? "pull" : "issues";
+    return {
+      repository: this.repo.fullName,
+      number: this.number,
+      url: `https://github.com/${this.repo.fullName}/${path}/${this.number}`,
+      eventType: this.eventType,
+    };
+  }
+
   /** Bot's own login (comment author, commit-status creator), e.g. "ha-bot[bot]". */
   get botLogin(): string {
     return `${this.env.BOT_SLUG}[bot]`;
