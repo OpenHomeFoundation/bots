@@ -83,11 +83,7 @@ export class WebhookService {
           this.octokit,
           commentPayload,
         );
-        addLogContext({
-          repository: context.repo.fullName,
-          number: context.number,
-          eventType,
-        });
+        addLogContext(context.logContext);
         log.info("webhook: dispatching");
         const key = `${context.repo.fullName}#${context.number}`;
         await withItemLock(key, () => dispatchCommand(context));
@@ -103,11 +99,7 @@ export class WebhookService {
       eventType,
     );
     if (isStaleLabelChangeByBot(context)) return "OK";
-    addLogContext({
-      repository: context.repo.fullName,
-      number: context.number,
-      eventType,
-    });
+    addLogContext(context.logContext);
     log.info("webhook: dispatching");
     // One dispatch per item at a time, so each sees the previous one's
     // comments (see item-lock.ts).
