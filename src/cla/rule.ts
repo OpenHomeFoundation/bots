@@ -3,6 +3,7 @@ import { EventType } from "../github/engine/event.js";
 import type { RuleContext } from "../github/engine/model/rule-context.js";
 import { type CheckOutcome, on } from "../github/engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../github/engine/types.js";
+import { codeSpan } from "../util/markdown.js";
 import { type ClaStore, postgresClaStore } from "./store.js";
 
 export const CLA_SIGNED_LABEL = "cla-signed";
@@ -103,7 +104,7 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
       const commitsUrl = `https://github.com/${ctx.repo.fullName}/pull/${ctx.number}/commits/`;
       const lines = unlinked.slice(0, MAX_LISTED_COMMITS).map((c) => {
         const hint = c.commit?.author?.email?.includes("@")
-          ? `authored as \`${c.commit.author.email}\` — [link that address to your account](${LINK_ACCOUNT_HELP})`
+          ? `authored as ${codeSpan(c.commit.author.email)} — [link that address to your account](${LINK_ACCOUNT_HELP})`
           : "no email attached — amend the commit with `git commit --amend --author=...`";
         return `- [\`${c.sha.slice(0, 7)}\`](${commitsUrl}${c.sha}) — ${hint}`;
       });

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import Mustache from "mustache";
 import { log } from "../../../log.js";
+import { neutraliseMentions } from "../../../util/markdown.js";
 import { type CommandHelpEntry, commandsForTarget, commandViews } from "../command-render.js";
 import type { BlockStates } from "./blocks.js";
 import {
@@ -89,7 +90,8 @@ export function placeholderBody(): string {
  */
 export function displaySection(s: StatusSection): StatusSection {
   if (!s.ignored || (s.status !== "fail" && s.status !== "pending")) return s;
-  return { ...s, status: "warn", message: `${s.message}\nIgnored: ${s.ignored.reason}` };
+  const reason = neutraliseMentions(s.ignored.reason);
+  return { ...s, status: "warn", message: `${s.message}\nIgnored: ${reason}` };
 }
 
 function escapeTableCell(s: string): string {

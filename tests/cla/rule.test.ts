@@ -113,6 +113,21 @@ describe("cla", () => {
     expect(body).toContain("changing-author-info");
   });
 
+  it("keeps a commit email from breaking out of its code span", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const email = "x@y.z` @home-assistant/core `";
+    const result = await runRule(
+      rule,
+      claContext({
+        commits: [{ sha: "deadbeef123", author: null, commit: { author: { email } } }],
+      }),
+    );
+
+    expect(result?.section?.message).toContain("authored as `` x@y.z` @home-assistant/core ` ``");
+    const comment = result?.effects.find((e) => e.type === "commentOnce") as { body: string };
+    expect(comment.body).toContain("`` x@y.z` @home-assistant/core ` ``");
+  });
+
   it("does not post the walkthrough for unsigned-author failures", async () => {
     const rule = claCheck(() => fakeStore([]));
     const result = await runRule(rule, claContext({ commits: [userCommit("b1", "bob")] }));
