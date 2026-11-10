@@ -25,6 +25,7 @@ export type Effect =
   | { type: "removeLabels"; labels: string[] }
   | { type: "addAssignees"; assignees: string[] }
   | { type: "comment"; body: string }
+  | { type: "updateComment"; commentId: number; body: string }
   | {
       type: "updatePullRequest";
       owner: string;
