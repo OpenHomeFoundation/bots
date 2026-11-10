@@ -17,8 +17,37 @@ type HandledEvent =
 
 const APPROVED_LABEL = "code-owner-approved";
 
+/**
+ * Who applied the approval label as a manual override, if anyone did. Org
+ * members put the label on by hand to approve on a code owner's behalf (an
+ * absent owner, a tree-wide cleanup). Only the latest `labeled` event counts,
+ * and only when its actor is an org member other than the bot itself or the
+ * PR author — authors can't approve their own PR by labeling it.
+ */
+async function memberLabelOverride(
+  ctx: RuleContext<HandledEvent>,
+  authorLogin: string,
+): Promise<string | undefined> {
+  if (!(await ctx.target.labels()).includes(APPROVED_LABEL)) return;
+  const labeled = (await ctx.target.issueEvents()).filter(
+    (e) => e.event === "labeled" && "label" in e && e.label?.name === APPROVED_LABEL,
+  );
+  const actor = labeled.at(-1)?.actor?.login;
+  if (!actor) return;
+  const login = actor.toLowerCase();
+  if (login === ctx.botLogin.toLowerCase() || login === authorLogin) return;
+  return (await ctx.hasMember(actor)) ? actor : undefined;
+}
+
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
-  if (isNonIntegrationLabelEvent(ctx)) return;
+  // Our own label is re-evaluated too: a member adding or removing it by hand
+  // is how a code-owner approval is overridden or revoked.
+  if (
+    isNonIntegrationLabelEvent(ctx) &&
+    !("label" in ctx.event && ctx.event.label === APPROVED_LABEL)
+  ) {
+    return;
+  }
 
   // Everything is derived from the PR itself (files, manifest, CODEOWNERS
   // teams, reviews) — never from labels other rules maintain.
@@ -48,9 +77,10 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     return { status: "pass", message: "Authored by a code owner." };
   }
 
-  // The approval label is never trusted on its own — an approval can be
+  // A label the bot applied is never trusted on its own — an approval can be
   // dismissed or superseded, so the reviews are the source of truth and the
-  // label follows. Only an owner's *latest* decisive review counts: an old
+  // label follows (only a label an org member applied by hand overrides
+  // them, see below). Only an owner's *latest* decisive review counts: an old
   // APPROVED is void once the same owner later requests changes or has the
   // approval dismissed. Reviews come back oldest-first, so the last write per
   // owner wins; COMMENTED/PENDING reviews don't change a standing decision.
@@ -70,6 +100,16 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
       status: "pass",
       message: "Approved by a code owner.",
       effects: [{ type: "addLabels", labels: [APPROVED_LABEL] }],
+    };
+  }
+
+  // A member applying the label by hand stands in for a code-owner approval.
+  // Leave the label alone so the override survives later re-evaluations.
+  const overrideBy = await memberLabelOverride(ctx, authorLogin);
+  if (overrideBy) {
+    return {
+      status: "pass",
+      message: `Approved on behalf of the code owners by ${overrideBy} (\`${APPROVED_LABEL}\` label).`,
     };
   }
 

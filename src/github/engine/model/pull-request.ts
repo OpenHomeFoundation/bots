@@ -10,6 +10,7 @@ export type PullRequestReviews =
 export type PullRequestCommits =
   RestEndpointMethodTypes["pulls"]["listCommits"]["response"]["data"];
 export type IssueComments = RestEndpointMethodTypes["issues"]["listComments"]["response"]["data"];
+export type IssueEvents = RestEndpointMethodTypes["issues"]["listEvents"]["response"]["data"];
 
 /**
  * Core fields a webhook payload MAY provide. `undefined` means the source
@@ -55,6 +56,7 @@ export class PullRequest {
     reviews?: Promise<PullRequestReviews>;
     commits?: Promise<PullRequestCommits>;
     issueComments?: Promise<IssueComments>;
+    issueEvents?: Promise<IssueEvents>;
   } = {};
 
   constructor(github: Octokit, ref: ItemRef, seed: PullRequestSeed = {}) {
@@ -213,5 +215,22 @@ export class PullRequest {
       this.caches.issueComments = inflight;
     }
     return this.caches.issueComments;
+  }
+
+  /** Issue timeline events (labeled, assigned, …), oldest first. */
+  issueEvents(): Promise<IssueEvents> {
+    if (!this.caches.issueEvents) {
+      const inflight = this.github.paginate(this.github.issues.listEvents, {
+        owner: this.owner,
+        repo: this.repo,
+        issue_number: this.number,
+        per_page: 100,
+      });
+      inflight.catch(() => {
+        if (this.caches.issueEvents === inflight) this.caches.issueEvents = undefined;
+      });
+      this.caches.issueEvents = inflight;
+    }
+    return this.caches.issueEvents;
   }
 }

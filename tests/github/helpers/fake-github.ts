@@ -36,6 +36,8 @@ export interface FakeWorld {
   teamMembers?: Record<string, string[]>;
   /** pulls.listReviews page. */
   reviews?: Record<string, unknown>[];
+  /** issues.listEvents page. */
+  issueEvents?: Record<string, unknown>[];
   /** issues.get response body. */
   issue?: Record<string, unknown>;
 }
@@ -76,6 +78,7 @@ export interface FakeEndpoints {
     createComment: Endpoint;
     updateComment: Endpoint;
     listComments: Endpoint;
+    listEvents: Endpoint;
     addLabels: Endpoint;
     removeLabel: Endpoint;
     get: Endpoint;
@@ -198,6 +201,12 @@ const ROUTES: Route[] = [
     regex: /^\/repos\/([^/]+)\/([^/]+)\/issues\/(\d+)\/comments$/,
     keys: ["owner", "repo", "issue_number"],
     endpoint: (g) => g.issues.listComments,
+  },
+  {
+    method: "GET",
+    regex: /^\/repos\/([^/]+)\/([^/]+)\/issues\/(\d+)\/events$/,
+    keys: ["owner", "repo", "issue_number"],
+    endpoint: (g) => g.issues.listEvents,
   },
   {
     method: "POST",
@@ -336,6 +345,7 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
         return { data: { id: p.comment_id, html_url: comment?.html_url } };
       }),
       listComments: endpointFn(async () => ({ data: comments })),
+      listEvents: endpointFn(async () => ({ data: world.issueEvents ?? [] })),
       addLabels: endpointFn(async () => ({ data: [] })),
       removeLabel: endpointFn(async () => ({ data: [] })),
       get: endpointFn(async () => ({ data: world.issue ?? {} })),

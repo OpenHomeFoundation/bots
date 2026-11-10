@@ -7,6 +7,7 @@ import { platinumApproval } from "../../../../../src/github/manifests/home-assis
 import { qualityScale } from "../../../../../src/github/manifests/home-assistant-core/rules/quality-scale.js";
 import { setIntegration } from "../../../../../src/github/rules/set-integration.js";
 import {
+  BOT_LOGIN,
   createFakeGitHub,
   createMockContext,
   mockPRFiles,
@@ -155,6 +156,98 @@ describe("platinum-approval", () => {
     const result = await runRule(platinumApproval, context);
     expect(result?.section?.status).toBe("pending");
     expect(result?.removeLabels).toContain("code-owner-approved");
+  });
+
+  describe("manual code-owner-approved label", () => {
+    const platinumManifest = {
+      domain: "hue",
+      name: "Hue",
+      codeowners: ["@balloob"],
+      quality_scale: "platinum",
+      config_flow: true,
+      dependencies: [],
+      documentation: "",
+      requirements: [],
+      iot_class: "local_polling",
+    };
+
+    function labeledBy(login: string) {
+      return { event: "labeled", label: { name: "code-owner-approved" }, actor: { login } };
+    }
+
+    async function run(
+      events: Record<string, unknown>[],
+      members: string[],
+      eventType: EventType = EventType.ON_DEMAND,
+      extraPayload: Record<string, unknown> = {},
+    ) {
+      const github = createFakeGitHub({ issueEvents: events, members });
+      github.pulls.listReviews.mockResolvedValue({
+        // A non-owner member approval alone doesn't satisfy the rule.
+        data: [{ state: "APPROVED", user: { login: "reviewer", type: "User" } }],
+      });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => platinumManifest });
+      const context = createMockContext({
+        eventType,
+        github,
+        payload: {
+          ...extraPayload,
+          pull_request: {
+            labels: [
+              { name: "integration: hue" },
+              { name: "Quality Scale: platinum" },
+              { name: "code-owner-approved" },
+            ],
+            user: { login: "author" },
+            head: { sha: "abc123" },
+          },
+        },
+      });
+      return runRule(platinumApproval, context);
+    }
+
+    it("passes and keeps the label when an org member applied it", async () => {
+      const result = await run([labeledBy("maintainer")], ["maintainer"]);
+      expect(result?.section?.status).toBe("pass");
+      expect(result?.section?.message).toContain("by maintainer");
+      expect(result?.removeLabels ?? []).not.toContain("code-owner-approved");
+    });
+
+    it("re-evaluates on the code-owner-approved labeled event", async () => {
+      const result = await run(
+        [labeledBy("maintainer")],
+        ["maintainer"],
+        EventType.PULL_REQUEST_LABELED,
+        {
+          action: "labeled",
+          label: { name: "code-owner-approved" },
+          sender: { login: "maintainer", type: "User" },
+        },
+      );
+      expect(result?.section?.status).toBe("pass");
+    });
+
+    it("ignores a label applied by a non-member", async () => {
+      const result = await run([labeledBy("outsider")], []);
+      expect(result?.section?.status).toBe("pending");
+      expect(result?.removeLabels).toContain("code-owner-approved");
+    });
+
+    it("ignores a label the PR author applied", async () => {
+      const result = await run([labeledBy("author")], ["author"]);
+      expect(result?.section?.status).toBe("pending");
+    });
+
+    it("ignores a label the bot applied", async () => {
+      const result = await run([labeledBy(BOT_LOGIN)], [BOT_LOGIN]);
+      expect(result?.section?.status).toBe("pending");
+      expect(result?.removeLabels).toContain("code-owner-approved");
+    });
+
+    it("only counts the latest labeled event", async () => {
+      const result = await run([labeledBy("maintainer"), labeledBy(BOT_LOGIN)], ["maintainer"]);
+      expect(result?.section?.status).toBe("pending");
+    });
   });
 
   it("succeeds when the author is a code owner", async () => {
