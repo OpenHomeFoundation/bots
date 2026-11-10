@@ -3,9 +3,15 @@ import * as Sentry from "@sentry/nestjs";
 
 type Headers = Record<string, string | number | undefined>;
 
+interface Route {
+  method: string;
+  /** The unexpanded endpoint template, e.g. `/repos/{owner}/{repo}/issues`. */
+  route: string;
+}
+
 // GitHub returns per-resource rate-limit headers on every response (and on
 // 403/429 rejections), so this is ground-truth quota rather than an estimate.
-function recordQuota(headers: Headers): void {
+function recordQuota(headers: Headers, route: Route): void {
   const remaining = Number(headers["x-ratelimit-remaining"]);
   const resource = headers["x-ratelimit-resource"];
   if (Number.isNaN(remaining) || resource === undefined) return;
@@ -14,21 +20,23 @@ function recordQuota(headers: Headers): void {
   Sentry.metrics.gauge("github.ratelimit.limit", Number(headers["x-ratelimit-limit"]), {
     attributes,
   });
-  Sentry.metrics.count("github.api.calls", 1, { attributes });
+  // Per route, so a burst of one write (comment POSTs) stands out from reads.
+  Sentry.metrics.count("github.api.calls", 1, { attributes: { ...attributes, ...route } });
 }
 
 // Instrument the one shared client so quota burn is visible per resource
 // (core / search / graphql) against the installation's rate-limit ceiling.
 export function trackGithubQuota(octokit: Octokit): void {
   octokit.hook.wrap("request", async (request, options) => {
+    const route = { method: options.method, route: options.url };
     try {
       const response = await request(options);
-      recordQuota(response.headers);
+      recordQuota(response.headers, route);
       return response;
     } catch (error) {
       if (error && typeof error === "object" && "response" in error) {
         const response = (error as { response?: { headers?: Headers } }).response;
-        if (response?.headers) recordQuota(response.headers);
+        if (response?.headers) recordQuota(response.headers, route);
       }
       throw error;
     }
