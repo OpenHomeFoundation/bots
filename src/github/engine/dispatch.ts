@@ -184,6 +184,15 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       case "updateBranch":
         ops.push({ op: effect.type, run: () => updateBranchOrExplain(context) });
         break;
+      case "updateComment":
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.issues.updateComment(
+              context.repoParams({ comment_id: effect.commentId, body: effect.body }),
+            ),
+        });
+        break;
       case "commentOnce":
         ops.push({ op: effect.type, run: () => commentOnce(context, effect.marker, effect.body) });
         break;
