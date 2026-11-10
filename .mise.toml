@@ -4,7 +4,7 @@
 
 [tools]
 node = "26"
-pnpm = "11.24.0" # keep in sync with package.json's packageManager
+pnpm = "12.18.0" # keep in sync with package.json's packageManager
 
 [env]
 # Loaded into every task's environment when present; missing file is ignored.
@@ -38,7 +38,7 @@ run = "script/cibuild"
 [tasks.build]
 description = "Compile the production bundle (skipped when dist/ is up to date)"
 run = "pnpm run build"
-sources = ["src/**/*", "package.json", "pnpm-lock.yaml", "tsconfig.json", ".swcrc", "nest-cli.json"]
+sources = ["src/**/*", "package.json", "pnpm-lock.yaml", "tsconfig.json", "tsconfig.build.json", ".swcrc", "nest-cli.json"]
 outputs = ["dist/**/*"]
 
 [tasks.lint]

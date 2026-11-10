@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: No new platforms added.
+  - id: forbidden-files
+    title: Forbidden files
+    status: pass
+    message: No forbidden files.
   - id: docs-missing
     title: Documentation
     status: skip

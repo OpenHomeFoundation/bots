@@ -1,7 +1,7 @@
 import type { Octokit } from "@octokit/rest";
-import type { IssueCommentCreatedEvent } from "@octokit/webhooks-types";
 import type { Env } from "../../../env.js";
 import { log } from "../../../log.js";
+import type { IssueCommentCreatedEvent } from "../../webhook-events.js";
 import { EventType } from "../event.js";
 import type { RegistryConfig } from "../types.js";
 import { matchCodeOwners, parseCodeOwners } from "./codeowners.js";

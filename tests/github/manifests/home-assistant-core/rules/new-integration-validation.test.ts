@@ -134,53 +134,100 @@ describe("new-integration-validation", () => {
     expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "skip" });
   });
 
-  it("fails when custom-integration files are in the integration folder", async () => {
-    const context = createMockContext({
+  function newIntegrationContext() {
+    return createMockContext({
       eventType: EventType.ON_DEMAND,
       payload: {
+        label: { name: "new-integration" },
         pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
       },
     });
+  }
+
+  const MIGRATE_ENTRY_INIT = [
+    "async def async_setup_entry(hass, entry):",
+    "    return True",
+    "",
+    "",
+    "async def async_migrate_entry(hass, entry):",
+    "    return True",
+  ].join("\n");
+
+  function patchOf(content: string): string {
+    return `@@ -0,0 +1,${content.split("\n").length} @@\n${content
+      .split("\n")
+      .map((line) => `+${line}`)
+      .join("\n")}`;
+  }
+
+  it("fails when the new integration defines async_migrate_entry", async () => {
+    const context = newIntegrationContext();
     mockPRFiles(context, [
-      makeFile("homeassistant/components/mydevice/__init__.py"),
+      {
+        ...makeFile("homeassistant/components/mydevice/__init__.py"),
+        patch: patchOf(MIGRATE_ENTRY_INIT),
+      },
       makeFile("homeassistant/components/mydevice/sensor.py"),
-      makeFile("homeassistant/components/mydevice/README.md"),
-      makeFile("homeassistant/components/mydevice/hacs.json"),
-      makeFile("homeassistant/components/mydevice/info.md"),
     ]);
 
     const result = await runRule(newIntegrationValidation, context);
     expect(result?.section?.status).toBe("fail");
-    expect(result?.section?.message).toContain("`homeassistant/components/mydevice/README.md`");
-    expect(result?.section?.message).toContain("`homeassistant/components/mydevice/hacs.json`");
-    expect(result?.section?.message).toContain("`homeassistant/components/mydevice/info.md`");
-    expect(result?.section?.message).not.toContain("Revert");
+    expect(result?.section?.message).toContain("async_migrate_entry");
   });
 
-  it("does not flag README files nested deeper than the integration folder", async () => {
+  it("reads __init__.py at the head commit when the patch is omitted", async () => {
+    const github = createFakeGitHub({
+      contents: { "homeassistant/components/mydevice/__init__.py": MIGRATE_ENTRY_INIT },
+    });
     const context = createMockContext({
+      github,
       eventType: EventType.ON_DEMAND,
       payload: {
+        label: { name: "new-integration" },
         pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
       },
     });
     mockPRFiles(context, [
       makeFile("homeassistant/components/mydevice/__init__.py"),
       makeFile("homeassistant/components/mydevice/sensor.py"),
-      makeFile("tests/components/mydevice/fixtures/README.md"),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.section?.message).toContain("async_migrate_entry");
+  });
+
+  it("passes when the new integration has no async_migrate_entry", async () => {
+    const context = newIntegrationContext();
+    mockPRFiles(context, [
+      {
+        ...makeFile("homeassistant/components/mydevice/__init__.py"),
+        patch: patchOf("async def async_setup_entry(hass, entry):\n    return True"),
+      },
+      makeFile("homeassistant/components/mydevice/sensor.py"),
     ]);
 
     const result = await runRule(newIntegrationValidation, context);
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("fails when repository tooling or AI-agent files are changed", async () => {
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      payload: {
-        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
+  it("ignores async_migrate_entry in existing integrations the PR touches", async () => {
+    const context = newIntegrationContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/sensor.py"),
+      {
+        ...makeFile("homeassistant/components/other/__init__.py", "modified"),
+        patch: patchOf(MIGRATE_ENTRY_INIT),
       },
-    });
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section?.message).not.toContain("async_migrate_entry");
+  });
+
+  it("fails when repository tooling or AI-agent files are changed", async () => {
+    const context = newIntegrationContext();
     mockPRFiles(context, [
       makeFile("homeassistant/components/mydevice/__init__.py"),
       makeFile("homeassistant/components/mydevice/sensor.py"),
@@ -199,7 +246,7 @@ describe("new-integration-validation", () => {
     expect(message).toContain("`.pre-commit-config.yaml`");
   });
 
-  it("does not flag stray files on PRs that don't add a new integration", async () => {
+  it("does not flag repo tooling changes on PRs that don't add a new integration", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,
       payload: {

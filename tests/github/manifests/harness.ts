@@ -1,5 +1,4 @@
 import type { Octokit } from "@octokit/rest";
-import type { IssueCommentCreatedEvent } from "@octokit/webhooks-types";
 import {
   type DispatchResult,
   dispatch,
@@ -19,6 +18,7 @@ import {
 import { placeholderBody } from "../../../src/github/engine/status/render.js";
 import type { Effect, RuleOutput } from "../../../src/github/engine/types.js";
 import { registryConfig } from "../../../src/github/manifests/index.js";
+import type { IssueCommentCreatedEvent } from "../../../src/github/webhook-events.js";
 import { BOT_LOGIN, createFakeGitHub } from "../helpers/fake-github.js";
 import { testEnv } from "../helpers/mock-context.js";
 import { loadPRTemplate, renderPRTemplate } from "./pr-template.js";
