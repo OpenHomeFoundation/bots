@@ -3,6 +3,14 @@ statuses:
     title: New integration validation
     status: skip
     message: Not checked on release PRs.
+  - id: single-new-platform
+    title: Single new platform
+    status: skip
+    message: Not checked on release PRs.
+  - id: forbidden-files
+    title: Forbidden files
+    status: skip
+    message: Only checked on PRs into `dev`.
   - id: docs-missing
     title: Documentation
     status: skip

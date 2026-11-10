@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env } from "../../src/env.js";
 import { GithubWebhookGuard } from "../../src/github/github-webhook.guard.js";
 import { WebhookService } from "../../src/github/webhook.service.js";
+import { log } from "../../src/log.js";
 
 // vi.mock is hoisted above the imports and scoped to this file, so the mocked
 // dispatch only exists here — helpers/e2e.ts and engine/dispatch.test.ts keep
@@ -172,5 +173,126 @@ describe("webhook handler", () => {
 
     expect(result).toBe("OK");
     expect(dispatch).toHaveBeenCalled();
+  });
+
+  const repository = {
+    full_name: "home-assistant/core",
+    name: "core",
+    owner: { login: "home-assistant" },
+  };
+  const staleBot = { login: "issue-triage-workflows[bot]", type: "Bot" };
+
+  it.each([
+    ["pull_request", "labeled", { pull_request: { number: 1, head: { sha: "abc" } } }],
+    ["pull_request", "unlabeled", { pull_request: { number: 1, head: { sha: "abc" } } }],
+    ["issues", "labeled", { issue: { number: 1 } }],
+  ])("ignores the stale bot's %s.%s of the stale label", async (event, action, item) => {
+    dispatch.mockClear();
+
+    const payload = { action, repository, sender: staleBot, label: { name: "stale" }, ...item };
+    const result = await service.handle(JSON.stringify(payload), event);
+
+    expect(result).toBe("OK");
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("still dispatches when a person adds the stale label", async () => {
+    dispatch.mockClear();
+
+    const payload = {
+      action: "labeled",
+      repository,
+      sender: { login: "testuser", type: "User" },
+      label: { name: "stale" },
+      pull_request: { number: 1, head: { sha: "abc" } },
+    };
+    await service.handle(JSON.stringify(payload), "pull_request");
+
+    expect(dispatch).toHaveBeenCalled();
+  });
+
+  it("still dispatches when the stale bot closes a PR", async () => {
+    dispatch.mockClear();
+
+    const payload = {
+      action: "closed",
+      repository,
+      sender: staleBot,
+      pull_request: { number: 1, head: { sha: "abc" }, merged: false },
+    };
+    await service.handle(JSON.stringify(payload), "pull_request");
+
+    expect(dispatch).toHaveBeenCalled();
+  });
+
+  // A burst of `labeled` webhooks for one issue: each dispatch must see the
+  // comments the previous one posted, or every one of them re-posts the
+  // code-owner mentions (home-assistant/core#191545).
+  describe("per-item serialization", () => {
+    function labeledIssue(number: number, label: string): string {
+      return JSON.stringify({
+        action: "labeled",
+        repository,
+        sender: { login: "testuser", type: "User" },
+        label: { name: label },
+        issue: { number },
+      });
+    }
+
+    function trackConcurrency(): { maxRunning: () => number } {
+      let running = 0;
+      let max = 0;
+      dispatch.mockReset();
+      dispatch.mockImplementation((async () => {
+        running++;
+        max = Math.max(max, running);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        running--;
+        return undefined;
+      }) as never);
+      return { maxRunning: () => max };
+    }
+
+    it("runs dispatches for the same item one at a time", async () => {
+      const tracked = trackConcurrency();
+
+      await Promise.all(
+        ["integration: hue", "integration: lifx", "integration: shelly"].map((label) =>
+          service.handle(labeledIssue(1, label), "issues"),
+        ),
+      );
+
+      expect(dispatch).toHaveBeenCalledTimes(3);
+      expect(tracked.maxRunning()).toBe(1);
+      expect(log.info).toHaveBeenCalledWith(
+        "dispatch queued",
+        expect.objectContaining({ ahead: 2, waitedMs: expect.any(Number) }),
+      );
+    });
+
+    it("keeps serving the item after a dispatch fails", async () => {
+      dispatch.mockReset();
+      dispatch.mockRejectedValueOnce(new Error("boom"));
+      dispatch.mockResolvedValueOnce(undefined);
+
+      const results = await Promise.allSettled([
+        service.handle(labeledIssue(1, "integration: hue"), "issues"),
+        service.handle(labeledIssue(1, "integration: lifx"), "issues"),
+      ]);
+
+      expect(results.map((r) => r.status)).toEqual(["rejected", "fulfilled"]);
+      expect(dispatch).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not hold up other items", async () => {
+      const tracked = trackConcurrency();
+
+      await Promise.all([
+        service.handle(labeledIssue(1, "integration: hue"), "issues"),
+        service.handle(labeledIssue(2, "integration: hue"), "issues"),
+      ]);
+
+      expect(tracked.maxRunning()).toBe(2);
+    });
   });
 });

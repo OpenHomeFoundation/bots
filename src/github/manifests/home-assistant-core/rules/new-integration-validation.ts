@@ -1,9 +1,9 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
+import { addedLines } from "../helpers/integration-manifest.js";
 import { isNewIntegrationPR } from "../helpers/new-integration.js";
 import { type ParsedPath, parseFiles } from "../helpers/parse-path.js";
-import { addedLines } from "../helpers/patch.js";
 import { isReleasePR } from "../helpers/release-pr.js";
 import { NEW_INTEGRATION_LABEL } from "./change-type.js";
 
@@ -38,6 +38,28 @@ async function deferredFlows(
     for (const match of source.matchAll(DEFERRED_FLOW_STEP)) found.add(match[1]);
   }
   return found;
+}
+
+/** Matches a module-level `async_migrate_entry` definition. */
+const MIGRATE_ENTRY_PATTERN = /^\s*async\s+def\s+async_migrate_entry\b/m;
+
+/**
+ * Whether an integration `__init__.py` the PR adds defines `async_migrate_entry`.
+ * The patch of an added file is the whole file; when GitHub omits it (large
+ * files) the file is read at the head commit instead.
+ */
+async function definesMigrateEntry(
+  ctx: RuleContext<HandledEvent>,
+  parsed: ParsedPath[],
+): Promise<boolean> {
+  const inits = parsed.filter(
+    (p) => p.type === "component" && p.filename === "__init__.py" && p.status === "added",
+  );
+  for (const init of inits) {
+    const content = init.file.patch ? addedLines(init.file.patch) : await ctx.repoFile(init.path);
+    if (content && MIGRATE_ENTRY_PATTERN.test(content)) return true;
+  }
+  return false;
 }
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
@@ -82,6 +104,14 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
+  if (await definesMigrateEntry(ctx, parsed)) {
+    issues.push(
+      "Remove `async_migrate_entry` — a new integration has no existing config entries to " +
+        "migrate, so it should start at config entry version 1. Migrations from a custom " +
+        "integration are not supported by core.",
+    );
+  }
+
   const flows = await deferredFlows(ctx, parsed);
   if (flows.size > 0) {
     const names = [...flows]
@@ -106,7 +136,7 @@ export const newIntegrationValidation = check({
   title: "New integration validation",
   description:
     "Validates new-integration PRs for platform count, brand folder placement, diagnostics, " +
-    "and reauth/reconfigure flows (which belong in follow-up PRs)",
+    "config entry migrations, and reauth/reconfigure flows (which belong in follow-up PRs)",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,

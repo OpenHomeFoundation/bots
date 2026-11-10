@@ -6,11 +6,19 @@ import {
   type IntegrationManifest,
   parseIntegrationManifest,
 } from "../../../helpers/integration-manifest.js";
-import { addedLines } from "./patch.js";
 
 /** Where an integration's manifest lives inside core. */
 function manifestPath(domain: string): string {
   return `homeassistant/components/${domain}/manifest.json`;
+}
+
+/** The lines a patch adds, with the `+` marker stripped. */
+export function addedLines(patch: string): string {
+  return patch
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .map((line) => line.slice(1))
+    .join("\n");
 }
 
 /**
