@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env } from "../../src/env.js";
 import { GithubWebhookGuard } from "../../src/github/github-webhook.guard.js";
 import { WebhookService } from "../../src/github/webhook.service.js";
-import { expectLoggedErrors } from "../helpers/log-guard.js";
+import { log } from "../../src/log.js";
 
 // vi.mock is hoisted above the imports and scoped to this file, so the mocked
 // dispatch only exists here — helpers/e2e.ts and engine/dispatch.test.ts keep
@@ -254,7 +254,6 @@ describe("webhook handler", () => {
     }
 
     it("runs dispatches for the same item one at a time", async () => {
-      expectLoggedErrors(); // the race monitor still reports the overlapping arrivals
       const tracked = trackConcurrency();
 
       await Promise.all(
@@ -265,13 +264,16 @@ describe("webhook handler", () => {
 
       expect(dispatch).toHaveBeenCalledTimes(3);
       expect(tracked.maxRunning()).toBe(1);
+      expect(log.info).toHaveBeenCalledWith(
+        "dispatch queued",
+        expect.objectContaining({ ahead: 2, waitedMs: expect.any(Number) }),
+      );
     });
 
     it("keeps serving the item after a dispatch fails", async () => {
       dispatch.mockReset();
       dispatch.mockRejectedValueOnce(new Error("boom"));
       dispatch.mockResolvedValueOnce(undefined);
-      expectLoggedErrors();
 
       const results = await Promise.allSettled([
         service.handle(labeledIssue(1, "integration: hue"), "issues"),
