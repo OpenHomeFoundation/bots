@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env } from "../../src/env.js";
 import { GithubWebhookGuard } from "../../src/github/github-webhook.guard.js";
 import { WebhookService } from "../../src/github/webhook.service.js";
+import { expectLoggedErrors } from "../helpers/log-guard.js";
 
 // vi.mock is hoisted above the imports and scoped to this file, so the mocked
 // dispatch only exists here — helpers/e2e.ts and engine/dispatch.test.ts keep
@@ -222,5 +223,74 @@ describe("webhook handler", () => {
     await service.handle(JSON.stringify(payload), "pull_request");
 
     expect(dispatch).toHaveBeenCalled();
+  });
+
+  // A burst of `labeled` webhooks for one issue: each dispatch must see the
+  // comments the previous one posted, or every one of them re-posts the
+  // code-owner mentions (home-assistant/core#191545).
+  describe("per-item serialization", () => {
+    function labeledIssue(number: number, label: string): string {
+      return JSON.stringify({
+        action: "labeled",
+        repository,
+        sender: { login: "testuser", type: "User" },
+        label: { name: label },
+        issue: { number },
+      });
+    }
+
+    function trackConcurrency(): { maxRunning: () => number } {
+      let running = 0;
+      let max = 0;
+      dispatch.mockReset();
+      dispatch.mockImplementation((async () => {
+        running++;
+        max = Math.max(max, running);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        running--;
+        return undefined;
+      }) as never);
+      return { maxRunning: () => max };
+    }
+
+    it("runs dispatches for the same item one at a time", async () => {
+      expectLoggedErrors(); // the race monitor still reports the overlapping arrivals
+      const tracked = trackConcurrency();
+
+      await Promise.all(
+        ["integration: hue", "integration: lifx", "integration: shelly"].map((label) =>
+          service.handle(labeledIssue(1, label), "issues"),
+        ),
+      );
+
+      expect(dispatch).toHaveBeenCalledTimes(3);
+      expect(tracked.maxRunning()).toBe(1);
+    });
+
+    it("keeps serving the item after a dispatch fails", async () => {
+      dispatch.mockReset();
+      dispatch.mockRejectedValueOnce(new Error("boom"));
+      dispatch.mockResolvedValueOnce(undefined);
+      expectLoggedErrors();
+
+      const results = await Promise.allSettled([
+        service.handle(labeledIssue(1, "integration: hue"), "issues"),
+        service.handle(labeledIssue(1, "integration: lifx"), "issues"),
+      ]);
+
+      expect(results.map((r) => r.status)).toEqual(["rejected", "fulfilled"]);
+      expect(dispatch).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not hold up other items", async () => {
+      const tracked = trackConcurrency();
+
+      await Promise.all([
+        service.handle(labeledIssue(1, "integration: hue"), "issues"),
+        service.handle(labeledIssue(2, "integration: hue"), "issues"),
+      ]);
+
+      expect(tracked.maxRunning()).toBe(2);
+    });
   });
 });
