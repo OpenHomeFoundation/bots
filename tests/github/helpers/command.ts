@@ -1,8 +1,8 @@
-import type { IssueCommentCreatedEvent } from "@octokit/webhooks-types";
 import { expect } from "vitest";
 import type { CommandContext } from "../../../src/github/engine/model/command-context.js";
 import { commandContextFromWebhook } from "../../../src/github/engine/model/command-context.js";
 import type { Command, RegistryConfig, Rule } from "../../../src/github/engine/types.js";
+import type { IssueCommentCreatedEvent } from "../../../src/github/webhook-events.js";
 import { createFakeGitHub, type FakeGitHub, testEnv } from "./mock-context.js";
 
 export interface MakeCommandContextOptions {
