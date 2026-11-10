@@ -18,11 +18,21 @@ type HandledEvent =
   | EventType.ISSUES_ON_DEMAND
   | EventType.ON_DEMAND;
 
-// One ping per item: a comment carrying this marker means owners were already
-// mentioned, and no further mention comments are posted — even if new
-// integrations or code owners show up later. Assignment can fail silently
-// (owners without repo access), so comment presence is the only reliable state.
+// One mention comment per item: a comment carrying this marker means owners
+// were already mentioned. Assignment can fail silently (owners without repo
+// access), so comment presence is the only reliable state.
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
+
+// The integrations a mention comment covers, so a later dispatch can tell
+// whether the list changed and edit the comment instead of posting another.
+// Comments without it (legacy bot, older deploys) are never edited.
+const COVERED_PATTERN = /<!-- ha-bot-mention-integrations: ([a-z0-9_,]*) -->/;
+
+function coveredIntegrations(body: string | null | undefined): Set<string> | undefined {
+  const match = body?.match(COVERED_PATTERN);
+  if (!match) return;
+  return new Set(match[1].split(",").filter(Boolean));
+}
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
 // recognized by their template prose instead — the raw markdown including the
@@ -44,59 +54,33 @@ if (!MENTION_TEMPLATE.includes(MENTION_MARKER)) {
   throw new Error("code-owner-mention template lost its marker comment");
 }
 
-function processIntegration(
+interface OwnedIntegration {
+  integrationName: string;
+  codeownersLine: string;
+  /** Lowercased owner logins, the item's author excluded. */
+  owners: string[];
+}
+
+function ownedIntegration(
   ctx: RuleContext<HandledEvent>,
   integrationName: string,
   codeownersContent: string,
   pathPattern: (name: string) => string,
-  itemLabel: string,
   authorLogin: string,
-  assignees: string[],
-  commenters: string[],
-): Effect[] {
-  if (!codeownersContent.includes(integrationName)) return [];
+): OwnedIntegration | undefined {
+  if (!codeownersContent.includes(integrationName)) return;
 
   const entries = parseCodeOwners(codeownersContent);
   const match = matchCodeOwners(pathPattern(integrationName), entries);
-  if (!match) return [];
+  if (!match) return;
 
-  const owners = match.owners.map((o) => o.substring(1).toLowerCase());
-  const codeownersLine = `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS#L${match.line}`;
-
-  const ownersMinusAuthor = owners.filter((usr) => usr !== authorLogin);
-
-  const effects: Effect[] = [];
-  if (ownersMinusAuthor.length > 0) {
-    effects.push({ type: "addAssignees", assignees: ownersMinusAuthor });
-  }
-
-  const mentions = ownersMinusAuthor
-    .filter((usr) => !assignees.includes(usr) && !commenters.includes(usr))
-    .map((usr) => `@${usr}`);
-
-  if (mentions.length > 0) {
-    const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
-    effects.push({
-      type: "comment",
-      // Escaping disabled: the output is markdown, not HTML.
-      body: Mustache.render(
-        MENTION_TEMPLATE,
-        {
-          mentions: mentions.join(", "),
-          itemLabel,
-          integrationName,
-          codeownersLine,
-          commandSlug: ctx.env.COMMAND_SLUG,
-          hasCommands: applicable.length > 0,
-          commands: commandViews(ctx.env.COMMAND_SLUG, applicable),
-        },
-        undefined,
-        { escape: String },
-      ),
-    });
-  }
-
-  return effects;
+  return {
+    integrationName,
+    codeownersLine: `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS#L${match.line}`,
+    owners: match.owners
+      .map((o) => o.substring(1).toLowerCase())
+      .filter((usr) => usr !== authorLogin),
+  };
 }
 
 export function mentionCodeOwners(config: {
@@ -125,27 +109,75 @@ export function mentionCodeOwners(config: {
     }
 
     const comments = await ctx.target.issueComments();
-    if (comments.some((c) => ctx.isOwnComment(c) && isMentionComment(c.body))) return;
+    const existing = comments.find((c) => ctx.isOwnComment(c) && isMentionComment(c.body));
+    const covered = existing ? coveredIntegrations(existing.body) : new Set<string>();
+    if (!covered) return;
 
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
+    const owned = integrationNames
+      .map((name) =>
+        ownedIntegration(ctx, name, codeownersContent, config.pathPattern, authorLogin),
+      )
+      .filter((o) => o !== undefined);
+    if (
+      existing &&
+      owned.length === covered.size &&
+      owned.every((o) => covered.has(o.integrationName))
+    ) {
+      return;
+    }
+
     const assignees = (await ctx.target.assigneeLogins()).map((a) => a.toLowerCase());
     const commenters = comments.map((c) => c.user?.login?.toLowerCase() ?? "");
+    // Owners the comment already names stay in it; they've been pinged.
+    const alreadyMentioned = new Set(existing?.body?.toLowerCase().match(/@[\w/-]+/g));
 
     const itemLabel = config.itemLabel ?? (ctx.target.kind === "issue" ? "issue" : "pull request");
 
+    const toAssign = new Set<string>();
+    const mentioned: { integrationName: string; codeownersLine: string; mentions: string }[] = [];
+    for (const o of owned) {
+      if (!covered.has(o.integrationName)) {
+        for (const usr of o.owners) if (!assignees.includes(usr)) toAssign.add(usr);
+      }
+      const mentions = o.owners
+        .filter(
+          (usr) =>
+            alreadyMentioned.has(`@${usr}`) ||
+            (!assignees.includes(usr) && !commenters.includes(usr)),
+        )
+        .map((usr) => `@${usr}`);
+      if (mentions.length > 0) {
+        mentioned.push({ ...o, mentions: mentions.join(", ") });
+      }
+    }
+
     const effects: Effect[] = [];
-    for (const integrationName of integrationNames) {
-      effects.push(
-        ...processIntegration(
-          ctx,
-          integrationName,
-          codeownersContent,
-          config.pathPattern,
+    if (toAssign.size > 0) {
+      effects.push({ type: "addAssignees", assignees: [...toAssign] });
+    }
+    if (mentioned.length > 0) {
+      const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
+      // Escaping disabled: the output is markdown, not HTML.
+      const body = Mustache.render(
+        MENTION_TEMPLATE,
+        {
           itemLabel,
-          authorLogin,
-          assignees,
-          commenters,
-        ),
+          covered: owned.map((o) => o.integrationName).join(","),
+          single: mentioned.length === 1 ? mentioned[0] : null,
+          integrations: mentioned,
+          codeownersUrl: `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS`,
+          commandSlug: ctx.env.COMMAND_SLUG,
+          hasCommands: applicable.length > 0,
+          commands: commandViews(ctx.env.COMMAND_SLUG, applicable),
+        },
+        undefined,
+        { escape: String },
+      );
+      effects.push(
+        existing
+          ? { type: "updateComment", commentId: existing.id, body }
+          : { type: "comment", body },
       );
     }
 

@@ -35,6 +35,17 @@ describe("file-shape", () => {
       expect(result?.labels).toContain("has-tests");
     });
 
+    it("adds has-tests for pylint checker tests", async () => {
+      const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+      mockPRFiles(context, [
+        makeFile("packages/pylint-home-assistant/pylint_home_assistant/checkers/foo.py"),
+        makeFile("tests/pylint/test_foo.py"),
+      ]);
+
+      const result = await runRule(fileShape, context);
+      expect(result?.labels).toContain("has-tests");
+    });
+
     it("does not add has-tests when no test files", async () => {
       const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
       mockPRFiles(context, [makeFile("homeassistant/components/hue/__init__.py")]);
@@ -169,6 +180,36 @@ describe("file-shape", () => {
       mockPRFiles(context, [
         makeFile("homeassistant/components/hue/__init__.py", { additions: 5 }),
         makeFile("tests/components/hue/test_init.py", { additions: 200 }),
+      ]);
+
+      const result = await runRule(fileShape, context);
+      expect(result?.labels).toContain("small-pr");
+    });
+
+    it.each([
+      "packages/pylint-home-assistant/pylint_home_assistant/checkers/foo.py",
+      "mypy_plugins/enum_identity_compare.py",
+      "script/hassfest/manifest.py",
+    ])("counts tooling file %s towards small-pr threshold", async (filename) => {
+      const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/hue/__init__.py", { additions: 5 }),
+        makeFile(filename, { additions: 100 }),
+      ]);
+
+      const result = await runRule(fileShape, context);
+      expect(result?.labels ?? []).not.toContain("small-pr");
+    });
+
+    it.each([
+      "packages/hassfest/tests/test_foo.py",
+      "tests/pylint/test_foo.py",
+      "packages/pylint-home-assistant/pylint_home_assistant/generated/mdi_icons.py",
+    ])("excludes %s from small-pr threshold count", async (filename) => {
+      const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+      mockPRFiles(context, [
+        makeFile("homeassistant/components/hue/__init__.py", { additions: 5 }),
+        makeFile(filename, { additions: 200 }),
       ]);
 
       const result = await runRule(fileShape, context);

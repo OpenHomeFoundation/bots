@@ -11,6 +11,10 @@ statuses:
     title: Config flow tests
     status: pass
     message: New config flows come with config flow tests.
+  - id: forbidden-files
+    title: Forbidden files
+    status: pass
+    message: No forbidden files.
   - id: docs-missing
     title: Documentation
     status: fail

@@ -13,5 +13,4 @@ Sentry.init({
   environment: env.ENVIRONMENT,
   release: packageJson.version,
   // tracesSampleRate: 1.0,
-  enableLogs: true,
 });
