@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { homeAssistantPrLinks } from "../../../src/github/manifests/home-assistant-org.js";
 import { siblingApproval } from "../../../src/github/rules/sibling-approval.js";
-import { LINE, linkedContext, type OtherPR } from "../helpers/linked-prs.js";
+import { LINE, linkedContext, type OtherPR, testLinks } from "../helpers/linked-prs.js";
 import { runRule } from "../helpers/mock-context.js";
 
-const rule = siblingApproval(homeAssistantPrLinks);
+const rule = siblingApproval(testLinks);
 const BACK = `${LINE} home-assistant/core#1`;
 const sibling = (pr: Partial<OtherPR> = {}) => ({ "frontend#5": { body: BACK, ...pr } });
 const member = (state: string, login = "maintainer") => ({ login, state, association: "MEMBER" });

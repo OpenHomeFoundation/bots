@@ -5,10 +5,9 @@ import type { Rule } from "../engine/types.js";
 import { belongsTogether } from "../rules/belongs-together.js";
 import { draftOnChangesRequested } from "../rules/draft-on-changes-requested.js";
 import { followParent } from "../rules/follow-parent.js";
-import type { PrLinks, Relation } from "../rules/linked-prs.js";
+import type { PrLinks } from "../rules/linked-prs.js";
 import { pokeLinked } from "../rules/poke-linked.js";
 import { readyForReview } from "../rules/ready-for-review.js";
-import { siblingApproval } from "../rules/sibling-approval.js";
 import { wth } from "../rules/wth.js";
 import { Organization, type OrgManifest } from "./types.js";
 
@@ -32,41 +31,33 @@ export enum HomeAssistantRepository {
   SUPERVISOR = "home-assistant/supervisor",
 }
 
-type LinkGroup = "code" | "docs" | "brands" | "links";
+const {
+  ANDROID,
+  BRANDS,
+  COMPANION_HOME_ASSISTANT,
+  CONTRIBUTORS_HOME_ASSISTANT,
+  CORE,
+  FRONTEND,
+  HOME_ASSISTANT_IO,
+  IOS,
+  SUPERVISOR,
+} = HomeAssistantRepository;
 
-// A repo's own entry wins over its org's; a repo in no group is a library,
-// released and bumped on its own, so its PRs never pair.
-const REPO_GROUPS = new Map<string, LinkGroup | "library">(
+/**
+ * Each repo whose PRs follow code (docs, brands), with the code repos it
+ * follows. One entry per pair, as the code side's view follows from it; any
+ * other two repos don't pair.
+ */
+const FOLLOWS = new Map<string, string[]>(
   (
     [
-      [HomeAssistantRepository.HOME_ASSISTANT_IO, "docs"],
-      [HomeAssistantRepository.CONTRIBUTORS_HOME_ASSISTANT, "docs"],
-      [HomeAssistantRepository.COMPANION_HOME_ASSISTANT, "docs"],
-      [HomeAssistantRepository.DEVELOPERS_HOME_ASSISTANT, "docs"],
-      [HomeAssistantRepository.BRANDS, "brands"],
-      [HomeAssistantRepository.MY_HOME_ASSISTANT, "links"],
-      ["home-assistant/home-assistant-js-websocket", "library"],
+      [HOME_ASSISTANT_IO, [CORE, FRONTEND, SUPERVISOR]],
+      [CONTRIBUTORS_HOME_ASSISTANT, [CORE, FRONTEND, SUPERVISOR, ANDROID, IOS]],
+      [COMPANION_HOME_ASSISTANT, [ANDROID, IOS]],
+      [BRANDS, [CORE]],
     ] as const
-  ).map(([slug, group]) => [slug.toLowerCase(), group]),
+  ).map(([follower, code]) => [follower.toLowerCase(), code.map((slug) => slug.toLowerCase())]),
 );
-const ORG_GROUPS = new Map<string, LinkGroup>([
-  [Organization.HOME_ASSISTANT, "code"],
-  ["ohf-voice", "code"],
-]);
-
-/** Row: this PR's group, column: the linked PR's. A pair that isn't listed doesn't pair. */
-const RELATIONS: Record<LinkGroup, Partial<Record<LinkGroup, Relation>>> = {
-  code: { code: "sibling", docs: "child", brands: "child", links: "child" },
-  docs: { code: "parent", docs: "sibling", brands: "sibling" },
-  brands: { code: "parent", docs: "sibling", brands: "sibling" },
-  links: { code: "parent" },
-};
-
-function groupOf(repo: { owner: string; repo: string }): LinkGroup | undefined {
-  const own = REPO_GROUPS.get(slugOf(repo).toLowerCase());
-  if (own) return own === "library" ? undefined : own;
-  return ORG_GROUPS.get(repo.owner.toLowerCase());
-}
 
 /** Where home-assistant PR templates list the PRs that belong together. */
 export const homeAssistantPrLinks: PrLinks = {
@@ -91,8 +82,10 @@ export const homeAssistantPrLinks: PrLinks = {
     "Link to relevant existing code or pull request",
   ],
   relationOf: (self, other) => {
-    const [from, to] = [groupOf(self), groupOf(other)];
-    return (from && to && RELATIONS[from][to]) || null;
+    const [a, b] = [slugOf(self).toLowerCase(), slugOf(other).toLowerCase()];
+    if (FOLLOWS.get(a)?.includes(b)) return "parent";
+    if (FOLLOWS.get(b)?.includes(a)) return "child";
+    return null;
   },
 };
 
@@ -104,7 +97,6 @@ export const homeAssistantLinkRules: Rule[] = [
   belongsTogether(homeAssistantPrLinks),
   pokeLinked(homeAssistantPrLinks),
   followParent(homeAssistantPrLinks),
-  siblingApproval(homeAssistantPrLinks),
 ];
 
 /**

@@ -10,37 +10,32 @@ const relation = (self: string, other: string) =>
 
 describe("homeAssistantPrLinks.relationOf", () => {
   it.each([
-    ["home-assistant/core", "home-assistant/frontend", "sibling"],
-    ["home-assistant/core", "OHF-Voice/intents", "sibling"],
-    ["home-assistant/core", "home-assistant/home-assistant.io", "child"],
-    ["home-assistant/frontend", "home-assistant/my.home-assistant.io", "child"],
-    ["home-assistant/home-assistant.io", "home-assistant/core", "parent"],
-    ["home-assistant/brands", "home-assistant/core", "parent"],
-    ["home-assistant/home-assistant.io", "home-assistant/brands", "sibling"],
-    ["home-assistant/my.home-assistant.io", "home-assistant/frontend", "parent"],
-    ["Home-Assistant/Core", "home-assistant/IOS", "sibling"],
-  ])("%s → %s is %s", (self, other, expected) => {
-    expect(relation(self, other)).toBe(expected);
+    ["home-assistant/home-assistant.io", "home-assistant/core"],
+    ["home-assistant/home-assistant.io", "home-assistant/frontend"],
+    ["home-assistant/contributors.home-assistant.io", "home-assistant/supervisor"],
+    ["home-assistant/contributors.home-assistant.io", "home-assistant/android"],
+    ["home-assistant/companion.home-assistant", "home-assistant/iOS"],
+    ["home-assistant/brands", "home-assistant/core"],
+    ["Home-Assistant/Brands", "home-assistant/CORE"],
+  ])("%s follows %s", (follower, code) => {
+    expect(relation(follower, code)).toBe("parent");
+    expect(relation(code, follower)).toBe("child");
   });
 
   it.each([
+    ["two code repos", "home-assistant/core", "home-assistant/frontend"],
+    ["two docs repos", "home-assistant/home-assistant.io", "home-assistant/brands"],
     [
-      "a library in another org",
+      "docs and code it doesn't document",
+      "home-assistant/companion.home-assistant",
       "home-assistant/core",
-      "home-assistant-libs/python-supervisor-client",
     ],
+    ["brands and frontend", "home-assistant/brands", "home-assistant/frontend"],
+    ["intents", "home-assistant/core", "OHF-Voice/intents"],
+    ["a library", "home-assistant/core", "home-assistant-libs/python-supervisor-client"],
     ["ESPHome", "home-assistant/core", "esphome/esphome"],
-    [
-      "a library in the org",
-      "home-assistant/frontend",
-      "home-assistant/home-assistant-js-websocket",
-    ],
-    [
-      "docs and a My Home Assistant link",
-      "home-assistant/home-assistant.io",
-      "home-assistant/my.home-assistant.io",
-    ],
   ])("doesn't pair %s", (_, self, other) => {
     expect(relation(self, other)).toBeNull();
+    expect(relation(other, self)).toBeNull();
   });
 });

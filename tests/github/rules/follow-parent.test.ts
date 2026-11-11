@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
-import { homeAssistantPrLinks } from "../../../src/github/manifests/home-assistant-org.js";
 import { followParent } from "../../../src/github/rules/follow-parent.js";
-import { LINE, linkedContext, type OtherPR } from "../helpers/linked-prs.js";
+import { LINE, linkedContext, type OtherPR, testLinks } from "../helpers/linked-prs.js";
 import { runRule } from "../helpers/mock-context.js";
 
-const rule = followParent(homeAssistantPrLinks);
+const rule = followParent(testLinks);
 const BACK = `${LINE} home-assistant/home-assistant.io#1`;
 const PARENT = "home-assistant/core#123";
 const seen = (state: "open" | "closed" | "merged") => ({ parents: { [PARENT]: state } });
