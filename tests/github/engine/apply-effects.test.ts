@@ -66,28 +66,6 @@ describe("effect → GitHub API mapping", () => {
     });
   });
 
-  it("addLabelsCrossRepo → issues.addLabels on the effect's own coordinates", async () => {
-    const github = await apply({
-      effects: [
-        {
-          type: "addLabelsCrossRepo",
-          owner: "home-assistant",
-          repo: "home-assistant.io",
-          issue_number: 42,
-          labels: ["has-parent"],
-        },
-      ],
-    });
-
-    expect(github.issues.addLabels).toHaveBeenCalledTimes(1);
-    expect(github.issues.addLabels).toHaveBeenCalledWith({
-      owner: "home-assistant",
-      repo: "home-assistant.io",
-      issue_number: 42,
-      labels: ["has-parent"],
-    });
-  });
-
   it("removeLabels → one issues.removeLabel per label the target has", async () => {
     const github = await apply(
       { effects: [{ type: "removeLabels", labels: ["stale", "needs-rebase"] }] },
@@ -157,27 +135,6 @@ describe("effect → GitHub API mapping", () => {
     expect(github.issues.update).toHaveBeenCalledWith({
       ...REPO,
       issue_number: 1,
-      state: "closed",
-    });
-  });
-
-  it("updatePullRequest → pulls.update on the effect's own coordinates", async () => {
-    const github = await apply({
-      effects: [
-        {
-          type: "updatePullRequest",
-          owner: "home-assistant",
-          repo: "home-assistant.io",
-          pull_number: 9,
-          state: "closed",
-        },
-      ],
-    });
-
-    expect(github.pulls.update).toHaveBeenCalledWith({
-      owner: "home-assistant",
-      repo: "home-assistant.io",
-      pull_number: 9,
       state: "closed",
     });
   });

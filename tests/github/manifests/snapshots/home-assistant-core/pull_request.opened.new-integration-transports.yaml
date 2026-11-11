@@ -15,6 +15,10 @@ statuses:
     title: Documentation
     status: fail
     message: Missing documentation PR
+  - id: belongs-together
+    title: Belongs together
+    status: skip
+    message: No pull requests listed.
   - id: merge-conflict
     title: Merge conflicts
     status: pass

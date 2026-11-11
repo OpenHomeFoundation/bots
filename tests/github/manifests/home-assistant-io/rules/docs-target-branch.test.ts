@@ -1,12 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { EventType } from "../../../../../src/github/engine/event.js";
 import { docsTargetBranch } from "../../../../../src/github/manifests/home-assistant-io/rules/docs-target-branch.js";
-import { createMockContext, runRule } from "../../../helpers/mock-context.js";
+import { createFakeGitHub, createMockContext, runRule } from "../../../helpers/mock-context.js";
 
-function docsContext(baseRef: string, body = "") {
+const LINE = "- This PR belongs together with:";
+
+/** A docs PR on home-assistant.io; `prs` are the listed numbers that are PRs (others 404, like issues). */
+function docsContext(baseRef: string, body = "", prs: string[] = []) {
+  const github = createFakeGitHub();
+  github.pulls.get.mockImplementation(async (params: unknown) => {
+    const { owner, repo, pull_number } = params as {
+      owner: string;
+      repo: string;
+      pull_number: number;
+    };
+    if (!prs.includes(`${repo}#${pull_number}`)) throw { status: 404 };
+    const base = { repo: { owner: { login: owner }, name: repo, full_name: `${owner}/${repo}` } };
+    return { data: { number: pull_number, state: "open", merged: false, body: "", base } };
+  });
   return createMockContext({
     eventType: EventType.PULL_REQUEST_OPENED,
-    payload: { pull_request: { base: { ref: baseRef }, body } },
+    github,
+    payload: {
+      repository: {
+        full_name: "home-assistant/home-assistant.io",
+        name: "home-assistant.io",
+        owner: { login: "home-assistant" },
+      },
+      pull_request: { base: { ref: baseRef }, body },
+    },
   });
 }
 
@@ -22,28 +44,37 @@ describe("docs-target-branch", () => {
     expect(result?.section?.message).toContain("`current`");
   });
 
-  it("passes a docs PR with a parent code PR targeting next", async () => {
+  it("passes a docs PR listing a code PR, targeting next", async () => {
     const result = await runRule(
       docsTargetBranch,
-      docsContext("next", "Parent: home-assistant/core#12345"),
+      docsContext("next", `${LINE} home-assistant/core#12345`, ["core#12345"]),
     );
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("warns a docs PR with a parent code PR targeting current", async () => {
+  it("warns a docs PR listing a code PR, targeting current", async () => {
     const result = await runRule(
       docsTargetBranch,
-      docsContext("current", "Parent: https://github.com/home-assistant/frontend/pull/999"),
+      docsContext(
+        "current",
+        "- Link to parent pull request in the codebase: https://github.com/home-assistant/frontend/pull/999",
+        ["frontend#999"],
+      ),
     );
     expect(result?.section?.status).toBe("warn");
     expect(result?.section?.message).toContain("`next`");
   });
 
-  it("treats brands/developers/docs links as non-parents", async () => {
-    const result = await runRule(
-      docsTargetBranch,
-      docsContext("current", "See home-assistant/brands#1 and home-assistant/home-assistant.io#2"),
-    );
+  it.each([
+    ["a code issue", `${LINE} home-assistant/core#7`, []],
+    [
+      "brands and docs PRs",
+      `${LINE} home-assistant/brands#1 home-assistant/home-assistant.io#2`,
+      ["brands#1", "home-assistant.io#2"],
+    ],
+    ["a code PR outside the line", "Parent: home-assistant/core#12345", ["core#12345"]],
+  ])("has no parent in %s", async (_, body, prs) => {
+    const result = await runRule(docsTargetBranch, docsContext("current", body, prs));
     expect(result?.section?.status).toBe("pass");
   });
 

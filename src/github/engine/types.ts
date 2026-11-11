@@ -16,24 +16,10 @@ export type { CommandHelpEntry, CommandPermission } from "./command-render.js";
  */
 export type Effect =
   | { type: "addLabels"; labels: string[] }
-  | {
-      type: "addLabelsCrossRepo";
-      owner: string;
-      repo: string;
-      issue_number: number;
-      labels: string[];
-    }
   | { type: "removeLabels"; labels: string[] }
   | { type: "addAssignees"; assignees: string[] }
   | { type: "comment"; body: string }
   | { type: "updateComment"; commentId: number; body: string }
-  | {
-      type: "updatePullRequest";
-      owner: string;
-      repo: string;
-      pull_number: number;
-      state: "open" | "closed";
-    }
   | {
       type: "requestReviewers";
       reviewers: string[];

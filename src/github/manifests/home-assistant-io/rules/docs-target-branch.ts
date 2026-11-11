@@ -1,18 +1,8 @@
-import { slugOf } from "../../../../util/item-ref.js";
-import { extractAllLinks } from "../../../../util/pr-body.js";
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
-import { HomeAssistantRepository } from "../../home-assistant-org.js";
-import { Organization } from "../../types.js";
-
-// Links to these repos never make a docs PR "documentation for an upcoming
-// release": they hold no shipping code (or are docs themselves).
-const NON_PARENT_REPOS = new Set<string>([
-  HomeAssistantRepository.BRANDS,
-  HomeAssistantRepository.DEVELOPERS_HOME_ASSISTANT,
-  HomeAssistantRepository.HOME_ASSISTANT_IO,
-]);
+import { linkedPRs } from "../../../rules/linked-prs.js";
+import { homeAssistantPrLinks } from "../../home-assistant-org.js";
 
 // Integration scaffolds live on `new` and follow neither current nor next.
 const EXEMPT_BRANCHES = new Set(["new"]);
@@ -28,11 +18,9 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     return { status: "skip", message: `PRs targeting \`${baseRef}\` are exempt.` };
   }
 
-  const parentLinks = extractAllLinks(await ctx.target.body()).filter(
-    (link) => link.owner === Organization.HOME_ASSISTANT && !NON_PARENT_REPOS.has(slugOf(link)),
-  );
-
-  const expected = parentLinks.length > 0 ? "next" : "current";
+  // Documenting a code PR, listed back or not, is documenting an upcoming release.
+  const linked = await linkedPRs(ctx, homeAssistantPrLinks);
+  const expected = linked.some((l) => l.relation === "parent") ? "next" : "current";
   if (baseRef === expected) {
     return { status: "pass", message: `This PR targets \`${expected}\`.` };
   }
@@ -46,7 +34,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
           `\`next\` and rebase if needed.`
         : `Documentation updates for the current stable release should target \`current\`. ` +
           `Please change the target branch to \`current\` and rebase if needed — or, if this ` +
-          `documents a new feature, add a link to that PR to the description.`,
+          `documents a new feature, list that PR under "This PR belongs together with".`,
   };
 }
 

@@ -125,30 +125,6 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       case "comment":
         comments.add(effect.body);
         break;
-      case "addLabelsCrossRepo":
-        ops.push({
-          op: effect.type,
-          run: () =>
-            context.github.issues.addLabels({
-              owner: effect.owner,
-              repo: effect.repo,
-              issue_number: effect.issue_number,
-              labels: effect.labels,
-            }),
-        });
-        break;
-      case "updatePullRequest":
-        ops.push({
-          op: effect.type,
-          run: () =>
-            context.github.pulls.update({
-              owner: effect.owner,
-              repo: effect.repo,
-              pull_number: effect.pull_number,
-              state: effect.state,
-            }),
-        });
-        break;
       case "requestReviewers":
         ops.push({
           op: effect.type,
