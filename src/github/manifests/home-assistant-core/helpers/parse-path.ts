@@ -24,7 +24,6 @@ const FILE_TYPES = [
   "services",
   "component",
   "platform",
-  "brand",
   "tooling",
 ] as const;
 
@@ -103,8 +102,6 @@ export class ParsedPath {
       if (entityPlatforms.has(filename)) {
         this.platform = filename;
       }
-    } else if (filename === "brand") {
-      this.type = "brand";
     } else if (filename === "services.yaml") {
       this.type = "services";
     } else if (entityPlatforms.has(filename)) {

@@ -61,14 +61,6 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
-  const hasBrandFolder = parsed.some((p) => p.type === "brand");
-  if (hasBrandFolder) {
-    issues.push(
-      "Remove the `brand` folder — brand assets don't belong in core. See the " +
-        "[brand images docs](https://developers.home-assistant.io/docs/core/integration/brand_images).",
-    );
-  }
-
   const hasDiagnostics = parsed.some(
     (p) => p.type === "component" && p.filename === "diagnostics.py",
   );
@@ -98,7 +90,7 @@ export const newIntegrationValidation = check({
   id: "new-integration-validation",
   title: "New integration validation",
   description:
-    "Validates new-integration PRs for platform count, brand folder placement, diagnostics and config entry migrations",
+    "Validates new-integration PRs for platform count, diagnostics and config entry migrations",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,
