@@ -99,6 +99,44 @@ describe("effect → GitHub API mapping", () => {
     });
   });
 
+  it("addAssignees drops logins GitHub can't assign and sends the rest in one call", async () => {
+    const github = await apply(
+      { effects: [{ type: "addAssignees", assignees: ["balloob", "vendor", "frenck"] }] },
+      { github: createFakeGitHub({ unassignable: ["vendor"] }) },
+    );
+
+    expect(github.issues.addAssignees).toHaveBeenCalledTimes(1);
+    expect(github.issues.addAssignees).toHaveBeenCalledWith({
+      ...REPO,
+      issue_number: 1,
+      assignees: ["balloob", "frenck"],
+    });
+  });
+
+  it("addAssignees makes no call when nobody can be assigned", async () => {
+    const github = await apply(
+      { effects: [{ type: "addAssignees", assignees: ["vendor"] }] },
+      { github: createFakeGitHub({ unassignable: ["vendor"] }) },
+    );
+
+    expect(github.issues.addAssignees).not.toHaveBeenCalled();
+  });
+
+  it("addAssignees fills the item up to GitHub's 10-assignee cap", async () => {
+    const assigned = Array.from({ length: 8 }, (_, i) => ({ login: `owner${i}` }));
+    const github = await apply(
+      { effects: [{ type: "addAssignees", assignees: ["owner0", "a", "b", "c"] }] },
+      { payload: { pull_request: { assignees: assigned } } },
+    );
+
+    expect(github.issues.checkUserCanBeAssignedToIssue).toHaveBeenCalledTimes(3);
+    expect(github.issues.addAssignees).toHaveBeenCalledWith({
+      ...REPO,
+      issue_number: 1,
+      assignees: ["a", "b"],
+    });
+  });
+
   it("removeAssignees → issues.removeAssignees", async () => {
     const github = await apply({ effects: [{ type: "removeAssignees", assignees: ["balloob"] }] });
 

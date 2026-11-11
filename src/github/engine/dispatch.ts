@@ -226,8 +226,7 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
   if (assignees.size > 0) {
     ops.push({
       op: "addAssignees",
-      run: () =>
-        context.github.issues.addAssignees(context.issueParams({ assignees: [...assignees] })),
+      run: () => addAssignable(context, [...assignees]),
     });
   }
 
@@ -263,6 +262,36 @@ function poke(context: RuleContext, key: string, target: ItemRef): void {
   withCorrelationId(correlationId, () =>
     withItemLock(key, () => evaluatePR(context.env, context.registry, context.github, target)),
   ).catch((err) => log.exception(err, { op: "evaluate", target: key }));
+}
+
+/** GitHub's per-item assignee cap. */
+const MAX_ASSIGNEES = 10;
+
+/**
+ * GitHub rejects the whole call if any login can't be assigned (outside
+ * contributors, vendor accounts, teams) or the item would pass its cap, so
+ * only the assignable ones go out.
+ */
+async function addAssignable(context: RuleContext, logins: string[]): Promise<void> {
+  const current = new Set((await context.target.assigneeLogins()).map((a) => a.toLowerCase()));
+  const candidates = logins.filter((login) => !current.has(login.toLowerCase()));
+  const assignable = await Promise.all(
+    candidates.map((assignee) =>
+      context.github.issues.checkUserCanBeAssignedToIssue(context.issueParams({ assignee })).then(
+        () => true,
+        (err) => {
+          if ((err as { status?: number }).status === 404) return false;
+          throw err;
+        },
+      ),
+    ),
+  );
+  const toAdd = candidates
+    .filter((_, i) => assignable[i])
+    .slice(0, Math.max(0, MAX_ASSIGNEES - current.size));
+  if (toAdd.length > 0) {
+    await context.github.issues.addAssignees(context.issueParams({ assignees: toAdd }));
+  }
 }
 
 /** Post the marker-tagged comment unless the thread already carries one. */
