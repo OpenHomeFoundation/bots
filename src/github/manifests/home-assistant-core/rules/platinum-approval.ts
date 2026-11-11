@@ -1,6 +1,7 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
+import { MAX_INTEGRATION_LABELS } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
 import { domainsFromFiles } from "../helpers/integration-domains.js";
 
@@ -19,8 +20,10 @@ const APPROVED_LABEL = "code-owner-approved";
  * Uncapped and never from labels: touching a second integration, or a label
  * left over from an earlier push, must not switch the gate off.
  */
-async function platinumOwners(ctx: RuleContext<HandledEvent>): Promise<Map<string, string[]>> {
-  const domains = domainsFromFiles(await ctx.target.files());
+async function platinumOwners(
+  ctx: RuleContext<HandledEvent>,
+  domains: string[],
+): Promise<Map<string, string[]>> {
   const manifests = await Promise.all(domains.map((d) => fetchIntegrationManifest(d)));
   const owners = new Map<string, string[]>();
   for (const [i, domain] of domains.entries()) {
@@ -48,7 +51,8 @@ async function approvers(ctx: RuleContext<HandledEvent>): Promise<Set<string>> {
 }
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
-  const owners = await platinumOwners(ctx);
+  const domains = domainsFromFiles(await ctx.target.files());
+  const owners = await platinumOwners(ctx, domains);
   if (owners.size === 0) {
     return {
       status: "skip",
@@ -72,13 +76,19 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     };
   }
 
-  // Reviewer-actionable, not author-actionable: `pending` blocks the merge
-  // without drafting the PR, which would hide it from the review queue and
-  // make the approval it's waiting for impossible. Members waive it with
-  // `ignore` where it doesn't fit (tree-wide refactors).
+  // A member's tree-wide change (past the cap at which code owners aren't
+  // mentioned either) only warns. Otherwise reviewer-actionable, not
+  // author-actionable: `pending` blocks the merge without drafting the PR,
+  // which would hide it from the review queue and make the approval it's
+  // waiting for impossible.
+  const treeWide = domains.length > MAX_INTEGRATION_LABELS && (await ctx.hasMember(author));
   return {
-    status: "pending",
-    message: `Platinum ${missing.join(", ")} — needs approval from a code owner before merging.`,
+    status: treeWide ? "warn" : "pending",
+    message: `Platinum ${missing.join(", ")} — ${
+      treeWide
+        ? `no code-owner approval; not required for a member's change across more than ${MAX_INTEGRATION_LABELS} integrations.`
+        : "needs approval from a code owner before merging."
+    }`,
     ...((await ctx.target.labels()).includes(APPROVED_LABEL)
       ? { effects: [{ type: "removeLabels", labels: [APPROVED_LABEL] }] }
       : {}),

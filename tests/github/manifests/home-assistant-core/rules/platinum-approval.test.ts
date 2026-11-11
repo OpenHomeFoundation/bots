@@ -53,8 +53,10 @@ describe("platinum-approval", () => {
     association?: string;
     labels?: string[];
     eventType?: EventType;
+    member?: boolean;
   }) {
     const github: FakeGitHub = createFakeGitHub();
+    if (opts.member) github.orgs.checkMembershipForUser.mockResolvedValue({ status: 204 });
     github.pulls.listReviews.mockResolvedValue({ data: opts.reviews ?? [] });
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
     const context = createMockContext({
@@ -143,8 +145,24 @@ describe("platinum-approval", () => {
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("enforces on tree-wide changes past the integration-label cap", async () => {
+  it("enforces on a non-member's tree-wide change past the integration-label cap", async () => {
     const result = await setup({ files: touching("hue", "a", "b", "c", "d", "e", "f") });
+    expect(result?.section?.status).toBe("pending");
+  });
+
+  it("only warns on a member's tree-wide change past the integration-label cap", async () => {
+    const result = await setup({
+      files: touching("hue", "a", "b", "c", "d", "e"),
+      member: true,
+      labels: ["code-owner-approved"],
+    });
+    expect(result?.section?.status).toBe("warn");
+    expect(result?.section?.message).toContain("`hue`");
+    expect(result?.removeLabels).toContain("code-owner-approved");
+  });
+
+  it("enforces on a member's change within the integration-label cap", async () => {
+    const result = await setup({ files: touching("hue", "a", "b", "c", "d"), member: true });
     expect(result?.section?.status).toBe("pending");
   });
 
