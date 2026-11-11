@@ -512,3 +512,57 @@ describe("aggregate ha-bot status check from status sections", () => {
     expect(github.repos.createCommitStatus).not.toHaveBeenCalled();
   });
 });
+
+describe("evaluate effect", () => {
+  const target = { owner: "home-assistant", repo: "home-assistant.io", number: 9 };
+
+  function setup(eventType: EventType) {
+    const github = createFakeGitHub();
+    const targetRule = vi.fn(async () => undefined);
+    const config: RegistryConfig = {
+      repositories: {
+        "home-assistant/core": {
+          rules: [
+            {
+              name: "poker",
+              description: "",
+              events: { [eventType]: async () => ({ effects: [{ type: "evaluate", target }] }) },
+            },
+          ],
+          commands: [],
+        },
+        "home-assistant/home-assistant.io": {
+          rules: [
+            { name: "target", description: "", events: { [EventType.ON_DEMAND]: targetRule } },
+          ],
+          commands: [],
+        },
+      },
+    };
+    const run = () => dispatch(createMockContext({ registry: config, github, eventType }));
+    return { github, targetRule, run };
+  }
+
+  it("runs the target PR's own rules on demand", async () => {
+    const { github, targetRule, run } = setup(EventType.PULL_REQUEST_EDITED);
+    await run();
+
+    await vi.waitFor(() => expect(targetRule).toHaveBeenCalledTimes(1));
+    expect(github.pulls.get).toHaveBeenCalledWith({
+      owner: "home-assistant",
+      repo: "home-assistant.io",
+      pull_number: 9,
+    });
+    const [ctx] = targetRule.mock.calls[0] as unknown as [{ repo: { fullName: string } }];
+    expect(ctx.repo.fullName).toBe("home-assistant/home-assistant.io");
+  });
+
+  it("is dropped from an on-demand dispatch", async () => {
+    const { github, targetRule, run } = setup(EventType.ON_DEMAND);
+    await run();
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(github.pulls.get).not.toHaveBeenCalled();
+    expect(targetRule).not.toHaveBeenCalled();
+  });
+});
