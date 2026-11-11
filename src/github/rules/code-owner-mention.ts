@@ -22,7 +22,7 @@ type HandledEvent =
 
 type MentionEntry = BlockArgsMap["code-owners"]["integrations"][number];
 
-// One ping per item: a bot comment carrying this marker means owners were
+// One mention per item: a bot comment carrying this marker means owners were
 // already mentioned. Assignment can fail silently (owners without repo
 // access), so the marker is the only reliable state. The dashboard's
 // `code-owners` block writes it (see the dashboard templates), or the
@@ -30,10 +30,10 @@ type MentionEntry = BlockArgsMap["code-owners"]["integrations"][number];
 // target in earlier deploys).
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
-// The integrations a ping covers (mention comment or dashboard block), so a
-// later dispatch can tell whether the list changed and edit the ping instead
-// of posting another. Comments without it (legacy bot, older deploys) cover
-// nothing, so they get rewritten.
+// The integrations a code-owner mention covers (separate comment or dashboard
+// block), so a later dispatch can tell whether the list changed and edit the
+// mention instead of posting another. Comments without it (legacy bot, older
+// deploys) cover nothing, so they get rewritten.
 const COVERED_PATTERN = /<!-- ha-bot-mention-integrations: ([a-z0-9_,]*) -->/;
 
 function coveredIntegrations(body: string | null | undefined): Set<string> | undefined {
@@ -48,7 +48,7 @@ function coveredIntegrations(body: string | null | undefined): Set<string> | und
 export const LEGACY_MENTION_SENTINEL = "you are listed as a [code owner](";
 
 /**
- * Whether this comment carries a code-owner ping: the dashboard showing the
+ * Whether this comment carries a code-owner mention: the dashboard showing the
  * `code-owners` block, or a separate mention comment (targets without a
  * dashboard or listed in `commentOn`, and earlier or legacy deploys).
  */
@@ -58,8 +58,8 @@ export function isMentionComment(body: string | null | undefined): boolean {
 
 // The separate comment's layout and prose live in the template; this rule
 // only builds the view. The marker is written literally there but grepped for
-// here — fail at load if a template edit breaks the pair (one-ping detection
-// depends on it).
+// here — fail at load if a template edit breaks the pair (detecting an earlier
+// mention depends on it).
 const MENTION_TEMPLATE = readFileSync(new URL("./code-owner-mention.md", import.meta.url), "utf-8");
 if (!MENTION_TEMPLATE.includes(MENTION_MARKER)) {
   throw new Error("code-owner-mention template lost its marker comment");
@@ -95,7 +95,7 @@ function ownedIntegration(
 }
 
 /**
- * Assigns the code owners and pings them in the dashboard's `code-owners`
+ * Assigns the code owners and mentions them in the dashboard's `code-owners`
  * block, or in one separate comment on repos without a dashboard and on the
  * target kinds listed in `commentOn`.
  */
@@ -108,9 +108,9 @@ export function mentionCodeOwners(config: {
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
   itemLabel?: string;
   /**
-   * Target kinds that get the ping as a separate comment instead of the
+   * Target kinds that get the mention as a separate comment instead of the
    * dashboard block — for targets whose dashboard would otherwise exist only
-   * for the ping (e.g. home-assistant.io issues).
+   * for the mention (e.g. home-assistant.io issues).
    */
   commentOn?: readonly ("pull_request" | "issue")[];
 }): Rule {
@@ -182,8 +182,8 @@ export function mentionCodeOwners(config: {
 
     const covers = owned.map((o) => o.integrationName).join(",");
 
-    // An existing ping is edited where it lives: an earlier separate comment
-    // stays one even where the dashboard would carry the ping now.
+    // An existing mention is edited where it lives: an earlier separate comment
+    // stays one even where the dashboard would carry the mention now.
     const asComment = existing
       ? !isStatusComment(existing.body ?? "")
       : !ctx.repoConfig.dashboard || !!config.commentOn?.includes(ctx.target.kind);

@@ -34,7 +34,7 @@ export const homeAssistantIo: RepoManifest = {
       pathPattern: integrationDocPath,
       domains: itemIntegrationDomains,
       itemLabel: "feedback",
-      // Issues have no dashboard content of their own; keep their ping a comment.
+      // Issues have no dashboard content of their own; keep the code-owner mention a comment.
       commentOn: ["issue"],
     }),
     byCodeOwner({ pathPattern: integrationDocPath, domains: itemIntegrationDomains }),

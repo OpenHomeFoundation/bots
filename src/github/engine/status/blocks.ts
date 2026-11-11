@@ -18,10 +18,10 @@ export interface BlockArgsMap {
   "reporting-guidance": {
     paragraphs: string[];
   };
-  /** Code-owner ping, one line per labeled integration (see code-owner-mention). */
+  /** Code-owner mention, one line per labeled integration (see code-owner-mention). */
   "code-owners": {
     itemLabel: string;
-    /** Comma-joined integrations the ping covers (see code-owner-mention). */
+    /** Comma-joined integrations the mention covers (see code-owner-mention). */
     covered: string;
     integrations: { mentions: string; integration: string; codeownersLine: string }[];
   };

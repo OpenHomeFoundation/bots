@@ -249,7 +249,7 @@ describe("status renderer", () => {
     });
 
     it.each(["pull_request", "issue"] as const)(
-      "renders the code-owners ping on the %s dashboard, above the checks",
+      "renders the code-owners mention on the %s dashboard, above the checks",
       (target) => {
         const sections: StatusSection[] = [{ id: "a", title: "A", status: "pass", message: "ok" }];
         const result = renderStatus(sections, REPO, target, {
@@ -274,7 +274,7 @@ describe("status renderer", () => {
             "- `zha`: @marcel ([CODEOWNERS](https://c#L2))\n",
         );
         expect(result.indexOf("code owners")).toBeLessThan(result.indexOf("## Checks"));
-        // The marker is the rule's one-ping record (see code-owner-mention).
+        // The marker records that owners were already mentioned (see code-owner-mention).
         expect(result).toContain(MENTION_MARKER);
         expect(result).toContain("<!-- ha-bot-mention-integrations: hue,zha -->");
         expect(parseState(result).blocks["code-owners"]).toBeDefined();

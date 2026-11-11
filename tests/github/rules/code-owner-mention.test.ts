@@ -21,7 +21,7 @@ function codeOwnersBlock(result: RuleSummary | undefined) {
   return update?.block === "code-owners" ? update.args : undefined;
 }
 
-/** Both repos with the dashboard enabled, so the ping renders as a block. */
+/** Both repos with the dashboard enabled, so the mention renders as a block. */
 const DASHBOARD: RegistryConfig = {
   repositories: {
     "home-assistant/core": { rules: [], commands: [], dashboard: true },
@@ -53,7 +53,7 @@ describe("mention-code-owners", () => {
     expect(result).toBeUndefined();
   });
 
-  it("assigns code owners and pings them in the dashboard when integration is found", async () => {
+  it("assigns code owners and mentions them in the dashboard when integration is found", async () => {
     const github = createFakeGitHub();
     const codeowners = `homeassistant/components/hue/* @balloob @frenck`;
 
@@ -95,7 +95,7 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("pings once through the dashboard while the integrations are unchanged", async () => {
+  it("mentions once through the dashboard while the integrations are unchanged", async () => {
     const github = createFakeGitHub();
     github.repos.getContent.mockResolvedValue({
       data: { content: btoa(`homeassistant/components/hue/* @balloob`) },
@@ -106,7 +106,7 @@ describe("mention-code-owners", () => {
       repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
     };
     // Owners stay unassigned (e.g. no repo access), so only the marker in the
-    // dashboard can stop the second ping.
+    // dashboard can stop the second mention.
     const labeled = () =>
       createMockIssueContext({
         registry,
@@ -314,7 +314,7 @@ describe("mention-code-owners", () => {
       );
     });
 
-    it("edits the dashboard ping when an integration is added", async () => {
+    it("edits the dashboard mention when an integration is added", async () => {
       const github = createFakeGitHub();
       github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
       github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
@@ -580,7 +580,7 @@ describe("mention-code-owners", () => {
       expect(github.issues.addAssignees).toHaveBeenCalledWith(
         expect.objectContaining({ assignees: expect.arrayContaining(["balloob", "frenck"]) }),
       );
-      // The ping lands in the dashboard, not in a comment of its own.
+      // The mention lands in the dashboard, not in a comment of its own.
       expect(github.issues.updateComment).toHaveBeenCalledWith(
         expect.objectContaining({
           body: expect.stringMatching(/ha-bot-dashboard[\s\S]*`hue`: @balloob, @frenck/),
@@ -614,7 +614,7 @@ describe("mention-code-owners", () => {
       await dispatch(context);
 
       expect(github.issues.addAssignees).not.toHaveBeenCalled();
-      // The greeting dashboard is posted on opened, but without a ping.
+      // The greeting dashboard is posted on opened, but without a mention.
       expect(github.comments).toHaveLength(1);
       expect(github.comments[0].body).toContain("ha-bot-dashboard");
       expect(github.comments[0].body).not.toContain(MENTION_MARKER);
@@ -637,7 +637,7 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("uses custom itemLabel in the ping", async () => {
+  it("uses custom itemLabel in the mention", async () => {
     const docsRule = mentionCodeOwners({
       domains: itemIntegrationDomains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
@@ -677,7 +677,7 @@ describe("mention-code-owners", () => {
     expect(codeOwnersBlock(result)?.itemLabel).toBe("feedback");
   });
 
-  it("folds several integrations into one block, leaving out ones with nobody to ping", async () => {
+  it("folds several integrations into one block, leaving out ones with nobody to mention", async () => {
     const github = createFakeGitHub();
     github.repos.getContent.mockResolvedValue({
       data: {
