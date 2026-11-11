@@ -324,6 +324,7 @@ describe("update", () => {
         body: "",
         user: { login: "testuser", type: "User" },
         state: "open",
+        locked: false,
         draft: false,
         merged: false,
         merged_at: null,

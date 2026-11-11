@@ -14,3 +14,4 @@ export type PullRequestReopenedEvent = Schemas["webhook-pull-request-reopened"];
 export type PullRequestReviewSubmittedEvent = Schemas["webhook-pull-request-review-submitted"];
 export type PullRequestSynchronizeEvent = Schemas["webhook-pull-request-synchronize"];
 export type PullRequestUnlabeledEvent = Schemas["webhook-pull-request-unlabeled"];
+export type PullRequestUnlockedEvent = Schemas["webhook-pull-request-unlocked"];

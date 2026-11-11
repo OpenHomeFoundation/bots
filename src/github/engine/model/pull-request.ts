@@ -30,6 +30,7 @@ export interface PullRequestSeed {
   mergedAt?: string | null;
   state?: "open" | "closed";
   nodeId?: string;
+  locked?: boolean;
 }
 
 /**
@@ -146,6 +147,10 @@ export class PullRequest {
 
   nodeId(): Promise<string> {
     return this.coreField(this.seed.nodeId, (pr) => pr.node_id);
+  }
+
+  locked(): Promise<boolean> {
+    return this.coreField(this.seed.locked, (pr) => pr.locked);
   }
 
   /**

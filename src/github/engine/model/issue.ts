@@ -11,6 +11,7 @@ export interface IssueSeed {
   authorLogin?: string;
   assigneeLogins?: string[];
   state?: "open" | "closed";
+  locked?: boolean;
 }
 
 /**
@@ -81,6 +82,10 @@ export class Issue {
 
   state(): Promise<"open" | "closed"> {
     return this.coreField(this.seed.state, (issue) => (issue.state === "open" ? "open" : "closed"));
+  }
+
+  locked(): Promise<boolean> {
+    return this.coreField(this.seed.locked, (issue) => issue.locked);
   }
 
   issueComments(): Promise<IssueComments> {

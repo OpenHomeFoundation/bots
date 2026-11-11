@@ -252,6 +252,7 @@ interface PullRequestLike {
   merged?: boolean | null;
   merged_at?: string | null;
   state?: string;
+  locked?: boolean;
 }
 
 function seedFromPullRequestLike(pr: PullRequestLike): PullRequestSeed {
@@ -270,6 +271,7 @@ function seedFromPullRequestLike(pr: PullRequestLike): PullRequestSeed {
     ...(pr.merged_at !== undefined ? { mergedAt: pr.merged_at } : {}),
     ...(pr.state === "open" || pr.state === "closed" ? { state: pr.state } : {}),
     ...(pr.node_id ? { nodeId: pr.node_id } : {}),
+    ...(typeof pr.locked === "boolean" ? { locked: pr.locked } : {}),
   };
 }
 
@@ -287,6 +289,7 @@ interface IssueLike {
   user?: { login: string } | null;
   assignees?: ({ login: string } | null)[] | null;
   state?: string;
+  locked?: boolean;
 }
 
 function seedFromIssueLike(issue: IssueLike): IssueSeed {
@@ -306,6 +309,7 @@ function seedFromIssueLike(issue: IssueLike): IssueSeed {
     ...(issue.state === "open" || issue.state === "closed"
       ? { state: issue.state as "open" | "closed" }
       : {}),
+    ...(typeof issue.locked === "boolean" ? { locked: issue.locked } : {}),
   };
 }
 
