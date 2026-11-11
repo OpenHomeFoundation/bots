@@ -6,7 +6,7 @@ import { removeLabel } from "../../../src/github/commands/label-remove.js";
 import { markDraft } from "../../../src/github/commands/mark-draft.js";
 import { rename } from "../../../src/github/commands/rename.js";
 import { reopen } from "../../../src/github/commands/reopen.js";
-import { update } from "../../../src/github/commands/update.js";
+import { resetUpdateRateLimit, update } from "../../../src/github/commands/update.js";
 import { updateBranch } from "../../../src/github/commands/update-branch.js";
 import { dispatchCommand } from "../../../src/github/engine/dispatch.js";
 import { renderStatus } from "../../../src/github/engine/status/render.js";
@@ -21,6 +21,8 @@ import { BOT_LOGIN, createFakeGitHub, type FakeGitHub } from "../helpers/mock-co
 // trigger (quality scale, platinum approval).
 const CODE_OWNER_ISSUE = { labels: [{ name: "integration: awesome" }] };
 const originalFetch = globalThis.fetch;
+
+beforeEach(resetUpdateRateLimit);
 
 beforeEach(() => {
   globalThis.fetch = vi.fn().mockResolvedValue({
@@ -350,6 +352,46 @@ describe("update", () => {
     await dispatchCommand(context);
     expect(github.pulls.get).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 1 }));
     expectReaction(github, "+1");
+  });
+
+  it("stops a non-member after ten runs on one item within 30 minutes", async () => {
+    vi.useFakeTimers();
+    try {
+      const run = async (minute: number, senderAssociation = "NONE") => {
+        vi.setSystemTime(new Date(2026, 0, 1, 12, minute));
+        const github = githubWithPR();
+        github.orgs.checkMembershipForUser.mockRejectedValue({ status: 404 });
+        const { context } = makeCommandContext("@home-assistant update", {
+          github,
+          registry: registryWith(update),
+          senderAssociation,
+        });
+        await dispatchCommand(context);
+        return github;
+      };
+
+      for (let i = 0; i < 10; i++) expectReaction(await run(i), "+1");
+
+      const eleventh = await run(10);
+      expect(eleventh.pulls.get).not.toHaveBeenCalled();
+      expectReaction(eleventh, "-1");
+
+      // Members are not limited; another item has its own budget.
+      expectReaction(await run(11, "MEMBER"), "+1");
+      const other = githubWithPR();
+      const { context } = makeCommandContext("@home-assistant update", {
+        github: other,
+        registry: registryWith(update),
+        issue: { number: 2 },
+      });
+      await dispatchCommand(context);
+      expectReaction(other, "+1");
+
+      // The window slides: the first run has aged out.
+      expectReaction(await run(31), "+1");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("re-evaluates once for a comment stacking thousands of update lines", async () => {
