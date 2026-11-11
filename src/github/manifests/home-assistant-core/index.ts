@@ -14,6 +14,7 @@ import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { forbiddenFiles } from "../../rules/forbidden-files.js";
 import { mergeConflict } from "../../rules/merge-conflict.js";
 import { mergeTarget } from "../../rules/merge-target.js";
+import { prTemplate } from "../../rules/pr-template.js";
 import { setIntegration } from "../../rules/set-integration.js";
 import {
   HomeAssistantRepository,
@@ -23,6 +24,7 @@ import {
 import type { RepoManifest } from "../types.js";
 import { coreForbiddenFiles } from "./forbidden-files.js";
 import { itemIntegrationDomains } from "./helpers/integration-domains.js";
+import { isReleasePR } from "./helpers/release-pr.js";
 import { coreIssueContext } from "./issue-context.js";
 import { changeType } from "./rules/change-type.js";
 import { dependencyBump } from "./rules/dependency-bump.js";
@@ -81,6 +83,11 @@ export const homeAssistantCore: RepoManifest = {
     platinumApproval,
 
     // Classification & process
+    prTemplate({
+      sections: ["Proposed change", "Type of change", "Checklist"],
+      requireContent: ["Proposed change"],
+      skip: async (pr) => ((await isReleasePR(pr)) ? "Not checked on release PRs." : undefined),
+    }),
     changeType,
     fileShape,
     dependencyBump,

@@ -31,6 +31,10 @@ statuses:
     title: Code owner approval
     status: skip
     message: Touches no platinum integration — no code-owner approval required.
+  - id: pr-template
+    title: PR description
+    status: skip
+    message: Not checked on release PRs.
   - id: type-of-change
     title: Type of change
     status: skip
