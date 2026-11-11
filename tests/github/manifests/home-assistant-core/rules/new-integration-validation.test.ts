@@ -226,6 +226,42 @@ describe("new-integration-validation", () => {
     expect(result?.section?.message).not.toContain("async_migrate_entry");
   });
 
+  it("fails when repository tooling or AI-agent files are changed", async () => {
+    const context = newIntegrationContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/sensor.py"),
+      makeFile(".github/copilot-instructions.md", "modified"),
+      makeFile("CLAUDE.md", "modified"),
+      makeFile("AGENTS.md", "modified"),
+      makeFile(".pre-commit-config.yaml", "modified"),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section?.status).toBe("fail");
+    const message = result?.section?.message;
+    expect(message).toContain("`.github/copilot-instructions.md`");
+    expect(message).toContain("`CLAUDE.md`");
+    expect(message).toContain("`AGENTS.md`");
+    expect(message).toContain("`.pre-commit-config.yaml`");
+  });
+
+  it("does not flag repo tooling changes on PRs that don't add a new integration", async () => {
+    const context = createMockContext({
+      eventType: EventType.ON_DEMAND,
+      payload: {
+        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-feature" }] },
+      },
+    });
+    mockPRFiles(context, [
+      makeFile("AGENTS.md", "modified"),
+      makeFile(".pre-commit-config.yaml", "modified"),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "skip" });
+  });
+
   it("reports both issues when multiple platforms AND brand folder", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,

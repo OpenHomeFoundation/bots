@@ -34,6 +34,10 @@ describe("core forbidden files", () => {
     ["homeassistant/components/hue/device_trigger.py", "added"],
     ["homeassistant/components/hue/device_action.py", "added"],
     ["homeassistant/components/hue/device_condition.py", "added"],
+    ["homeassistant/components/hue/README.md", "added"],
+    ["homeassistant/components/hue/readme.md", "added"],
+    ["homeassistant/components/hue/hacs.json", "added"],
+    ["homeassistant/components/hue/info.md", "added"],
   ])("forbids %s (%s)", async (filename, status) => {
     expect(await statusFor(filename, status)).toBe("fail");
   });
@@ -44,6 +48,10 @@ describe("core forbidden files", () => {
     ["homeassistant/components/hue/device_trigger.py", "modified"],
     ["homeassistant/components/hue/v1/device_trigger.py", "added"],
     ["tests/components/hue/test_device_trigger.py", "added"],
+    ["homeassistant/components/zwave_js/README.md", "modified"],
+    ["homeassistant/components/hue/README.md", "removed"],
+    ["homeassistant/components/hue/docs/README.md", "added"],
+    ["tests/components/hue/fixtures/README.md", "added"],
   ])("allows %s (%s)", async (filename, status) => {
     expect(await statusFor(filename, status)).toBe("pass");
   });

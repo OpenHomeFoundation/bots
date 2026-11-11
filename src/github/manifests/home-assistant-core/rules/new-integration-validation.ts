@@ -7,6 +7,14 @@ import { type ParsedPath, parseFiles } from "../helpers/parse-path.js";
 import { isReleasePR } from "../helpers/release-pr.js";
 import { NEW_INTEGRATION_LABEL } from "./change-type.js";
 
+/** Repository tooling and AI-agent config that a new-integration PR shouldn't touch. */
+const STRAY_REPO_FILES = new Set([
+  "copilot-instructions.md",
+  "claude.md",
+  "agents.md",
+  ".pre-commit-config.yaml",
+]);
+
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
   | EventType.PULL_REQUEST_REOPENED
@@ -88,6 +96,16 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
+  const strayRepoFiles = parsed
+    .filter((p) => STRAY_REPO_FILES.has(p.filename.toLowerCase()))
+    .map((p) => `\`${p.path}\``);
+  if (strayRepoFiles.length > 0) {
+    issues.push(
+      `Revert the changes to ${strayRepoFiles.join(", ")} — a new-integration PR shouldn't ` +
+        "change repository tooling or AI-agent instructions.",
+    );
+  }
+
   if (issues.length === 0) {
     return { status: "pass", message: "Validation passed." };
   }
@@ -98,7 +116,8 @@ export const newIntegrationValidation = check({
   id: "new-integration-validation",
   title: "New integration validation",
   description:
-    "Validates new-integration PRs for platform count, brand folder placement, diagnostics and config entry migrations",
+    "Validates new-integration PRs for platform count, brand folder placement, diagnostics, " +
+    "config entry migrations and repo tooling changes",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,
