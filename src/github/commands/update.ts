@@ -1,5 +1,32 @@
 import { evaluateIssue, evaluatePR } from "../engine/evaluate.js";
 import type { Command } from "../engine/types.js";
+import { UsageError } from "../engine/usage-error.js";
+
+// A re-evaluation is the most expensive thing a comment can trigger, and
+// anyone may trigger it; the cap keeps one item from draining the
+// installation's rate limit. Members are exempt.
+const WINDOW_MS = 30 * 60 * 1000;
+const MAX_RUNS_PER_WINDOW = 10;
+const recentRuns = new Map<string, number[]>();
+
+/** Records a run for `key`; false when the window is already full. */
+function takeRunSlot(key: string): boolean {
+  const now = Date.now();
+  for (const [k, runs] of recentRuns) {
+    const live = runs.filter((t) => now - t < WINDOW_MS);
+    if (live.length === 0) recentRuns.delete(k);
+    else recentRuns.set(k, live);
+  }
+  const runs = recentRuns.get(key) ?? [];
+  if (runs.length >= MAX_RUNS_PER_WINDOW) return false;
+  recentRuns.set(key, [...runs, now]);
+  return true;
+}
+
+/** Test hook: forget every recorded run. */
+export function resetUpdateRateLimit(): void {
+  recentRuns.clear();
+}
 
 export const update: Command = {
   name: "update",
@@ -8,6 +35,13 @@ export const update: Command = {
 
   async handle(context) {
     const ref = { owner: context.repo.owner, repo: context.repo.name, number: context.number };
+    if (!takeRunSlot(`${context.repo.fullName}#${context.number}`)) {
+      if (!(await context.senderIsMember())) {
+        throw new UsageError(
+          `at most ${MAX_RUNS_PER_WINDOW} updates per ${WINDOW_MS / 60_000} minutes`,
+        );
+      }
+    }
     if (context.target.kind === "pull_request") {
       await evaluatePR(context.env, context.registry, context.github, ref);
     } else {
