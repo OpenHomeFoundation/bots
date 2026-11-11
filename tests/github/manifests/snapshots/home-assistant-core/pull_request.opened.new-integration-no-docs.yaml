@@ -26,7 +26,7 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: skip
-    message: Touches zero or multiple integrations — code-owner approval not enforced.
+    message: Touches no platinum integration — no code-owner approval required.
   - id: type-of-change
     title: Type of change
     status: pass

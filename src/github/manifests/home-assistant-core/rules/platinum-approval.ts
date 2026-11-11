@@ -1,71 +1,70 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
-import { isNonIntegrationLabelEvent } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
-import { itemIntegrationDomains } from "../helpers/integration-domains.js";
+import { domainsFromFiles } from "../helpers/integration-domains.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
   | EventType.PULL_REQUEST_REOPENED
   | EventType.PULL_REQUEST_SYNCHRONIZE
-  | EventType.PULL_REQUEST_LABELED
-  | EventType.PULL_REQUEST_UNLABELED
   | EventType.PULL_REQUEST_REVIEW_SUBMITTED
   | EventType.PULL_REQUEST_REVIEW_DISMISSED
   | EventType.ON_DEMAND;
 
 const APPROVED_LABEL = "code-owner-approved";
 
-async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
-  if (isNonIntegrationLabelEvent(ctx)) return;
-
-  // Everything is derived from the PR itself (files, manifest, CODEOWNERS
-  // teams, reviews) — never from labels other rules maintain.
-  const domains = await itemIntegrationDomains(ctx);
-  if (domains.length !== 1) {
-    return {
-      status: "skip",
-      message: "Touches zero or multiple integrations — code-owner approval not enforced.",
-    };
+/**
+ * Every platinum integration the diff touches, with its expanded code owners.
+ * Uncapped and never from labels: touching a second integration, or a label
+ * left over from an earlier push, must not switch the gate off.
+ */
+async function platinumOwners(ctx: RuleContext<HandledEvent>): Promise<Map<string, string[]>> {
+  const domains = domainsFromFiles(await ctx.target.files());
+  const manifests = await Promise.all(domains.map((d) => fetchIntegrationManifest(d)));
+  const owners = new Map<string, string[]>();
+  for (const [i, domain] of domains.entries()) {
+    const manifest = manifests[i];
+    if (manifest?.quality_scale !== QualityScale.PLATINUM || !manifest.codeowners?.length) continue;
+    owners.set(domain, await ctx.expandTeams(manifest.codeowners));
   }
+  return owners;
+}
 
-  const domain = domains[0];
-  const manifest = await fetchIntegrationManifest(domain);
-  if (manifest?.quality_scale !== QualityScale.PLATINUM) {
-    return {
-      status: "skip",
-      message: "Not a platinum integration — no code-owner approval required.",
-    };
-  }
-  if (!manifest.codeowners?.length) {
-    return { status: "skip", message: `Integration \`${domain}\` has no code owners listed.` };
-  }
-
-  const expandedOwners = await ctx.expandTeams(manifest.codeowners);
-  const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
-  if (expandedOwners.includes(authorLogin)) {
-    return { status: "pass", message: "Authored by a code owner." };
-  }
-
-  // The approval label is never trusted on its own — an approval can be
-  // dismissed or superseded, so the reviews are the source of truth and the
-  // label follows. Only an owner's *latest* decisive review counts: an old
-  // APPROVED is void once the same owner later requests changes or has the
-  // approval dismissed. Reviews come back oldest-first, so the last write per
-  // owner wins; COMMENTED/PENDING reviews don't change a standing decision.
-  const reviews = await ctx.target.reviews();
-  const latestByOwner = new Map<string, string>();
-  for (const r of reviews) {
-    const login = r.user?.login?.toLowerCase() ?? "";
-    if (!expandedOwners.includes(login)) continue;
+/**
+ * Reviewers whose latest decisive review approves. The approval label is
+ * never trusted on its own: an old APPROVED is void once the same reviewer
+ * later requests changes or has it dismissed. Reviews come back oldest-first,
+ * so the last write per reviewer wins; COMMENTED/PENDING don't change it.
+ */
+async function approvers(ctx: RuleContext<HandledEvent>): Promise<Set<string>> {
+  const latest = new Map<string, string>();
+  for (const r of await ctx.target.reviews()) {
     if (r.state === "APPROVED" || r.state === "CHANGES_REQUESTED" || r.state === "DISMISSED") {
-      latestByOwner.set(login, r.state);
+      latest.set(r.user?.login?.toLowerCase() ?? "", r.state);
     }
   }
-  const approvedByOwner = [...latestByOwner.values()].some((state) => state === "APPROVED");
+  return new Set([...latest].filter(([, state]) => state === "APPROVED").map(([login]) => login));
+}
 
-  if (approvedByOwner) {
+async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
+  const owners = await platinumOwners(ctx);
+  if (owners.size === 0) {
+    return {
+      status: "skip",
+      message: "Touches no platinum integration — no code-owner approval required.",
+    };
+  }
+
+  const author = (await ctx.target.authorLogin()).toLowerCase();
+  const needReview = [...owners].filter(([, logins]) => !logins.includes(author));
+  if (needReview.length === 0) return { status: "pass", message: "Authored by a code owner." };
+
+  const approved = await approvers(ctx);
+  const missing = needReview
+    .filter(([, logins]) => !logins.some((login) => approved.has(login)))
+    .map(([domain]) => `\`${domain}\``);
+  if (missing.length === 0) {
     return {
       status: "pass",
       message: "Approved by a code owner.",
@@ -75,10 +74,11 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
 
   // Reviewer-actionable, not author-actionable: `pending` blocks the merge
   // without drafting the PR, which would hide it from the review queue and
-  // make the approval it's waiting for impossible.
+  // make the approval it's waiting for impossible. Members waive it with
+  // `ignore` where it doesn't fit (tree-wide refactors).
   return {
     status: "pending",
-    message: "Platinum integration — needs approval from a code owner before merging.",
+    message: `Platinum ${missing.join(", ")} — needs approval from a code owner before merging.`,
     ...((await ctx.target.labels()).includes(APPROVED_LABEL)
       ? { effects: [{ type: "removeLabels", labels: [APPROVED_LABEL] }] }
       : {}),
@@ -89,13 +89,11 @@ export const platinumApproval = check({
   id: "code-owner-approval",
   title: "Code owner approval",
   waivableBy: "member",
-  description: "Requires code owner approval for platinum quality scale integrations",
+  description: "Requires code owner approval for every platinum integration a PR touches",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,
     EventType.PULL_REQUEST_SYNCHRONIZE,
-    EventType.PULL_REQUEST_LABELED,
-    EventType.PULL_REQUEST_UNLABELED,
     EventType.PULL_REQUEST_REVIEW_SUBMITTED,
     EventType.PULL_REQUEST_REVIEW_DISMISSED,
     EventType.ON_DEMAND,

@@ -26,7 +26,7 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: pending
-    message: Platinum integration — needs approval from a code owner before merging.
+    message: Platinum `hue` — needs approval from a code owner before merging.
   - id: type-of-change
     title: Type of change
     status: pass
