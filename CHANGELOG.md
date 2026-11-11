@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.6.0](https://github.com/OpenHomeFoundation/bots/compare/v0.5.0...v0.6.0) (2026-11-11)
+
+
+### ✨ New features
+
+* **github:** link the item from every log line ([#125](https://github.com/OpenHomeFoundation/bots/issues/125)) ([589118f](https://github.com/OpenHomeFoundation/bots/commit/589118fc87402ae687e13ba959022428812901ac))
+* **github:** tag the API-call counter with method and route ([#124](https://github.com/OpenHomeFoundation/bots/issues/124)) ([6dfc0b6](https://github.com/OpenHomeFoundation/bots/commit/6dfc0b6569e2fdae933f2294feeeb2634ba5f935))
+
+
+### 🐛 Bug fixes
+
+* **core:** only label integrations that already exist on dev ([#132](https://github.com/OpenHomeFoundation/bots/issues/132)) ([bebc1cc](https://github.com/OpenHomeFoundation/bots/commit/bebc1ccab83c0eef332eabff8664987444a7e83c))
+* **core:** require owner approval for every platinum integration ([#134](https://github.com/OpenHomeFoundation/bots/issues/134)) ([4a55349](https://github.com/OpenHomeFoundation/bots/commit/4a55349465f28c9dbd05e3e662ebc3aff68d1f5f))
+* **github:** only fetch manifests for valid integration domains ([#127](https://github.com/OpenHomeFoundation/bots/issues/127)) ([5160f04](https://github.com/OpenHomeFoundation/bots/commit/5160f04f6ac94dd9ffe88fe03beea3ae7be3dc77))
+* **github:** order integrations in the code-owner mention ([#122](https://github.com/OpenHomeFoundation/bots/issues/122)) ([d5b5024](https://github.com/OpenHomeFoundation/bots/commit/d5b5024f9094dd4d587f89c2d0d49b258b7a9b55))
+* **github:** rate-limit the update command for non-members ([#133](https://github.com/OpenHomeFoundation/bots/issues/133)) ([6cb364c](https://github.com/OpenHomeFoundation/bots/commit/6cb364c69a70bf55367488331dd2839d2bc78f67))
+* **github:** rewrite old mention comments on the next dispatch ([#120](https://github.com/OpenHomeFoundation/bots/issues/120)) ([574516c](https://github.com/OpenHomeFoundation/bots/commit/574516c5f868becb96c5b8af00c54fd14ee24234))
+* keep user text in bot comments from mentioning anyone ([#126](https://github.com/OpenHomeFoundation/bots/issues/126)) ([c7bbede](https://github.com/OpenHomeFoundation/bots/commit/c7bbedea2ed5fad7813f0173bf5f58d7349c435a))
+
+
+### 🧰 Maintenance
+
+* grant artifact-metadata write to the release job ([#128](https://github.com/OpenHomeFoundation/bots/issues/128)) ([0aaaa10](https://github.com/OpenHomeFoundation/bots/commit/0aaaa102f9e87ffd03f5d1062aa730831c1bd8c6))
+* run release-please as the OHF Release Bot app ([#123](https://github.com/OpenHomeFoundation/bots/issues/123)) ([a3282a1](https://github.com/OpenHomeFoundation/bots/commit/a3282a1952f20c22472d1be63227a4d16f1a075b))
+
 ## [0.5.0](https://github.com/OpenHomeFoundation/bots/compare/v0.4.1...v0.5.0) (2026-11-10)
 
 
