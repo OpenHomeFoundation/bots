@@ -30,7 +30,7 @@ statuses:
   - id: merge-target
     title: Merge target
     status: warn
-    message: This PR targets `master` (release branch).
+    message: This PR targets `master`, not `dev`.
   - id: code-owner-approval
     title: Code owner approval
     status: skip

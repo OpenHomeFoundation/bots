@@ -172,6 +172,7 @@ const scenarios: Record<string, Scenario> = {
       ],
       codeowners: HUE_CODEOWNERS,
       remote: { "components/awesome/manifest.json": AWESOME_MANIFEST },
+      members: ["frenck"],
     },
   },
 

@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
 import { mergeTarget as mergeTargetFactory } from "../../../src/github/rules/merge-target.js";
-import { createMockContext, runRule } from "../helpers/mock-context.js";
+import { createFakeGitHub, createMockContext, runRule } from "../helpers/mock-context.js";
 
 const mergeTarget = mergeTargetFactory({ base: "dev" });
 
-function contextTargeting(baseRef: string, authorAssociation = "NONE") {
+function contextTargeting(baseRef: string, authorAssociation = "NONE", member = false) {
   return createMockContext({
     eventType: EventType.PULL_REQUEST_OPENED,
+    github: createFakeGitHub({ members: member ? ["contributor"] : [] }),
     payload: {
       pull_request: {
         body: "",
@@ -47,18 +48,23 @@ describe("merge-target", () => {
     expect(result?.section?.message).toContain("`some-feature-branch`");
   });
 
-  it("downgrades to warn when an org MEMBER targets a non-dev branch", async () => {
-    const result = await runRule(mergeTarget, contextTargeting("master", "MEMBER"));
+  it("downgrades to warn when an org member targets a non-dev branch", async () => {
+    const result = await runRule(mergeTarget, contextTargeting("master", "MEMBER", true));
     expect(result?.section?.status).toBe("warn");
-    expect(result?.section?.message).toContain("release branch");
+    expect(result?.section?.message).toBe("This PR targets `master`, not `dev`.");
   });
 
-  it("downgrades to warn for OWNER and COLLABORATOR too", async () => {
-    const owner = await runRule(mergeTarget, contextTargeting("rc", "OWNER"));
-    expect(owner?.section?.status).toBe("warn");
+  it("warns for a private org member the payload reports as a contributor", async () => {
+    const result = await runRule(
+      mergeTarget,
+      contextTargeting("async_validate_actions_config", "CONTRIBUTOR", true),
+    );
+    expect(result?.section?.status).toBe("warn");
+  });
 
-    const collab = await runRule(mergeTarget, contextTargeting("rc", "COLLABORATOR"));
-    expect(collab?.section?.status).toBe("warn");
+  it("fails for an outside collaborator", async () => {
+    const result = await runRule(mergeTarget, contextTargeting("rc", "COLLABORATOR"));
+    expect(result?.section?.status).toBe("fail");
   });
 
   it("does not emit any labels", async () => {
