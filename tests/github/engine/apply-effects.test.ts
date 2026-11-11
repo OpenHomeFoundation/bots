@@ -87,6 +87,18 @@ describe("effect → GitHub API mapping", () => {
     });
   });
 
+  it("removeLabels treats a label that is already gone as removed", async () => {
+    const github = createFakeGitHub();
+    github.issues.removeLabel.mockRejectedValueOnce({ status: 404 });
+
+    await apply(
+      { effects: [{ type: "removeLabels", labels: ["stale"] }] },
+      { github, payload: { pull_request: { labels: [{ name: "stale" }] } } },
+    );
+
+    expect(github.issues.removeLabel).toHaveBeenCalledTimes(1);
+  });
+
   it("addAssignees → issues.addAssignees", async () => {
     const github = await apply({
       effects: [{ type: "addAssignees", assignees: ["balloob", "frenck"] }],

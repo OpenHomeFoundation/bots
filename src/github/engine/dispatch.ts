@@ -211,7 +211,12 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       if (!current.has(label)) continue;
       ops.push({
         op: `removeLabel:${label}`,
-        run: () => context.github.issues.removeLabel(context.issueParams({ name: label })),
+        run: () =>
+          context.github.issues.removeLabel(context.issueParams({ name: label })).catch((err) => {
+            // The payload's labels can predate a removal made while this
+            // dispatch waited for the item lock; the label is already gone.
+            if ((err as { status?: number }).status !== 404) throw err;
+          }),
       });
     }
   }
