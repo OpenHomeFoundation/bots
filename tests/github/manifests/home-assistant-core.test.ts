@@ -229,6 +229,7 @@ const scenarios: Record<string, Scenario> = {
       body: prBody({ checked: ["bugfix", "code-quality"] }),
     }),
     state: {
+      files: HUE_FILES,
       remote: {
         "components/hue/manifest.json": HUE_MANIFEST,
         "analytics.home-assistant.io": ANALYTICS,
@@ -264,6 +265,7 @@ const scenarios: Record<string, Scenario> = {
       { review: { state: "commented", user: { login: "reviewer" }, body: "Looks reasonable." } },
     ),
     state: {
+      files: HUE_FILES,
       remote: {
         "components/hue/manifest.json": HUE_MANIFEST,
         "analytics.home-assistant.io": ANALYTICS,

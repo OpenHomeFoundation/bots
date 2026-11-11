@@ -22,7 +22,7 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: pending
-    message: Platinum integration — needs approval from a code owner before merging.
+    message: Platinum `hue` — needs approval from a code owner before merging.
 effects:
   - type: addLabels
     labels:
