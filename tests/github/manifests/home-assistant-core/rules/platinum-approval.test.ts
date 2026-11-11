@@ -25,6 +25,8 @@ function touching(...domains: string[]) {
   return domains.map((d) => ({ filename: `homeassistant/components/${d}/light.py` }));
 }
 
+const CODE_QUALITY = "- [x] Code quality improvements to existing code or addition of tests";
+
 function review(login: string, state: string) {
   return { state, user: { login, type: "User" } };
 }
@@ -54,6 +56,7 @@ describe("platinum-approval", () => {
     labels?: string[];
     eventType?: EventType;
     member?: boolean;
+    body?: string;
   }) {
     const github: FakeGitHub = createFakeGitHub();
     if (opts.member) github.orgs.checkMembershipForUser.mockResolvedValue({ status: 204 });
@@ -65,6 +68,7 @@ describe("platinum-approval", () => {
       payload: {
         pull_request: {
           labels: (opts.labels ?? []).map((name) => ({ name })),
+          body: opts.body ?? "",
           user: { login: opts.author ?? "contributor" },
           author_association: opts.association ?? "NONE",
           head: { sha: "abc123" },
@@ -150,10 +154,11 @@ describe("platinum-approval", () => {
     expect(result?.section?.status).toBe("pending");
   });
 
-  it("only warns on a member's tree-wide change past the integration-label cap", async () => {
+  it("only warns on a member's tree-wide code-quality change past the cap", async () => {
     const result = await setup({
       files: touching("hue", "a", "b", "c", "d", "e"),
       member: true,
+      body: CODE_QUALITY,
       labels: ["code-owner-approved"],
     });
     expect(result?.section?.status).toBe("warn");
@@ -161,8 +166,21 @@ describe("platinum-approval", () => {
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
 
-  it("enforces on a member's change within the integration-label cap", async () => {
-    const result = await setup({ files: touching("hue", "a", "b", "c", "d"), member: true });
+  it("enforces on a member's code-quality change within the integration-label cap", async () => {
+    const result = await setup({
+      files: touching("hue", "a", "b", "c", "d"),
+      member: true,
+      body: CODE_QUALITY,
+    });
+    expect(result?.section?.status).toBe("pending");
+  });
+
+  it("enforces on a member's tree-wide change not marked as code quality", async () => {
+    const result = await setup({
+      files: touching("hue", "a", "b", "c", "d", "e"),
+      member: true,
+      body: "- [x] New feature (which adds functionality to an existing integration)",
+    });
     expect(result?.section?.status).toBe("pending");
   });
 
@@ -184,11 +202,12 @@ describe("platinum-approval", () => {
     }
   });
 
-  it("listens to PR state and review events plus on_demand", () => {
+  it("listens to PR state, edit and review events plus on_demand", () => {
     expect(Object.keys(platinumApproval.events).sort()).toEqual(
       [
         EventType.PULL_REQUEST_OPENED,
         EventType.PULL_REQUEST_REOPENED,
+        EventType.PULL_REQUEST_EDITED,
         EventType.PULL_REQUEST_SYNCHRONIZE,
         EventType.PULL_REQUEST_REVIEW_SUBMITTED,
         EventType.PULL_REQUEST_REVIEW_DISMISSED,
