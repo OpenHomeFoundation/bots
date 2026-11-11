@@ -16,6 +16,8 @@ const FILE_TYPES = [
   "core",
   "auth",
   "auth_providers",
+  "backports",
+  "brands",
   "generated",
   "scripts",
   "helpers",
@@ -30,9 +32,6 @@ const FILE_TYPES = [
 
 /** Root folders holding the repo's own tooling rather than Home Assistant code. */
 const TOOLING_ROOTS = new Set(["mypy_plugins", "packages", "script"]);
-
-/** `tests/` subfolders holding the tests of that tooling. */
-const TOOLING_TEST_FOLDERS = new Set(["mypy_plugins", "pylint", "script"]);
 
 export type FileType = (typeof FILE_TYPES)[number] | null;
 
@@ -74,10 +73,11 @@ export class ParsedPath {
 
     if (!["components", "fixtures", "generated"].includes(subfolder)) {
       this.core = true;
-      if (subfolder.endsWith(".py")) {
+      // `subfolder` is a file sitting directly in the root folder.
+      if (parts.length === 0) {
         this.type = "core";
-      } else if (rootFolder === "tests" && TOOLING_TEST_FOLDERS.has(subfolder)) {
-        this.type = "test";
+      } else if (rootFolder === "tests") {
+        this.type = asFileType(subfolder) ?? "test";
       } else {
         const validated = asFileType(subfolder);
         if (validated === null) {
