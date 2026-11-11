@@ -6,10 +6,12 @@ import type { Effect, Rule, RuleOutput } from "../github/engine/types.js";
 import { codeSpan } from "../util/markdown.js";
 import { type ClaStore, postgresClaStore } from "./store.js";
 
-export const CLA_SIGNED_LABEL = "cla-signed";
 export const CLA_NEEDED_LABEL = "cla-needed";
 export const CLA_ERROR_LABEL = "cla-error";
 export const CLA_RECHECK_LABEL = "cla-recheck";
+
+/** The legacy bot labelled signed PRs; stripped so it can't contradict `cla-needed`. */
+const LEGACY_CLA_SIGNED_LABEL = "cla-signed";
 
 // Bot accounts that are not masked as bots.
 const IGNORED_AUTHOR_EMAILS = new Set([
@@ -88,7 +90,7 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
     const store = getStore(ctx.env);
     if (!store) return;
 
-    const effects: Effect[] = [];
+    const effects: Effect[] = [{ type: "removeLabels", labels: [LEGACY_CLA_SIGNED_LABEL] }];
     if ("label" in ctx.event) {
       if (ctx.event.label !== CLA_RECHECK_LABEL) return;
       effects.push({ type: "removeLabels", labels: [CLA_RECHECK_LABEL] });
@@ -123,11 +125,7 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
           marker: CLA_UNLINKED_COMMENT_MARKER,
           body: unlinkedCommitsComment(await ctx.target.authorLogin(), commitList),
         },
-        effects: [
-          ...effects,
-          { type: "addLabels", labels: [CLA_ERROR_LABEL] },
-          { type: "removeLabels", labels: [CLA_SIGNED_LABEL] },
-        ],
+        effects: [...effects, { type: "addLabels", labels: [CLA_ERROR_LABEL] }],
       };
     }
 
@@ -159,22 +157,15 @@ export function claCheck(getStore: (env: Env) => ClaStore | undefined): Rule {
         message:
           `${who} — please [sign our Contributor License Agreement](${signLink(ctx)}). ` +
           `We can review and accept this pull request once every commit author has signed.`,
-        effects: [
-          ...effects,
-          { type: "addLabels", labels: [CLA_NEEDED_LABEL] },
-          { type: "removeLabels", labels: [CLA_SIGNED_LABEL] },
-        ],
+        effects: [...effects, { type: "addLabels", labels: [CLA_NEEDED_LABEL] }],
       };
     }
 
-    const allIgnored = relevant.length === 0;
-    if (!allIgnored) {
-      effects.push({ type: "addLabels", labels: [CLA_SIGNED_LABEL] });
-    }
     effects.push({ type: "removeLabels", labels: [CLA_NEEDED_LABEL, CLA_ERROR_LABEL] });
-    const message = allIgnored
-      ? "All commit authors are bots — nothing to sign."
-      : "Everyone involved has signed the CLA.";
+    const message =
+      relevant.length === 0
+        ? "All commit authors are bots — nothing to sign."
+        : "Everyone involved has signed the CLA.";
     return { status: "pass", summary: message, message, effects };
   }
 
