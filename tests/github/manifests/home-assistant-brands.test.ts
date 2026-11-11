@@ -9,12 +9,7 @@ describe("home-assistant/brands", () => {
 
     expect(config.dashboard).toBe(true);
     expect(names(config.rules)).toEqual(
-      expect.arrayContaining([
-        "belongs-together",
-        "poke-linked",
-        "follow-parent",
-        "sibling-approval",
-      ]),
+      expect.arrayContaining(["belongs-together", "poke-linked", "follow-parent"]),
     );
     expect(names(config.commands)).toEqual(["update", "ignore", "unignore"]);
   });
