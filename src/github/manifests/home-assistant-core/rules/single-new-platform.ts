@@ -1,6 +1,7 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
+import { addedActions } from "../helpers/actions.js";
 import { isNewIntegrationPR } from "../helpers/new-integration.js";
 import { parseFiles } from "../helpers/parse-path.js";
 import { isReleasePR } from "../helpers/release-pr.js";
@@ -46,15 +47,32 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
   if (added.length === 0) {
     return { status: "skip", message: "No new platforms added." };
   }
-  if (added.length === 1) {
+
+  const issues: string[] = [];
+  if (added.length > 1) {
+    issues.push(
+      `This PR adds ${added.length} new platforms (${added.join(", ")}). ` +
+        "Add one platform per PR and split the others into separate PRs.",
+    );
+  }
+  const actions = addedActions(parsed);
+  if (actions.length > 0) {
+    issues.push(
+      `This PR adds new actions (${actions.join(", ")}) alongside a new platform. ` +
+        "Move the actions to a separate PR.",
+    );
+  }
+
+  if (issues.length === 0) {
     return { status: "pass", message: `Adds a single new platform: ${added[0]}.` };
   }
+  const reviewProcess = `See the [review process](${REVIEW_PROCESS_URL}).`;
   return {
     status: "fail",
     message:
-      `This PR adds ${added.length} new platforms (${added.join(", ")}). ` +
-      "Add one platform per PR and split the others into separate PRs. See the " +
-      `[review process](${REVIEW_PROCESS_URL}).`,
+      issues.length === 1
+        ? `${issues[0]} ${reviewProcess}`
+        : `${issues.map((i) => `- ${i}`).join("\n")}\n\n${reviewProcess}`,
   };
 }
 
@@ -62,7 +80,9 @@ export const singleNewPlatform = check({
   id: "single-new-platform",
   title: "Single new platform",
   waivableBy: "member",
-  description: "Fails PRs that add more than one new platform to existing integrations",
+  description:
+    "Fails PRs that add more than one new platform, or a new platform together with new " +
+    "actions, to existing integrations",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,

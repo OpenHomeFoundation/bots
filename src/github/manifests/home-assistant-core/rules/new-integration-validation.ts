@@ -1,6 +1,7 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
+import { addedActions } from "../helpers/actions.js";
 import { addedLines } from "../helpers/integration-manifest.js";
 import { isNewIntegrationPR } from "../helpers/new-integration.js";
 import { type ParsedPath, parseFiles } from "../helpers/parse-path.js";
@@ -88,6 +89,16 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     );
   }
 
+  const actions = addedActions(parsed);
+  const hasPlatform = parsed.some((p) => p.type === "platform");
+  if (hasPlatform && actions.length > 0) {
+    issues.push(
+      `Remove the actions (${actions.join(", ")}) — add them in a follow-up PR once the ` +
+        "integration and its platform are merged. See the " +
+        "[review process](https://developers.home-assistant.io/docs/review-process/#home-assistant-core).",
+    );
+  }
+
   if (issues.length === 0) {
     return { status: "pass", message: "Validation passed." };
   }
@@ -98,7 +109,8 @@ export const newIntegrationValidation = check({
   id: "new-integration-validation",
   title: "New integration validation",
   description:
-    "Validates new-integration PRs for platform count, brand folder placement, diagnostics and config entry migrations",
+    "Validates new-integration PRs for platform count, brand folder placement, diagnostics, " +
+    "config entry migrations and actions",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,

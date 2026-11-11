@@ -226,6 +226,39 @@ describe("new-integration-validation", () => {
     expect(result?.section?.message).not.toContain("async_migrate_entry");
   });
 
+  it("fails when actions are added alongside a platform", async () => {
+    const context = newIntegrationContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/sensor.py"),
+      makeFile("homeassistant/components/mydevice/services.py"),
+      {
+        ...makeFile("homeassistant/components/mydevice/services.yaml"),
+        patch: "@@ -0,0 +1,2 @@\n+reboot:\n+  fields:",
+      },
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section?.status).toBe("fail");
+    expect(result?.section?.message).toContain("`mydevice.reboot`");
+    expect(result?.section?.message).not.toContain("single platform");
+  });
+
+  it("passes an action-only new integration", async () => {
+    const context = newIntegrationContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/mydevice/__init__.py"),
+      makeFile("homeassistant/components/mydevice/services.py"),
+      {
+        ...makeFile("homeassistant/components/mydevice/services.yaml"),
+        patch: "@@ -0,0 +1,2 @@\n+reboot:\n+  fields:",
+      },
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "pass" });
+  });
+
   it("reports both issues when multiple platforms AND brand folder", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,
