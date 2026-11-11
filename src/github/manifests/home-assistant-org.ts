@@ -24,8 +24,6 @@ export enum HomeAssistantRepository {
   DEVELOPERS_HOME_ASSISTANT = "home-assistant/developers.home-assistant",
   FRONTEND = "home-assistant/frontend",
   HOME_ASSISTANT_IO = "home-assistant/home-assistant.io",
-  // Moved to the OHF-Voice org; webhooks carry the new name.
-  INTENTS = "OHF-Voice/intents",
   IOS = "home-assistant/iOS",
   MY_HOME_ASSISTANT = "home-assistant/my.home-assistant.io",
   OPERATING_SYSTEM = "home-assistant/operating-system",
