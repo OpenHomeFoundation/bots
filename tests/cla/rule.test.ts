@@ -58,12 +58,21 @@ const userCommit = (sha: string, login: string): MockCommit => ({
 });
 
 describe("cla", () => {
-  it("passes and labels cla-signed when every author has signed", async () => {
+  it("passes without a label and clears the failure labels when every author has signed", async () => {
     const rule = claCheck(() => fakeStore(["alice"]));
     const result = await runRule(rule, claContext({ commits: [userCommit("a1", "alice")] }));
     expect(result?.section?.status).toBe("pass");
-    expect(result?.labels).toEqual(["cla-signed"]);
-    expect(result?.removeLabels).toEqual(expect.arrayContaining(["cla-needed", "cla-error"]));
+    expect(result?.labels).toBeUndefined();
+    expect(result?.removeLabels).toEqual(
+      expect.arrayContaining(["cla-needed", "cla-error", "cla-signed"]),
+    );
+  });
+
+  it("strips the legacy cla-signed label when a signature is missing", async () => {
+    const rule = claCheck(() => fakeStore([]));
+    const result = await runRule(rule, claContext({ commits: [userCommit("b1", "bob")] }));
+    expect(result?.labels).toEqual(["cla-needed"]);
+    expect(result?.removeLabels).toEqual(["cla-signed"]);
   });
 
   it("fails, labels cla-needed, and records pending signers for unsigned authors", async () => {
@@ -135,7 +144,7 @@ describe("cla", () => {
     expect(result?.effects.find((e) => e.type === "commentOnce")).toBeUndefined();
   });
 
-  it("passes without cla-signed when all commits are from bots", async () => {
+  it("passes without a label when all commits are from bots", async () => {
     const rule = claCheck(() => fakeStore([]));
     const result = await runRule(
       rule,
@@ -257,6 +266,6 @@ describe("cla legacy mode (repo without a dashboard)", () => {
       targetUrl: undefined,
     });
     expect(result?.effects.find((e) => e.type === "commentOnce")).toBeUndefined();
-    expect(result?.labels).toEqual(["cla-signed"]);
+    expect(result?.labels).toBeUndefined();
   });
 });
