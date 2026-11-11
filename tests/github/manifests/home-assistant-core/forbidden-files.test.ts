@@ -34,6 +34,8 @@ describe("core forbidden files", () => {
     ["homeassistant/components/hue/device_trigger.py", "added"],
     ["homeassistant/components/hue/device_action.py", "added"],
     ["homeassistant/components/hue/device_condition.py", "added"],
+    ["homeassistant/components/hue/brand/icon.png", "added"],
+    ["homeassistant/components/hue/brand/dark_logo.png", "modified"],
   ])("forbids %s (%s)", async (filename, status) => {
     expect(await statusFor(filename, status)).toBe("fail");
   });
@@ -44,6 +46,8 @@ describe("core forbidden files", () => {
     ["homeassistant/components/hue/device_trigger.py", "modified"],
     ["homeassistant/components/hue/v1/device_trigger.py", "added"],
     ["tests/components/hue/test_device_trigger.py", "added"],
+    ["homeassistant/components/hue/brand/icon.png", "removed"],
+    ["homeassistant/brands/philips.json", "modified"],
   ])("allows %s (%s)", async (filename, status) => {
     expect(await statusFor(filename, status)).toBe("pass");
   });

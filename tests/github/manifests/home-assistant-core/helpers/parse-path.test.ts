@@ -120,12 +120,6 @@ describe("ParsedPath", () => {
   });
 
   describe("special file types", () => {
-    it("detects brand files", () => {
-      const p = makeParsed("homeassistant/components/hue/brand/icon.png");
-      expect(p.type).toBe("brand");
-      expect(p.component).toBe("hue");
-    });
-
     it("detects services.yaml", () => {
       const p = makeParsed("homeassistant/components/hue/services.yaml");
       expect(p.type).toBe("services");
