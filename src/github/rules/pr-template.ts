@@ -12,7 +12,7 @@ type HandledEvent =
   | EventType.ON_DEMAND;
 
 const COMMENT_PATTERN = /<!--[\s\S]*?-->/g;
-const HEADING_PATTERN = /^#{1,6}\s+(.+?)\s*#*\s*$/;
+const HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE_PATTERN = /^\s*(```|~~~)/;
 
 /** Case, surrounding whitespace and a trailing colon don't make a heading different. */
@@ -20,37 +20,42 @@ function normalize(heading: string): string {
   return heading.trim().replace(/:$/, "").trim().toLowerCase();
 }
 
+type Line = { text: string; heading?: { level: number; name: string } };
+
 /**
  * Splits a PR body into its headed sections, keyed by normalized heading.
  * Template comments are stripped first: they hold the template's own
  * instructions, so a section with only its comment left is still empty.
- * Lines inside fenced code blocks never start a section.
+ * A section runs until the next heading of the same or a higher level, so
+ * text under a subheading (`### Details` inside `## Proposed change`) still
+ * counts as the parent's content; the subheading lines themselves don't.
+ * Lines inside fenced code blocks are never headings.
  */
 export function parseSections(body: string | null): Map<string, string> {
   const sections = new Map<string, string>();
   if (!body) return sections;
 
-  let current: string | undefined;
-  let content: string[] = [];
   let inFence = false;
-  const flush = () => {
-    if (current !== undefined && !sections.has(current)) {
-      sections.set(current, content.join("\n").trim());
-    }
-  };
+  const lines: Line[] = body
+    .replace(COMMENT_PATTERN, "")
+    .split(/\r?\n/)
+    .map((text) => {
+      if (FENCE_PATTERN.test(text)) inFence = !inFence;
+      const match = inFence ? null : HEADING_PATTERN.exec(text);
+      return match
+        ? { text, heading: { level: match[1].length, name: normalize(match[2]) } }
+        : { text };
+    });
 
-  for (const line of body.replace(COMMENT_PATTERN, "").split(/\r?\n/)) {
-    if (FENCE_PATTERN.test(line)) inFence = !inFence;
-    const heading = inFence ? null : HEADING_PATTERN.exec(line);
-    if (heading) {
-      flush();
-      current = normalize(heading[1]);
-      content = [];
-    } else {
-      content.push(line);
+  lines.forEach(({ heading }, start) => {
+    if (!heading || sections.has(heading.name)) return;
+    const content: string[] = [];
+    for (const line of lines.slice(start + 1)) {
+      if (line.heading && line.heading.level <= heading.level) break;
+      if (!line.heading) content.push(line.text);
     }
-  }
-  flush();
+    sections.set(heading.name, content.join("\n").trim());
+  });
   return sections;
 }
 

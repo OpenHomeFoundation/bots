@@ -48,6 +48,15 @@ describe("pr-template", () => {
     expect(result?.section?.message).toContain("The **Proposed change** section is empty.");
   });
 
+  it("passes when Proposed change is written under a subheading", async () => {
+    const body = filledCoreBody().replace(
+      "Fix the thing that was broken.",
+      "### Details\nFix the thing that was broken.",
+    );
+    const result = await run({ body });
+    expect(result?.section?.status).toBe("pass");
+  });
+
   it("lists every problem at once", async () => {
     const result = await run({ body: "Just a one-line description." });
     expect(result?.section?.status).toBe("fail");
@@ -89,9 +98,24 @@ describe("pr-template", () => {
 
 describe("parseSections", () => {
   it("matches headings regardless of case, level and trailing colon", () => {
-    const sections = parseSections("# PROPOSED CHANGE:\nhello\n### checklist\n- [x] done");
+    const sections = parseSections("# PROPOSED CHANGE:\nhello\n# checklist\n- [x] done");
     expect(sections.get("proposed change")).toBe("hello");
     expect(sections.get("checklist")).toBe("- [x] done");
+    expect(parseSections("### Checklist").has("checklist")).toBe(true);
+  });
+
+  it("counts text under a subheading as the parent section's content", () => {
+    const sections = parseSections(
+      "## Proposed change\n### Details\nthe change\n## Type of change\n- [x] Bugfix",
+    );
+    expect(sections.get("proposed change")).toBe("the change");
+    expect(sections.get("details")).toBe("the change");
+    expect(sections.get("type of change")).toBe("- [x] Bugfix");
+  });
+
+  it("does not count a bare subheading as content", () => {
+    const sections = parseSections("## Proposed change\n### Details\n\n## Checklist");
+    expect(sections.get("proposed change")).toBe("");
   });
 
   it("ignores headings inside template comments", () => {
