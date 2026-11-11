@@ -8,6 +8,7 @@ import { followParent } from "../rules/follow-parent.js";
 import type { PrLinks } from "../rules/linked-prs.js";
 import { pokeLinked } from "../rules/poke-linked.js";
 import { readyForReview } from "../rules/ready-for-review.js";
+import { siblingApproval } from "../rules/sibling-approval.js";
 import { wth } from "../rules/wth.js";
 import { Organization, type OrgManifest } from "./types.js";
 
@@ -77,6 +78,7 @@ export const homeAssistantLinkRules: Rule[] = [
   belongsTogether(homeAssistantPrLinks),
   pokeLinked(homeAssistantPrLinks),
   followParent(homeAssistantPrLinks),
+  siblingApproval(homeAssistantPrLinks),
 ];
 
 /**

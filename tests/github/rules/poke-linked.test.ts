@@ -49,6 +49,16 @@ describe("poke-linked", () => {
     ]);
   });
 
+  it("pokes only siblings on a review, since only they wait for it", async () => {
+    const { context } = linkedContext(
+      `${LINE} home-assistant/frontend#5 home-assistant/home-assistant.io#9`,
+      { "frontend#5": { body: BACK }, "home-assistant.io#9": { body: BACK } },
+      { type: EventType.PULL_REQUEST_REVIEW_SUBMITTED },
+    );
+
+    expect((await runRule(rule, context))?.effects).toEqual([poke("frontend", 5)]);
+  });
+
   it("doesn't run on demand, where pokes would be dropped", () => {
     expect(rule.events[EventType.ON_DEMAND]).toBeUndefined();
   });

@@ -53,6 +53,7 @@ export class PullRequest {
     core?: Promise<GetPullRequestResponse>;
     files?: Promise<ListPullRequestFiles>;
     reviews?: Promise<PullRequestReviews>;
+    reviewDecision?: Promise<string | null>;
     commits?: Promise<PullRequestCommits>;
     issueComments?: Promise<IssueComments>;
   } = {};
@@ -175,6 +176,26 @@ export class PullRequest {
       this.caches.files = inflight;
     }
     return this.caches.files;
+  }
+
+  /**
+   * GitHub's verdict under the repo's branch protection (`APPROVED` once the
+   * required reviews are in); null where the repo requires none.
+   */
+  reviewDecision(): Promise<string | null> {
+    if (!this.caches.reviewDecision) {
+      const inflight = this.github
+        .graphql<{ repository: { pullRequest: { reviewDecision: string | null } | null } }>(
+          "query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewDecision } } }",
+          { owner: this.owner, repo: this.repo, number: this.number },
+        )
+        .then((data) => data.repository.pullRequest?.reviewDecision ?? null);
+      inflight.catch(() => {
+        if (this.caches.reviewDecision === inflight) this.caches.reviewDecision = undefined;
+      });
+      this.caches.reviewDecision = inflight;
+    }
+    return this.caches.reviewDecision;
   }
 
   reviews(): Promise<PullRequestReviews> {

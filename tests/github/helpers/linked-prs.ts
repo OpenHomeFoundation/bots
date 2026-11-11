@@ -10,6 +10,9 @@ export interface OtherPR {
   merged?: boolean;
   /** The repo GitHub answers with, when the listed name is another spelling. */
   canonical?: string;
+  /** GitHub's review decision; null (the default) where the repo requires no reviews. */
+  decision?: string | null;
+  reviews?: { login: string; state: string; association: string }[];
 }
 
 /**
@@ -47,6 +50,26 @@ export function linkedContext(
         ...other,
         base: { repo: { owner: { login: owner }, name, full_name: `${owner}/${name}` } },
       },
+    };
+  });
+  const otherAt = (repo: string, number: number) => {
+    const other = others[`${repo}#${number}`];
+    return other instanceof Error ? undefined : other;
+  };
+  github.graphql.mockImplementation(async (_query, variables) => {
+    const { repo, number } = variables as { repo: string; number: number };
+    const decision = otherAt(repo, number)?.decision ?? null;
+    return { repository: { pullRequest: { reviewDecision: decision } } };
+  });
+  github.pulls.listReviews.mockImplementation(async (params: unknown) => {
+    const { repo, pull_number } = params as { repo: string; pull_number: number };
+    const reviews = otherAt(repo, pull_number)?.reviews ?? [];
+    return {
+      data: reviews.map((r) => ({
+        user: { login: r.login },
+        state: r.state,
+        author_association: r.association,
+      })),
     };
   });
   const repo = self.repo ?? "core";
