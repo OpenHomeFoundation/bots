@@ -1,5 +1,6 @@
 import type { Octokit } from "@octokit/rest";
 import type { Env } from "../../../env.js";
+import { type ItemRef, slugOf } from "../../../util/item-ref.js";
 import type {
   IssueCommentCreatedEvent,
   IssuesLabeledEvent,
@@ -37,6 +38,8 @@ interface ContextReads {
   codeowners: CodeownersReads;
   org: OrgReads;
   files: RepoFileReads;
+  /** Other pull requests, by `owner/repo#number`. */
+  pullRequests: Map<string, PullRequest>;
 }
 
 export interface Sender {
@@ -116,6 +119,7 @@ export class RuleContext<E extends EventType = EventType> {
       codeowners: createCodeownersReads(),
       org: createOrgReads(),
       files: createRepoFileReads(),
+      pullRequests: new Map(),
     };
   }
 
@@ -199,6 +203,17 @@ export class RuleContext<E extends EventType = EventType> {
     return readRepoFile(this.github, this.repo, path, at, this.reads.files);
   }
 
+  /** Another pull request, fetched at most once per dispatch however many rules read it. */
+  pullRequest(ref: ItemRef): PullRequest {
+    const key = `${slugOf(ref)}#${ref.number}`;
+    let pr = this.reads.pullRequests.get(key);
+    if (!pr) {
+      pr = new PullRequest(this.github, ref);
+      this.reads.pullRequests.set(key, pr);
+    }
+    return pr;
+  }
+
   /** Whether the login is an organization member; false on any failure. */
   hasMember(login: string): Promise<boolean> {
     return isOrgMember(this.github, this.org.name, login, this.reads.org);
@@ -250,7 +265,6 @@ interface PullRequestLike {
   head?: { sha: string };
   base?: { ref: string };
   merged?: boolean | null;
-  merged_at?: string | null;
   state?: string;
   locked?: boolean;
 }
@@ -268,7 +282,6 @@ function seedFromPullRequestLike(pr: PullRequestLike): PullRequestSeed {
     ...(pr.head?.sha ? { headSha: pr.head.sha } : {}),
     ...(pr.base?.ref ? { baseRef: pr.base.ref } : {}),
     ...(typeof pr.merged === "boolean" ? { merged: pr.merged } : {}),
-    ...(pr.merged_at !== undefined ? { mergedAt: pr.merged_at } : {}),
     ...(pr.state === "open" || pr.state === "closed" ? { state: pr.state } : {}),
     ...(pr.node_id ? { nodeId: pr.node_id } : {}),
     ...(typeof pr.locked === "boolean" ? { locked: pr.locked } : {}),
@@ -323,6 +336,10 @@ function eventFromPayload(payload: WebhookEventPayload, eventType: EventType): R
     case EventType.ISSUES_LABELED: {
       const p = payload as IssuesLabeledEvent;
       return { type: eventType, label: p.label?.name ?? "" };
+    }
+    case EventType.PULL_REQUEST_EDITED: {
+      const p = payload as PullRequestEditedEvent;
+      return { type: eventType, previousBody: p.changes?.body?.from };
     }
     case EventType.PULL_REQUEST_CLOSED: {
       const p = payload as PullRequestClosedEvent;

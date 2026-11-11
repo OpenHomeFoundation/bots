@@ -140,6 +140,29 @@ describe("webhook handler", () => {
     expect(dispatch).not.toHaveBeenCalled();
   });
 
+  it.each(["closed", "reopened"])(
+    "dispatches the bot's own %s, which linked PRs follow",
+    async (action) => {
+      dispatch.mockClear();
+
+      const payload = {
+        action,
+        repository: {
+          full_name: "home-assistant/core",
+          name: "core",
+          owner: { login: "home-assistant" },
+        },
+        sender: { login: "ha-bot[bot]", type: "Bot" },
+        pull_request: { number: 1, head: { sha: "abc" }, merged: false },
+      };
+
+      const result = await service.handle(JSON.stringify(payload), "pull_request");
+
+      expect(result).toBe("OK");
+      expect(dispatch).toHaveBeenCalled();
+    },
+  );
+
   it("matches self-webhook login case-insensitively", async () => {
     dispatch.mockClear();
 

@@ -11,11 +11,14 @@ import { updateBranch } from "../../commands/update-branch.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { setIntegration } from "../../rules/set-integration.js";
-import { HomeAssistantRepository, homeAssistantOrgRules } from "../home-assistant-org.js";
+import {
+  HomeAssistantRepository,
+  homeAssistantLinkRules,
+  homeAssistantOrgRules,
+} from "../home-assistant-org.js";
 import type { RepoManifest } from "../types.js";
 import { itemIntegrationDomains } from "./helpers/integration-domains.js";
 import { branchLabels } from "./rules/branch-labels.js";
-import { docsParenting } from "./rules/docs-parenting.js";
 import { docsTargetBranch } from "./rules/docs-target-branch.js";
 import { setDocumentationSection } from "./rules/set-documentation-section.js";
 
@@ -42,7 +45,7 @@ export const homeAssistantIo: RepoManifest = {
     docsTargetBranch,
 
     // Parenting
-    docsParenting,
+    ...homeAssistantLinkRules,
 
     // Issues
     setDocumentationSection,

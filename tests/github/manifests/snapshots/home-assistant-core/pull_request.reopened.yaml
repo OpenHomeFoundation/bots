@@ -15,6 +15,10 @@ statuses:
     title: Documentation
     status: skip
     message: Not a new integration or platform — no documentation PR required.
+  - id: belongs-together
+    title: Belongs together
+    status: skip
+    message: No pull requests listed.
   - id: merge-conflict
     title: Merge conflicts
     status: pass

@@ -1,5 +1,8 @@
-import { addLogContext } from "../../correlation.js";
+import { addLogContext, logContext, withCorrelationId } from "../../correlation.js";
 import { log } from "../../log.js";
+import { type ItemRef, slugOf } from "../../util/item-ref.js";
+import { withItemLock } from "../item-lock.js";
+import { evaluatePR } from "./evaluate.js";
 import { EventType } from "./event.js";
 import type { CommandContext } from "./model/command-context.js";
 import { type RuleContext, ruleContextFromPullRequest } from "./model/rule-context.js";
@@ -101,6 +104,7 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
   const assignees = new Set<string>();
   const removeAssignees = new Set<string>();
   const comments = new Set<string>();
+  const pokes = new Map<string, ItemRef>();
   // Thunks, not started promises: awaits happen between collection and the
   // allSettled below, and a rejection during that window would be an
   // unhandled rejection (which kills the process) instead of a logged failure.
@@ -120,30 +124,6 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
         break;
       case "comment":
         comments.add(effect.body);
-        break;
-      case "addLabelsCrossRepo":
-        ops.push({
-          op: effect.type,
-          run: () =>
-            context.github.issues.addLabels({
-              owner: effect.owner,
-              repo: effect.repo,
-              issue_number: effect.issue_number,
-              labels: effect.labels,
-            }),
-        });
-        break;
-      case "updatePullRequest":
-        ops.push({
-          op: effect.type,
-          run: () =>
-            context.github.pulls.update({
-              owner: effect.owner,
-              repo: effect.repo,
-              pull_number: effect.pull_number,
-              state: effect.state,
-            }),
-        });
         break;
       case "requestReviewers":
         ops.push({
@@ -199,7 +179,14 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       case "commitStatus":
         ops.push({ op: effect.type, run: () => writeRuleCommitStatus(context, effect) });
         break;
+      case "evaluate":
+        pokes.set(`${slugOf(effect.target)}#${effect.target.number}`, effect.target);
+        break;
     }
+  }
+
+  if (context.eventType !== EventType.ON_DEMAND) {
+    for (const [key, target] of pokes) poke(context, key, target);
   }
 
   // Collapse label effects to the net diff against the item's current labels,
@@ -262,6 +249,19 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       });
     }
   });
+}
+
+/**
+ * Evaluate another PR without waiting for it: a dispatch that waits on a
+ * second item's lock while holding its own deadlocks once that item pokes
+ * back. A log context of its own keeps the target's identity off this
+ * dispatch's remaining log lines.
+ */
+function poke(context: RuleContext, key: string, target: ItemRef): void {
+  const correlationId = String(logContext()?.correlationId ?? "evaluate");
+  withCorrelationId(correlationId, () =>
+    withItemLock(key, () => evaluatePR(context.env, context.registry, context.github, target)),
+  ).catch((err) => log.exception(err, { op: "evaluate", target: key }));
 }
 
 /** GitHub's per-item assignee cap. */

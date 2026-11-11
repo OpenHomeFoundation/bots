@@ -27,7 +27,6 @@ export interface PullRequestSeed {
   headSha?: string;
   baseRef?: string;
   merged?: boolean;
-  mergedAt?: string | null;
   state?: "open" | "closed";
   nodeId?: string;
   locked?: boolean;
@@ -137,8 +136,10 @@ export class PullRequest {
     return this.coreField(this.seed.merged, (pr) => pr.merged);
   }
 
-  mergedAt(): Promise<string | null> {
-    return this.coreField(this.seed.mergedAt, (pr) => pr.merged_at);
+  /** Owner and name as GitHub spells them, whichever spelling found the PR. */
+  async baseRepo(): Promise<{ owner: string; repo: string }> {
+    const { repo } = (await this.hydrate()).base;
+    return { owner: repo.owner.login, repo: repo.name };
   }
 
   state(): Promise<"open" | "closed"> {
