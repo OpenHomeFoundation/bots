@@ -1,5 +1,6 @@
 import type { Command, RegistryConfig, RepoConfig, Rule } from "../engine/types.js";
 import { esphomeOrg } from "./esphome-org.js";
+import { homeAssistantBrands } from "./home-assistant-brands.js";
 import { homeAssistantCore } from "./home-assistant-core/index.js";
 import { homeAssistantFrontend } from "./home-assistant-frontend.js";
 import { homeAssistantIo } from "./home-assistant-io/index.js";
@@ -9,6 +10,7 @@ import type { OrgManifest, RepoManifest } from "./types.js";
 
 /** Repos with rules of their own. Add a repo by authoring a manifest and listing it here. */
 const MANIFESTS: RepoManifest[] = [
+  homeAssistantBrands,
   homeAssistantCore,
   homeAssistantFrontend,
   homeAssistantIo,
