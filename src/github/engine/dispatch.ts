@@ -1,7 +1,8 @@
 import { addLogContext, logContext, withCorrelationId } from "../../correlation.js";
 import { log } from "../../log.js";
 import { type ItemRef, slugOf } from "../../util/item-ref.js";
-import { withItemLock } from "../item-lock.js";
+import { hasQueued, withItemLock } from "../item-lock.js";
+import { rateLimiter } from "../rate-limiter.js";
 import { evaluatePR } from "./evaluate.js";
 import { EventType } from "./event.js";
 import type { CommandContext } from "./model/command-context.js";
@@ -256,13 +257,28 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
   });
 }
 
+// A poke costs a whole evaluation of someone else's PR, and one edit can send
+// ten, so each PR takes a limited number per window.
+const pokes = rateLimiter(10, 30 * 60 * 1000);
+
+/** Test hook: forget every recorded poke. */
+export function resetPokeLimit(): void {
+  pokes.reset();
+}
+
 /**
  * Evaluate another PR without waiting for it: a dispatch that waits on a
  * second item's lock while holding its own deadlocks once that item pokes
- * back. A log context of its own keeps the target's identity off this
- * dispatch's remaining log lines.
+ * back. A dispatch already waiting for the target reads the change anyway,
+ * so a poke behind it is skipped. A log context of its own keeps the
+ * target's identity off this dispatch's remaining log lines.
  */
 function poke(context: RuleContext, key: string, target: ItemRef): void {
+  if (hasQueued(key)) return;
+  if (!pokes.take(key)) {
+    log.info("evaluate: poke limit reached", { target: key });
+    return;
+  }
   const correlationId = String(logContext()?.correlationId ?? "evaluate");
   withCorrelationId(correlationId, () =>
     withItemLock(key, () => evaluatePR(context.env, context.registry, context.github, target)),

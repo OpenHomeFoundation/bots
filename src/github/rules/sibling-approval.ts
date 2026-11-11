@@ -31,7 +31,8 @@ async function approved(pr: PullRequest): Promise<boolean> {
 /**
  * Holds a PR while a sibling it has to be merged together with isn't
  * approved, so neither half lands alone. A hint, not a gate: removing the
- * link releases it.
+ * link releases it. It learns of a sibling's approval only through a poke,
+ * so it needs `pokeLinked` to poke siblings on reviews.
  */
 export function siblingApproval(links: PrLinks): Rule {
   return check({
