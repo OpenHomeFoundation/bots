@@ -346,6 +346,13 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   // Redundant on the webhook path (webhook.service stamps it), but callers
   // like the CLA re-evaluation reach dispatch without going through there.
   addLogContext(context.logContext);
+  // GitHub rejects the bot's comments on a locked conversation, and without
+  // its dashboard there is no merge gate to keep either. An open PR is
+  // re-evaluated once unlocked (see webhook.service.ts).
+  if (await context.target.locked()) {
+    log.info("dispatch: skipped, item is locked");
+    return { statuses: [], effects: [] };
+  }
   const knownSectionIds = collectKnownStatusSectionIds(context);
   const dashboardEnabled = context.repoConfig.dashboard ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;

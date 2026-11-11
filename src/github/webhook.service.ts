@@ -4,6 +4,7 @@ import { addLogContext } from "../correlation.js";
 import { ENV, type Env } from "../env.js";
 import { log } from "../log.js";
 import { dispatch, dispatchCommand } from "./engine/dispatch.js";
+import { evaluatePR } from "./engine/evaluate.js";
 import { EventType } from "./engine/event.js";
 import { commandContextFromWebhook, isBotCommand } from "./engine/model/command-context.js";
 import {
@@ -15,7 +16,7 @@ import type { RegistryConfig } from "./engine/types.js";
 import { withItemLock } from "./item-lock.js";
 import { OCTOKIT } from "./octokit.provider.js";
 import { REGISTRY_CONFIG } from "./registry.provider.js";
-import type { IssueCommentCreatedEvent } from "./webhook-events.js";
+import type { IssueCommentCreatedEvent, PullRequestUnlockedEvent } from "./webhook-events.js";
 
 const KNOWN_EVENT_TYPES = new Set<string>(Object.values(EventType));
 
@@ -66,6 +67,24 @@ export class WebhookService {
 
     // Skip self-webhooks
     if (selfWebhook) return "OK";
+
+    // Dispatches skip locked items. Re-evaluate an open PR in full once it is
+    // unlocked, or its required `ha-bot` status waits for the next push.
+    if (rawEventType === "pull_request.unlocked") {
+      const { pull_request: pr, repository } = raw as unknown as PullRequestUnlockedEvent;
+      if (pr.state !== "open") return "OK";
+      addLogContext({
+        repository: repository.full_name,
+        number: pr.number,
+        eventType: rawEventType,
+      });
+      log.info("webhook: re-evaluating unlocked PR");
+      const ref = { owner: repository.owner.login, repo: repository.name, number: pr.number };
+      await withItemLock(`${repository.full_name}#${pr.number}`, () =>
+        evaluatePR(this.env, this.registry, this.octokit, ref),
+      );
+      return "OK";
+    }
 
     if (!known) {
       return "OK";

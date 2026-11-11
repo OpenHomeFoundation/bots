@@ -1096,6 +1096,40 @@ describe("dashboard placeholder on opened", () => {
   });
 });
 
+describe("locked items", () => {
+  it.each([
+    { eventType: EventType.PULL_REQUEST_OPENED, action: "opened" },
+    { eventType: EventType.PULL_REQUEST_REOPENED, action: "reopened" },
+  ])("on $action, runs no rule and writes nothing", async ({ eventType, action }) => {
+    const github = createFakeGitHub();
+    const handler = vi.fn(async () => ({
+      effects: [{ type: "addLabels" as const, labels: ["nope"] }],
+    }));
+    const rule: Rule = {
+      name: "any",
+      description: "",
+      events: on([EventType.PULL_REQUEST_OPENED, EventType.PULL_REQUEST_REOPENED], handler),
+    };
+
+    await dispatch(
+      createMockContext({
+        registry: {
+          repositories: { "home-assistant/core": { rules: [rule], commands: [], dashboard: true } },
+        },
+        eventType,
+        github,
+        payload: { action, pull_request: { locked: true } },
+      }),
+    );
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(github.issues.listComments).not.toHaveBeenCalled();
+    expect(github.issues.createComment).not.toHaveBeenCalled();
+    expect(github.issues.addLabels).not.toHaveBeenCalled();
+    expect(github.pulls.get).not.toHaveBeenCalled();
+  });
+});
+
 describe("first contact with a PR that has no dashboard", () => {
   const unsignedStore: ClaStore = {
     hasSigned: async () => false,
