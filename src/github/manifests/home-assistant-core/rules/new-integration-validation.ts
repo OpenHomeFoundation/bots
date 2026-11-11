@@ -1,11 +1,11 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
+import { NEW_INTEGRATION_LABEL } from "../helpers/change-type.js";
 import { addedLines } from "../helpers/integration-manifest.js";
 import { isNewIntegrationPR } from "../helpers/new-integration.js";
 import { type ParsedPath, parseFiles } from "../helpers/parse-path.js";
 import { isReleasePR } from "../helpers/release-pr.js";
-import { NEW_INTEGRATION_LABEL } from "./change-type.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED

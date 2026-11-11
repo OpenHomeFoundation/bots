@@ -2,6 +2,7 @@ import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { on } from "../../../engine/rule.js";
 import type { Rule, RuleOutput } from "../../../engine/types.js";
+import { NEW_INTEGRATION_LABEL } from "../helpers/change-type.js";
 import { domainsFromFiles } from "../helpers/integration-domains.js";
 import {
   fetchResultingIntegrationManifest,
@@ -9,7 +10,6 @@ import {
 } from "../helpers/integration-manifest.js";
 import { isNewIntegrationPR } from "../helpers/new-integration.js";
 import { parseFiles } from "../helpers/parse-path.js";
-import { NEW_INTEGRATION_LABEL } from "./change-type.js";
 
 const TRANSPORT_LABEL_PREFIX = "transport: ";
 

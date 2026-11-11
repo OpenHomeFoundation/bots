@@ -4,9 +4,9 @@ import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
 import { HomeAssistantRepository } from "../../home-assistant-org.js";
+import { NEW_INTEGRATION_LABEL, pickedTypeLabels } from "../helpers/change-type.js";
 import { parseFiles } from "../helpers/parse-path.js";
 import { isReleasePR } from "../helpers/release-pr.js";
-import { NEW_INTEGRATION_LABEL, pickedTypeLabels } from "./change-type.js";
 import { addsNewIntegration } from "./file-shape.js";
 
 type HandledEvent =
