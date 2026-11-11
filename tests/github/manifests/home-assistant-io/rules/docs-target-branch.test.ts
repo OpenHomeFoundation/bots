@@ -72,9 +72,22 @@ describe("docs-target-branch", () => {
       `${LINE} home-assistant/brands#1 home-assistant/home-assistant.io#2`,
       ["brands#1", "home-assistant.io#2"],
     ],
-    ["a code PR outside the line", "Parent: home-assistant/core#12345", ["core#12345"]],
+    ["a code issue named in the description", "Fixes the issue in home-assistant/core#7", []],
+    ["a PR of a repo io doesn't follow", "Parent: home-assistant/android#3", ["android#3"]],
   ])("has no parent in %s", async (_, body, prs) => {
     const result = await runRule(docsTargetBranch, docsContext("current", body, prs));
+    expect(result?.section?.status).toBe("pass");
+  });
+
+  it.each([
+    ["in prose", "This documents home-assistant/core#12345."],
+    [
+      "on a line without a space after the colon",
+      "- Link to parent pull request in the codebase:https://github.com/home-assistant/core/pull/12345",
+    ],
+    ["on an indented line", "  - Parent: https://github.com/home-assistant/core/pull/12345"],
+  ])("expects next for a code PR named %s", async (_, body) => {
+    const result = await runRule(docsTargetBranch, docsContext("next", body, ["core#12345"]));
     expect(result?.section?.status).toBe("pass");
   });
 
