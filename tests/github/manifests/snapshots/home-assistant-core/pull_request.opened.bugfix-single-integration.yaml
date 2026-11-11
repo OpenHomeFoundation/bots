@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: No new platforms added.
+  - id: single-new-integration
+    title: Single new integration
+    status: skip
+    message: No new integrations added.
   - id: forbidden-files
     title: Forbidden files
     status: pass
