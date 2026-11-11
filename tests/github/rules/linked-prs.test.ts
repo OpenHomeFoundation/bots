@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { homeAssistantPrLinks } from "../../../src/github/manifests/home-assistant-org.js";
 import { linkedPRs } from "../../../src/github/rules/linked-prs.js";
-import { LINE, linkedContext, type OtherPR, ref } from "../helpers/linked-prs.js";
+import { LINE, linkedContext, type OtherPR, ref, testLinks } from "../helpers/linked-prs.js";
 
 async function linked(
   body: string,
@@ -9,7 +8,7 @@ async function linked(
   self: { repo?: string } = {},
 ) {
   const { context } = linkedContext(body, others, self);
-  const result = await linkedPRs(context, homeAssistantPrLinks);
+  const result = await linkedPRs(context, testLinks);
   return result.map(({ ref, relation, confirmed }) => ({ ref, relation, confirmed }));
 }
 
@@ -92,7 +91,7 @@ describe("linkedPRs", () => {
     ["only itself", `${LINE} #1 home-assistant/Core#1`],
   ])("reads nothing for %s", async (_, body) => {
     const { github, context } = linkedContext(body, {});
-    expect(await linkedPRs(context, homeAssistantPrLinks)).toEqual([]);
+    expect(await linkedPRs(context, testLinks)).toEqual([]);
     expect(github.pulls.get).not.toHaveBeenCalled();
   });
 
@@ -100,6 +99,6 @@ describe("linkedPRs", () => {
     const { context } = linkedContext(`${LINE} home-assistant/frontend#5`, {
       "frontend#5": Object.assign(new Error("boom"), { status: 403 }),
     });
-    await expect(linkedPRs(context, homeAssistantPrLinks)).rejects.toThrow();
+    await expect(linkedPRs(context, testLinks)).rejects.toThrow();
   });
 });

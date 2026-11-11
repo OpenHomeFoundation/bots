@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
-import { homeAssistantPrLinks } from "../../../src/github/manifests/home-assistant-org.js";
 import { pokeLinked } from "../../../src/github/rules/poke-linked.js";
-import { LINE, linkedContext, ref } from "../helpers/linked-prs.js";
+import { LINE, linkedContext, ref, testLinks } from "../helpers/linked-prs.js";
 import { runRule } from "../helpers/mock-context.js";
 
-const rule = pokeLinked(homeAssistantPrLinks);
+const rule = pokeLinked(testLinks);
 const BACK = `${LINE} home-assistant/core#1`;
 const poke = (repo: string, number: number) => ({ type: "evaluate", target: ref(repo, number) });
 

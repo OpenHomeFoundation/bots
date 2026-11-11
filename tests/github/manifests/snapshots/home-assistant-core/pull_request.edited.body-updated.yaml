@@ -19,10 +19,6 @@ statuses:
     title: Belongs together
     status: skip
     message: No pull requests listed.
-  - id: sibling-approval
-    title: Linked approvals
-    status: skip
-    message: No pull requests to merge together with.
   - id: merge-target
     title: Merge target
     status: pass
