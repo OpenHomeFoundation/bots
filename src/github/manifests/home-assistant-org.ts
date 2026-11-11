@@ -8,7 +8,6 @@ import { followParent } from "../rules/follow-parent.js";
 import type { PrLinks } from "../rules/linked-prs.js";
 import { pokeLinked } from "../rules/poke-linked.js";
 import { readyForReview } from "../rules/ready-for-review.js";
-import { siblingApproval } from "../rules/sibling-approval.js";
 import { wth } from "../rules/wth.js";
 import { Organization, type OrgManifest } from "./types.js";
 
@@ -32,16 +31,32 @@ export enum HomeAssistantRepository {
   SUPERVISOR = "home-assistant/supervisor",
 }
 
-// Docs, brands and My Home Assistant links: their PRs merge after the code they belong with.
-const FOLLOWER_REPOS = new Set<string>(
-  [
-    HomeAssistantRepository.BRANDS,
-    HomeAssistantRepository.COMPANION_HOME_ASSISTANT,
-    HomeAssistantRepository.CONTRIBUTORS_HOME_ASSISTANT,
-    HomeAssistantRepository.DEVELOPERS_HOME_ASSISTANT,
-    HomeAssistantRepository.HOME_ASSISTANT_IO,
-    HomeAssistantRepository.MY_HOME_ASSISTANT,
-  ].map((slug) => slug.toLowerCase()),
+const {
+  ANDROID,
+  BRANDS,
+  COMPANION_HOME_ASSISTANT,
+  CONTRIBUTORS_HOME_ASSISTANT,
+  CORE,
+  FRONTEND,
+  HOME_ASSISTANT_IO,
+  IOS,
+  SUPERVISOR,
+} = HomeAssistantRepository;
+
+/**
+ * Each repo whose PRs follow code (docs, brands), with the code repos it
+ * follows. One entry per pair, as the code side's view follows from it; any
+ * other two repos don't pair.
+ */
+const FOLLOWS = new Map<string, string[]>(
+  (
+    [
+      [HOME_ASSISTANT_IO, [CORE, FRONTEND, SUPERVISOR]],
+      [CONTRIBUTORS_HOME_ASSISTANT, [CORE, FRONTEND, SUPERVISOR, ANDROID, IOS]],
+      [COMPANION_HOME_ASSISTANT, [ANDROID, IOS]],
+      [BRANDS, [CORE]],
+    ] as const
+  ).map(([follower, code]) => [follower.toLowerCase(), code.map((slug) => slug.toLowerCase())]),
 );
 
 /** Where home-assistant PR templates list the PRs that belong together. */
@@ -63,10 +78,14 @@ export const homeAssistantPrLinks: PrLinks = {
     "Link to parent pull request in the codebase",
     "Link to parent pull request in the Brands repository",
     "This PR documents an open pull request (merge this PR after it)",
+    // companion.home-assistant, developers.home-assistant
+    "Link to relevant existing code or pull request",
   ],
-  kindOf: (repo) => {
-    if (repo.owner.toLowerCase() !== Organization.HOME_ASSISTANT) return "library";
-    return FOLLOWER_REPOS.has(slugOf(repo).toLowerCase()) ? "follower" : "code";
+  relationOf: (self, other) => {
+    const [a, b] = [slugOf(self).toLowerCase(), slugOf(other).toLowerCase()];
+    if (FOLLOWS.get(a)?.includes(b)) return "parent";
+    if (FOLLOWS.get(b)?.includes(a)) return "child";
+    return null;
   },
 };
 
@@ -78,7 +97,6 @@ export const homeAssistantLinkRules: Rule[] = [
   belongsTogether(homeAssistantPrLinks),
   pokeLinked(homeAssistantPrLinks),
   followParent(homeAssistantPrLinks),
-  siblingApproval(homeAssistantPrLinks),
 ];
 
 /**

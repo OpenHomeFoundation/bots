@@ -1,7 +1,26 @@
 import { EventType } from "../../../src/github/engine/event.js";
+import { homeAssistantPrLinks } from "../../../src/github/manifests/home-assistant-org.js";
+import type { PrLinks } from "../../../src/github/rules/linked-prs.js";
 import { createFakeGitHub, createMockContext } from "./mock-context.js";
 
 export const LINE = "- This PR belongs together with:";
+
+const FOLLOWERS = new Set(["home-assistant.io", "brands"]);
+
+/**
+ * home-assistant's lines with every relation, so the shared rules are tested
+ * apart from the pairs home-assistant enables: two code or two follower PRs
+ * are siblings, a follower follows code, and other orgs never pair.
+ */
+export const testLinks: PrLinks = {
+  ...homeAssistantPrLinks,
+  relationOf: (self, other) => {
+    if (self.owner !== "home-assistant" || other.owner !== "home-assistant") return null;
+    const [a, b] = [FOLLOWERS.has(self.repo), FOLLOWERS.has(other.repo)];
+    if (a === b) return "sibling";
+    return a ? "parent" : "child";
+  },
+};
 export const ref = (repo: string, number: number) => ({ owner: "home-assistant", repo, number });
 
 export interface OtherPR {

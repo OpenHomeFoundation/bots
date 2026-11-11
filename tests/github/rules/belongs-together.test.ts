@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
-import { homeAssistantPrLinks } from "../../../src/github/manifests/home-assistant-org.js";
 import { belongsTogether } from "../../../src/github/rules/belongs-together.js";
-import { LINE, linkedContext } from "../helpers/linked-prs.js";
+import { LINE, linkedContext, testLinks } from "../helpers/linked-prs.js";
 import { runRule } from "../helpers/mock-context.js";
 
-const rule = belongsTogether(homeAssistantPrLinks);
+const rule = belongsTogether(testLinks);
 const BACK = `${LINE} home-assistant/core#1`;
 
 // The PR is home-assistant/core#1.
