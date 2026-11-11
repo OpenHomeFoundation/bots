@@ -259,7 +259,6 @@ interface PullRequestLike {
   labels?: { name: string }[];
   body?: string | null;
   user?: { login: string } | null;
-  author_association?: string;
   assignees?: ({ login: string } | null)[] | null;
   draft?: boolean;
   head?: { sha: string };
@@ -274,7 +273,6 @@ function seedFromPullRequestLike(pr: PullRequestLike): PullRequestSeed {
     ...(pr.labels ? { labels: pr.labels.map((l) => l.name) } : {}),
     ...(pr.body !== undefined ? { body: pr.body } : {}),
     ...(pr.user?.login ? { authorLogin: pr.user.login } : {}),
-    ...(pr.author_association ? { authorAssociation: pr.author_association } : {}),
     ...(pr.assignees
       ? { assigneeLogins: pr.assignees.flatMap((a) => (a?.login ? [a.login] : [])) }
       : {}),

@@ -16,13 +16,13 @@ export function mergeTarget(config: { base: string }): Rule {
       return { status: "pass", message: `This PR targets \`${config.base}\`.` };
     }
 
-    // Org-affiliated authors (release work, backports) get a warning row
-    // instead of a hard failure.
-    const isMember = await ctx.target.authorIsMember();
+    // Members (release work, backports, stacked PRs) only get a warning. Asked
+    // via the API: `author_association` hides private org memberships.
+    const isMember = await ctx.hasMember(await ctx.target.authorLogin());
     return {
       status: isMember ? "warn" : "fail",
       message: isMember
-        ? `This PR targets \`${baseRef}\` (release branch).`
+        ? `This PR targets \`${baseRef}\`, not \`${config.base}\`.`
         : `This PR targets \`${baseRef}\`. Please retarget \`${config.base}\`.`,
     };
   }
