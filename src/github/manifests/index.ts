@@ -2,7 +2,6 @@ import type { Command, RegistryConfig, RepoConfig, Rule } from "../engine/types.
 import { esphomeOrg } from "./esphome-org.js";
 import { homeAssistantCore } from "./home-assistant-core/index.js";
 import { homeAssistantFrontend } from "./home-assistant-frontend.js";
-import { homeAssistantIntents } from "./home-assistant-intents.js";
 import { homeAssistantIo } from "./home-assistant-io/index.js";
 import { homeAssistantOrg } from "./home-assistant-org.js";
 import { homeAssistantSupervisor } from "./home-assistant-supervisor/index.js";
@@ -12,7 +11,6 @@ import type { OrgManifest, RepoManifest } from "./types.js";
 const MANIFESTS: RepoManifest[] = [
   homeAssistantCore,
   homeAssistantFrontend,
-  homeAssistantIntents,
   homeAssistantIo,
   homeAssistantSupervisor,
 ];
