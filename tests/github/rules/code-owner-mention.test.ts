@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../src/github/engine/types.js";
@@ -18,6 +18,19 @@ const rule = mentionCodeOwners({
   domains: itemIntegrationDomains,
   pathPattern: (name) => `homeassistant/components/${name}/*`,
 });
+
+// PR-derived domains are checked against dev; every directory here is an integration.
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      const domain = String(input).match(/components\/([^/]+)\/manifest\.json/)?.[1] ?? "";
+      return { ok: true, status: 200, json: async () => ({ domain, name: domain }) } as Response;
+    }),
+  );
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("mention-code-owners", () => {
   it("returns undefined for non-integration labels", async () => {

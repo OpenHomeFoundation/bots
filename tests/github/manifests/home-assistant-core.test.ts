@@ -132,7 +132,6 @@ const scenarios: Record<string, Scenario> = {
     state: {
       files: AWESOME_FILES,
       codeowners: HUE_CODEOWNERS,
-      remote: { "components/awesome/manifest.json": AWESOME_MANIFEST },
     },
   },
 
@@ -149,7 +148,6 @@ const scenarios: Record<string, Scenario> = {
     state: {
       files: AWESOME_TRANSPORT_FILES,
       codeowners: HUE_CODEOWNERS,
-      remote: { "components/awesome/manifest.json": AWESOME_MANIFEST },
     },
   },
 
