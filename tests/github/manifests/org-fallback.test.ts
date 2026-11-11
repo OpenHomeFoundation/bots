@@ -68,8 +68,14 @@ describe("org fallback", () => {
     expect(names(repoConfig.commands)).toEqual(["update", "ignore", "unignore"]);
   });
 
-  it("runs nothing in other orgs", () => {
+  it("runs the intents manifest under the repo's OHF-Voice name", () => {
     const { repoConfig } = contextFor("OHF-Voice/intents");
+
+    expect(names(repoConfig.rules)).toContain("intents-language");
+  });
+
+  it("runs nothing in other orgs", () => {
+    const { repoConfig } = contextFor("OHF-Voice/piper");
 
     expect(repoConfig.rules).toEqual([]);
     expect(repoConfig.commands).toEqual([]);
