@@ -1,5 +1,5 @@
 import { log } from "../../../../log.js";
-import { neutraliseMentions } from "../../../../util/markdown.js";
+import { defuseHtmlComments, neutraliseMentions } from "../../../../util/markdown.js";
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { on } from "../../../engine/rule.js";
@@ -10,30 +10,22 @@ import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
 type HandledEvent = EventType.ISSUES_OPENED | EventType.ISSUES_LABELED | EventType.ISSUES_ON_DEMAND;
 
-/** The file an integration keeps its reporting guidance in, inside core. */
-export const ISSUE_CONTEXT_FILE = "issue_context.md";
-
-/** Longer guidance is ignored; it belongs in the integration's docs. */
-export const MAX_ISSUE_CONTEXT_LENGTH = 2000;
+// Longer guidance belongs in the integration's docs.
+const MAX_LENGTH = 2000;
 
 /**
- * An integration's guidance as text the dashboard can carry: no mentions that
- * notify, no HTML comment that would hide the rest of the dashboard or pose
- * as its state. Undefined when the file is empty or too long.
+ * An integration's guidance from core, as text the dashboard can carry: no
+ * mentions that notify, no HTML comment that hides the rest or poses as the
+ * dashboard's state. Undefined when empty or too long.
  */
-export function issueContextText(raw: string, domain: string): string | undefined {
-  const text = raw.trim();
-  if (!text) return;
-  if (text.length > MAX_ISSUE_CONTEXT_LENGTH) {
+const fetchIssueContext = devComponentFile("issue_context.md", async (res, domain) => {
+  const text = (await res.text()).trim();
+  if (text.length > MAX_LENGTH) {
     log.warn("issueContext: file too long, ignored", { domain, length: text.length });
     return;
   }
-  return neutraliseMentions(text).replaceAll("<!--", "&lt;!--");
-}
-
-const fetchIssueContext = devComponentFile(ISSUE_CONTEXT_FILE, async (res, domain) =>
-  issueContextText(await res.text(), domain),
-);
+  return text ? defuseHtmlComments(neutraliseMentions(text)) : undefined;
+});
 
 /**
  * Reporting guidance on the issue dashboard. Integrations keep theirs in core
@@ -57,13 +49,9 @@ export function issueContext(labels: Record<string, string>): Rule {
     // Labels on the issue plus the integrations it's about, so guidance shows
     // up on opened without waiting for set-integration.
     const domains = await itemIntegrationDomains(ctx);
-    const fromCore = new Map<string, string | undefined>(
-      await Promise.all(
-        domains.map(
-          async (domain) =>
-            [`${INTEGRATION_LABEL_PREFIX}${domain}`, await fetchIssueContext(domain)] as const,
-        ),
-      ),
+    const texts = await Promise.all(domains.map((domain) => fetchIssueContext(domain)));
+    const fromCore = new Map(
+      domains.map((domain, i) => [`${INTEGRATION_LABEL_PREFIX}${domain}`, texts[i]]),
     );
     const effective = new Set([...(await ctx.target.labels()), ...fromCore.keys()]);
     const paragraphs = [...effective].flatMap((label) => {

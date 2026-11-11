@@ -101,4 +101,18 @@ describe("fetchIntegrationManifest", () => {
     expect(await fetchIntegrationManifest("hue")).toMatchObject({ domain: "hue" });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps the last good manifest when dev answers with an error", async () => {
+    expectLoggedErrors(); // the transient-failure warn is the path under test
+    vi.useFakeTimers();
+    mockFetch({ hue: HUE });
+    await fetchIntegrationManifest("hue");
+    vi.advanceTimersByTime(6 * 60 * 60 * 1000 + 1000);
+
+    const fetch = vi.fn(async () => ({ ok: false, status: 503 }) as Response);
+    vi.stubGlobal("fetch", fetch);
+    expect(await fetchIntegrationManifest("hue")).toMatchObject({ domain: "hue" });
+    await fetchIntegrationManifest("hue");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });

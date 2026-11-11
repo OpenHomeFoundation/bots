@@ -5,7 +5,7 @@ import { fetchWithTimeout } from "../../util/fetch.js";
 // events, so a stale read corrects itself.
 const HIT_TTL_MS = 6 * 60 * 60 * 1000;
 
-// Short: a 404 means "not on dev *yet*", and a file merged minutes ago must
+// Short: a missing or unusable file may be fixed on dev any minute, and must
 // not stay invisible for six hours.
 const MISS_TTL_MS = 5 * 60 * 1000;
 
@@ -19,8 +19,9 @@ const resets: (() => void)[] = [];
  * A cached reader for one file in every integration directory on core's dev
  * branch, e.g. `manifest.json`. `read` turns a successful response into the
  * value (undefined when it is not usable). Cached across deliveries, one
- * entry per domain; concurrent readers share one fetch; a failed fetch keeps
- * the last good value and is not cached.
+ * entry per domain; concurrent readers share one fetch. Only a 404 counts as
+ * a miss: any other failure keeps the last good value and is not cached.
+ * Call once per file, at module scope.
  */
 export function devComponentFile<T>(
   file: string,
@@ -40,6 +41,7 @@ export function devComponentFile<T>(
         `https://raw.githubusercontent.com/home-assistant/core/dev/homeassistant/components/${domain}/${file}`,
       );
       if (res.ok) value = await read(res, domain);
+      else if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
       log.warn("devComponentFile: fetch failed", { domain, file, error: String(err) });
       // Uncached: a transient failure must not pin a miss.

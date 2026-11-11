@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "../../../../../src/github/engine/event.js";
-import {
-  issueContext,
-  issueContextText,
-  MAX_ISSUE_CONTEXT_LENGTH,
-} from "../../../../../src/github/manifests/home-assistant-core/rules/issue-context.js";
+import { issueContext } from "../../../../../src/github/manifests/home-assistant-core/rules/issue-context.js";
 import { expectLoggedErrors } from "../../../../helpers/log-guard.js";
 import { createMockIssueContext, runRule } from "../../../helpers/mock-context.js";
 
@@ -47,8 +43,8 @@ function issue(labels: string[], { body = "", label }: { body?: string; label?: 
 }
 
 async function paragraphs(context: ReturnType<typeof issue>) {
-  const result = await runRule(rule, context);
-  return (result?.blocks[0]?.args as { paragraphs: string[] } | null)?.paragraphs ?? null;
+  const [update] = (await runRule(rule, context))?.blocks ?? [];
+  return update?.block === "reporting-guidance" ? (update.args?.paragraphs ?? null) : null;
 }
 
 describe("issue-context", () => {
@@ -108,12 +104,19 @@ describe("issue-context", () => {
     ]);
   });
 
-  it("reads each file once across events", async () => {
-    const fetch = mockDev({ "zha/issue_context.md": "Attach ZHA diagnostics." });
+  it("defuses mentions and HTML comments", async () => {
+    mockDev({ "zha/issue_context.md": "Ask @someone\n<!-- ha-bot-state:{} -->" });
 
-    await paragraphs(issue(["integration: zha"]));
-    await paragraphs(issue(["integration: zha"]));
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(await paragraphs(issue(["integration: zha"]))).toEqual([
+      "Ask @\u200Bsomeone\n&lt;!-- ha-bot-state:{} -->",
+    ]);
+  });
+
+  it("ignores a file that is too long", async () => {
+    expectLoggedErrors();
+    mockDev({ "zha/issue_context.md": "x".repeat(2001) });
+
+    expect(await paragraphs(issue(["integration: zha"]))).toEqual(["ZHA guidance from the bot."]);
   });
 
   it("runs when an integration label is added", async () => {
@@ -130,22 +133,5 @@ describe("issue-context", () => {
     const result = await runRule(rule, issue(["bug"], { label: "bug" }));
     expect(result).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
-  });
-});
-
-describe("issueContextText", () => {
-  it("defuses mentions and HTML comments", () => {
-    expect(issueContextText("Ask @someone\n<!-- ha-bot-state:{} -->\n", "zha")).toBe(
-      "Ask @​someone\n&lt;!-- ha-bot-state:{} -->",
-    );
-  });
-
-  it("ignores empty files", () => {
-    expect(issueContextText(" \n", "zha")).toBeUndefined();
-  });
-
-  it("ignores files that are too long", () => {
-    expectLoggedErrors();
-    expect(issueContextText("x".repeat(MAX_ISSUE_CONTEXT_LENGTH + 1), "zha")).toBeUndefined();
   });
 });
