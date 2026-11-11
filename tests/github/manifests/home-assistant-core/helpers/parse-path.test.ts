@@ -103,6 +103,20 @@ describe("ParsedPath", () => {
       expect(p.type).toBe("core");
       expect(p.core).toBe(true);
     });
+
+    it.each([
+      ["homeassistant/package_constraints.txt", "core"],
+      ["homeassistant/strings.json", "core"],
+      ["homeassistant/brands/zehnder.json", "brands"],
+      ["homeassistant/backports/enum.py", "backports"],
+      ["tests/snapshots/test_config.ambr", "test"],
+      ["tests/testing_config/configuration.yaml", "test"],
+      ["tests/helpers/test_entity.py", "helpers"],
+    ])("classifies %s as %s", (filename, type) => {
+      const p = makeParsed(filename);
+      expect(p.type).toBe(type);
+      expect(p.core).toBe(true);
+    });
   });
 
   describe("special file types", () => {
