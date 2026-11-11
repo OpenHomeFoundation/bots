@@ -4,6 +4,7 @@ import type { RuleContext } from "../../../engine/model/rule-context.js";
 import {
   domainsFromIssueBody,
   domainsFromLabels,
+  domainsOnDev,
   MAX_INTEGRATION_LABELS,
 } from "../../../helpers/integration-domains.js";
 import { ParsedPath } from "./parse-path.js";
@@ -23,19 +24,23 @@ export function domainsFromFiles(files: ListPullRequestFiles): string[] {
 
 /**
  * Every integration domain the item is about, derived from the item itself:
- * changed files for PRs (none when they span more than MAX_INTEGRATION_LABELS
- * integrations, a tree-wide change), documentation links in the body for
- * issues — unioned with any `integration:` labels already present (maintainer
- * adds, earlier dispatches). set-integration labels from it; other rules read
- * it instead of waiting for those labels.
+ * changed files for PRs (integrations already on dev only; none when they
+ * span more than MAX_INTEGRATION_LABELS integrations, a tree-wide change),
+ * documentation links in the body for issues — unioned with any
+ * `integration:` labels already present (maintainer adds, earlier
+ * dispatches). set-integration labels from it; other rules read it instead
+ * of waiting for those labels.
  */
 export async function itemIntegrationDomains(ctx: RuleContext<EventType>): Promise<string[]> {
   const labeled = domainsFromLabels(await ctx.target.labels());
 
   let derived: string[];
   if (ctx.target.kind === "pull_request") {
+    // Adding a label creates it, and any directory under `components/` is a
+    // candidate: a PR must not mint labels. A new integration is labelled
+    // `new-integration` instead.
     const fromFiles = domainsFromFiles(await ctx.target.files());
-    derived = fromFiles.length > MAX_INTEGRATION_LABELS ? [] : fromFiles;
+    derived = fromFiles.length > MAX_INTEGRATION_LABELS ? [] : await domainsOnDev(fromFiles);
   } else {
     derived = await domainsFromIssueBody(await ctx.target.body());
   }

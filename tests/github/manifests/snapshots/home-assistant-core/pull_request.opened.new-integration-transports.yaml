@@ -26,18 +26,12 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: skip
-    message: Not a platinum integration — no code-owner approval required.
+    message: Touches zero or multiple integrations — code-owner approval not enforced.
   - id: type-of-change
     title: Type of change
     status: pass
     message: "Type of change: `new-integration`"
 effects:
-  - type: addLabels
-    labels:
-      - "integration: awesome"
-  - type: addLabels
-    labels:
-      - "Quality Scale: bronze"
   - type: addLabels
     labels:
       - "transport: modbus"

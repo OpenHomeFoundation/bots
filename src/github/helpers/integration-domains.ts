@@ -41,6 +41,11 @@ export async function domainsFromIssueBody(body: string | null): Promise<string[
     MAX_INTEGRATION_LABELS,
   );
 
+  return domainsOnDev(candidates);
+}
+
+/** The given domains that are integrations on core's dev branch. */
+export async function domainsOnDev(candidates: string[]): Promise<string[]> {
   const domains: string[] = [];
   for (const domain of candidates) {
     if (await fetchIntegrationManifest(domain)) domains.push(domain);
