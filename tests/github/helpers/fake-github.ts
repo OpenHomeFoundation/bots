@@ -38,6 +38,8 @@ export interface FakeWorld {
   reviews?: Record<string, unknown>[];
   /** issues.get response body. */
   issue?: Record<string, unknown>;
+  /** Logins GitHub refuses to assign; everyone else can be. */
+  unassignable?: string[];
 }
 
 export interface RecordedRequest {
@@ -82,6 +84,7 @@ export interface FakeEndpoints {
     getLabel: Endpoint;
     addAssignees: Endpoint;
     removeAssignees: Endpoint;
+    checkUserCanBeAssignedToIssue: Endpoint;
     update: Endpoint;
   };
   pulls: {
@@ -249,6 +252,12 @@ const ROUTES: Route[] = [
   },
   {
     method: "GET",
+    regex: /^\/repos\/([^/]+)\/([^/]+)\/issues\/(\d+)\/assignees\/([^/]+)$/,
+    keys: ["owner", "repo", "issue_number", "assignee"],
+    endpoint: (g) => g.issues.checkUserCanBeAssignedToIssue,
+  },
+  {
+    method: "GET",
     regex: /^\/repos\/([^/]+)\/([^/]+)\/labels\/([^/]+)$/,
     keys: ["owner", "repo", "name"],
     endpoint: (g) => g.issues.getLabel,
@@ -342,6 +351,11 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
       getLabel: endpointFn(async () => ({ data: {} })),
       addAssignees: endpointFn(async () => ({ data: {} })),
       removeAssignees: endpointFn(async () => ({ data: {} })),
+      checkUserCanBeAssignedToIssue: endpointFn(async (params) => {
+        const p = params as { assignee: string };
+        if ((world.unassignable ?? []).includes(p.assignee)) throw { status: 404 };
+        return { status: 204 };
+      }),
       update: endpointFn(async () => ({ data: {} })),
     },
     pulls: {
