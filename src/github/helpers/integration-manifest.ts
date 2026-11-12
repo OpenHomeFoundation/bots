@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { log } from "../../log.js";
-import { fetchWithTimeout } from "../../util/fetch.js";
+import { devComponentFile } from "./dev-file.js";
 
 export enum QualityScale {
   NO_SCORE = "No score",
@@ -43,60 +43,10 @@ export function parseIntegrationManifest(
   return parsed.data;
 }
 
-// Long: manifests change only by PR, and every reader re-evaluates on later
-// events, so a stale read corrects itself.
-const MANIFEST_TTL_MS = 6 * 60 * 60 * 1000;
-
-// Short: a 404 means "not on dev *yet*", and an integration merged minutes ago
-// must not stay invisible for six hours.
-const MISS_TTL_MS = 5 * 60 * 1000;
-
-// Core's domain grammar. Callers pass user input (command arguments, link
-// segments, directory names), which otherwise ends up in the fetched URL.
-const DOMAIN = /^[a-z0-9_]+$/;
-
-/** Cross-event cache, one entry per domain (~1500 at most). */
-const byDomain = new Map<string, { manifest?: IntegrationManifest; fetchedAt: number }>();
-const inflight = new Map<string, Promise<IntegrationManifest | undefined>>();
-
-async function fetchFromDev(domain: string): Promise<IntegrationManifest | undefined> {
-  let manifest: IntegrationManifest | undefined;
-  try {
-    const res = await fetchWithTimeout(
-      `https://raw.githubusercontent.com/home-assistant/core/dev/homeassistant/components/${domain}/manifest.json`,
-    );
-    if (res.ok) manifest = parseIntegrationManifest(await res.json(), `dev:${domain}`);
-  } catch (err) {
-    log.warn("fetchIntegrationManifest: fetch failed", { domain, error: String(err) });
-    // Uncached: a transient failure must not pin a miss.
-    return byDomain.get(domain)?.manifest;
-  }
-  byDomain.set(domain, { manifest, fetchedAt: Date.now() });
-  return manifest;
-}
-
 /**
  * The manifest as shipped on core's dev branch, or undefined if there is none
  * there. Cached across deliveries; concurrent readers share one fetch.
  */
-export function fetchIntegrationManifest(domain: string): Promise<IntegrationManifest | undefined> {
-  if (!DOMAIN.test(domain)) return Promise.resolve(undefined);
-  const cached = byDomain.get(domain);
-  if (cached) {
-    const ttl = cached.manifest ? MANIFEST_TTL_MS : MISS_TTL_MS;
-    if (Date.now() - cached.fetchedAt < ttl) return Promise.resolve(cached.manifest);
-  }
-
-  let pending = inflight.get(domain);
-  if (!pending) {
-    pending = fetchFromDev(domain).finally(() => inflight.delete(domain));
-    inflight.set(domain, pending);
-  }
-  return pending;
-}
-
-/** Test hook: drop the cache so a case sees the manifests it serves. */
-export function resetIntegrationManifests(): void {
-  byDomain.clear();
-  inflight.clear();
-}
+export const fetchIntegrationManifest = devComponentFile("manifest.json", async (res, domain) =>
+  parseIntegrationManifest(await res.json(), `dev:${domain}`),
+);

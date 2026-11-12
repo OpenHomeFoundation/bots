@@ -253,9 +253,9 @@ describe("status renderer", () => {
       });
       expect(result).not.toContain("## Checks");
       expect(result).toContain("**Reporting guidance**");
-      // Paragraphs render on consecutive lines (single newlines — GitHub
-      // comments treat those as line breaks).
-      expect(result).toContain("First advice.\nSecond advice.");
+      // A blank line between paragraphs, so one ending in a list or table
+      // cannot swallow the next.
+      expect(result).toContain("First advice.\n\nSecond advice.");
     });
 
     it("hidden blocks leave no trace in body or state", () => {
