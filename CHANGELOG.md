@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.7.0](https://github.com/OpenHomeFoundation/bots/compare/v0.6.0...v0.7.0) (2026-11-12)
+
+
+### ✨ New features
+
+* **cla:** label only PRs with a missing signature ([#139](https://github.com/OpenHomeFoundation/bots/issues/139)) ([759e2d1](https://github.com/OpenHomeFoundation/bots/commit/759e2d1d0cbd9942c0e2b3f47bb4eff53aa98d76))
+* **core:** name integrations in the code-owner approval row ([#158](https://github.com/OpenHomeFoundation/bots/issues/158)) ([20524d3](https://github.com/OpenHomeFoundation/bots/commit/20524d35b0a4518c7815e96c7383684de79dce27))
+* **core:** relax code-owner approval for members' code quality ([#156](https://github.com/OpenHomeFoundation/bots/issues/156)) ([c0edeae](https://github.com/OpenHomeFoundation/bots/commit/c0edeae4a5ad2d80886f4afe481cc93248a83809))
+* **core:** relax code-owner approval for members' tree-wide PRs ([#143](https://github.com/OpenHomeFoundation/bots/issues/143)) ([6b1f8c0](https://github.com/OpenHomeFoundation/bots/commit/6b1f8c0303d598fbe0569cc6f948c47d7936792d))
+* **github:** enable the bot dashboard on contributors docs ([#149](https://github.com/OpenHomeFoundation/bots/issues/149)) ([f06f1a0](https://github.com/OpenHomeFoundation/bots/commit/f06f1a02cb3430fcf3db4dfe368bbd43eee8d687))
+* **github:** enable the bot dashboard on home-assistant/brands ([#148](https://github.com/OpenHomeFoundation/bots/issues/148)) ([b8f0413](https://github.com/OpenHomeFoundation/bots/commit/b8f0413233a58bb202b86bcc6c401c697046e758))
+* **github:** hold PRs until their linked siblings are approved ([#142](https://github.com/OpenHomeFoundation/bots/issues/142)) ([c69096a](https://github.com/OpenHomeFoundation/bots/commit/c69096a2c48b9b2853c9c21d111cbd837c137314))
+* **github:** pair docs and brands PRs with the code they follow ([#147](https://github.com/OpenHomeFoundation/bots/issues/147)) ([9ed1a82](https://github.com/OpenHomeFoundation/bots/commit/9ed1a82f532eec7b62a9f5b01cc652ec1f9da947))
+* **github:** pair PRs that list each other as belonging together ([#137](https://github.com/OpenHomeFoundation/bots/issues/137)) ([dc1166c](https://github.com/OpenHomeFoundation/bots/commit/dc1166c88c695a48107651da840c868bd4b0e4c6))
+* **github:** re-enable the bot dashboard on contributors docs ([#155](https://github.com/OpenHomeFoundation/bots/issues/155)) ([62b6f96](https://github.com/OpenHomeFoundation/bots/commit/62b6f964daa659e1855a7b859ffcea4f9fcdb512))
+
+
+### 🐛 Bug fixes
+
+* **core:** classify all top-level core paths in parse-path ([#140](https://github.com/OpenHomeFoundation/bots/issues/140)) ([50c5cbd](https://github.com/OpenHomeFoundation/bots/commit/50c5cbd82b96b344b5c290061e33ccc217509e2d))
+* **core:** forbid integration brand folders in every PR ([#141](https://github.com/OpenHomeFoundation/bots/issues/141)) ([9a31389](https://github.com/OpenHomeFoundation/bots/commit/9a31389818f7d740981439df45fc8715881807cb))
+* **github:** check org membership via the API in merge-target ([#144](https://github.com/OpenHomeFoundation/bots/issues/144)) ([3bc592e](https://github.com/OpenHomeFoundation/bots/commit/3bc592ecff916552854d72b1673de86544fe0582))
+* **github:** list checks waiting on others in their own table ([#157](https://github.com/OpenHomeFoundation/bots/issues/157)) ([f1cc552](https://github.com/OpenHomeFoundation/bots/commit/f1cc552b7aaf336daef6aa9bf14b0e48200626c4))
+* **github:** only assign code owners GitHub accepts ([#138](https://github.com/OpenHomeFoundation/bots/issues/138)) ([4c9737b](https://github.com/OpenHomeFoundation/bots/commit/4c9737b106ad03d5e13ee16b4f190901db96aabb))
+* **github:** skip locked items, re-evaluate PRs on unlock ([#135](https://github.com/OpenHomeFoundation/bots/issues/135)) ([8b37f73](https://github.com/OpenHomeFoundation/bots/commit/8b37f73a5b89b424489d14a81f9338cb30cb8135))
+* **github:** treat removing an absent label as done ([#145](https://github.com/OpenHomeFoundation/bots/issues/145)) ([9738aa8](https://github.com/OpenHomeFoundation/bots/commit/9738aa86857db7e2cbe3461780f3bc66588df530))
+
+
+### 🚀 Enhancements
+
+* **github:** remove the intents manifest ([#146](https://github.com/OpenHomeFoundation/bots/issues/146)) ([860ea15](https://github.com/OpenHomeFoundation/bots/commit/860ea157b65ec7de8b13e59f726c7b601ebd006e))
+
 ## [0.6.0](https://github.com/OpenHomeFoundation/bots/compare/v0.5.0...v0.6.0) (2026-11-11)
 
 
