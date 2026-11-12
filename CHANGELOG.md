@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/OpenHomeFoundation/bots/compare/v0.7.0...v0.8.0) (2026-11-12)
+
+
+### ✨ New features
+
+* **core:** add the Tuya issue context ([#130](https://github.com/OpenHomeFoundation/bots/issues/130)) ([39e3339](https://github.com/OpenHomeFoundation/bots/commit/39e333923e5dd05a63b310e921d57fd0d00b6614))
+
 ## [0.7.0](https://github.com/OpenHomeFoundation/bots/compare/v0.6.0...v0.7.0) (2026-11-12)
 
 
