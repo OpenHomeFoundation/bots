@@ -36,7 +36,7 @@ function friendlyName(repo: string): string {
 
 const STATUS_ICONS: Record<SectionStatus, string> = {
   pass: ":white_check_mark:",
-  pending: ":hourglass:",
+  pending: ":eyes:",
   warn: ":warning:",
   fail: ":x:",
   skip: ":heavy_minus_sign:",

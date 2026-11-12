@@ -94,9 +94,9 @@ describe("status renderer", () => {
       expect(result).not.toContain("Things to address");
       expect(result).not.toContain("Everything's in order");
       expect(result).toContain(
-        "**⏳ Waiting on the pending checks below before this PR can be merged.**",
+        "**👀 Waiting on the pending checks below before this PR can be merged.**",
       );
-      expect(result).toContain("| :hourglass: | A | waiting |");
+      expect(result).toContain("| :eyes: | A | waiting |");
     });
 
     it("renders failing checks in the main table", () => {
@@ -224,7 +224,7 @@ describe("status renderer", () => {
       // Both rows live in the visible (non-collapsed) top section under ## Checks.
       const checks = checksSection(result);
       const beforeDetails = checks.split("<details>")[0];
-      expect(beforeDetails).toContain(":hourglass:");
+      expect(beforeDetails).toContain(":eyes:");
       expect(beforeDetails).toContain(":warning:");
 
       // No combined "passed/skipped" block because nothing actually passed or skipped.
