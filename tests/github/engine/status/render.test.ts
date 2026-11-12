@@ -258,6 +258,19 @@ describe("status renderer", () => {
       expect(result).toContain("First advice.\nSecond advice.");
     });
 
+    it("renders domain-name suggestions above the PR checks", () => {
+      const sections: StatusSection[] = [{ id: "a", title: "A", status: "pass", message: "ok" }];
+      const result = renderStatus(sections, REPO, "pull_request", {
+        blocks: {
+          "domain-name-suggestions": { suggestions: ["Consider renaming `foo` to `foo_ble`."] },
+        },
+      });
+      expect(result).toContain("## Suggestions\n\n- Consider renaming `foo` to `foo_ble`.");
+      expect(result.indexOf("## Suggestions")).toBeLessThan(result.indexOf("## Checks"));
+      expect(result).not.toMatch(/\|.*Consider renaming/);
+      expect(parseState(result).blocks["domain-name-suggestions"]).toBeDefined();
+    });
+
     it("hidden blocks leave no trace in body or state", () => {
       const result = renderStatus([], REPO, "issue", { blocks: {} });
       expect(result).not.toContain("Reporting guidance");

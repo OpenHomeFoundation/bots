@@ -18,6 +18,10 @@ export interface BlockArgsMap {
   "reporting-guidance": {
     paragraphs: string[];
   };
+  /** Suggested transport-suffixed names for new integration domains (PR dashboard). */
+  "domain-name-suggestions": {
+    suggestions: string[];
+  };
 }
 
 export type BlockId = keyof BlockArgsMap;
@@ -33,4 +37,8 @@ export type BlockStates = Partial<BlockArgsMap>;
  */
 export type BlockUpdates = ReadonlyMap<BlockId, BlockArgsMap[BlockId] | null>;
 
-export const BLOCK_IDS: readonly BlockId[] = ["integration-links", "reporting-guidance"];
+export const BLOCK_IDS: readonly BlockId[] = [
+  "integration-links",
+  "reporting-guidance",
+  "domain-name-suggestions",
+];

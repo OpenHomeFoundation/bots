@@ -24,6 +24,14 @@ Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one pe
 {{/hasCommands}}
 </details>
 
+{{#blocks.domain-name-suggestions}}
+## Suggestions
+
+{{#suggestions}}
+- {{.}}
+{{/suggestions}}
+
+{{/blocks.domain-name-suggestions}}
 {{#hasChecks}}
 ## Checks
 

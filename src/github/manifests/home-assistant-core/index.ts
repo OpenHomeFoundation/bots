@@ -28,6 +28,7 @@ import { changeType } from "./rules/change-type.js";
 import { dependencyBump } from "./rules/dependency-bump.js";
 import { docsPrPresent } from "./rules/docs-pr-present.js";
 import { fileShape } from "./rules/file-shape.js";
+import { integrationDomainName } from "./rules/integration-domain-name.js";
 import { integrationTopRank } from "./rules/integration-top-rank.js";
 import { integrationTransport } from "./rules/integration-transport.js";
 import { issueContext } from "./rules/issue-context.js";
@@ -62,6 +63,7 @@ export const homeAssistantCore: RepoManifest = {
     singleNewPlatform,
     forbiddenFiles({ base: "dev", files: coreForbiddenFiles }),
     integrationTransport,
+    integrationDomainName,
     mentionCodeOwners({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
     byCodeOwner({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
 
