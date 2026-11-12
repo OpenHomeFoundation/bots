@@ -85,6 +85,17 @@ describe("status renderer", () => {
       expect(result).not.toContain("Things to address");
     });
 
+    it("shows a 'Things to look out for' lead-in when only warnings are left", () => {
+      const warned: StatusSection[] = [
+        { id: "a", title: "A", status: "warn", message: "careful" },
+        { id: "b", title: "B", status: "pass", message: "ok" },
+      ];
+      const result = renderStatus(warned, REPO);
+      expect(result).toContain("Things to look out for:");
+      expect(result).not.toContain("Things to address");
+      expect(result).not.toContain("Everything's in order");
+    });
+
     it("shows pending sections in their own table under a 'waiting' lead-in", () => {
       const pending: StatusSection[] = [
         { id: "a", title: "A", status: "pending", message: "waiting" },

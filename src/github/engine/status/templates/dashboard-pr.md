@@ -27,16 +27,20 @@ Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one pe
 {{#hasChecks}}
 ## Checks
 
+{{^hasVisibleRows}}
+{{^hasWaitingRows}}
+**✨ Everything's in order!**
+
+{{/hasWaitingRows}}
+{{/hasVisibleRows}}
+{{#hasVisibleRows}}
 {{#hasFailures}}
 Things to address:
 {{/hasFailures}}
 {{^hasFailures}}
-{{^hasWaitingRows}}
-**✨ Everything's in order!**
-{{/hasWaitingRows}}
+Things to look out for:
 {{/hasFailures}}
 
-{{#hasVisibleRows}}
 | Status | Check | Details |
 |--------|-------|---------|
 {{#visibleRows}}

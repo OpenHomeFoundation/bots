@@ -21,16 +21,20 @@ Before we dive in, please make sure this isn't a duplicate by searching through 
 {{#hasChecks}}
 ## Checks
 
+{{^hasVisibleRows}}
+{{^hasWaitingRows}}
+**✨ Everything's in order!**
+
+{{/hasWaitingRows}}
+{{/hasVisibleRows}}
+{{#hasVisibleRows}}
 {{#hasFailures}}
 Things to address:
 {{/hasFailures}}
 {{^hasFailures}}
-{{^hasWaitingRows}}
-**✨ Everything's in order!**
-{{/hasWaitingRows}}
+Things to look out for:
 {{/hasFailures}}
 
-{{#hasVisibleRows}}
 | Status | Check | Details |
 |--------|-------|---------|
 {{#visibleRows}}
