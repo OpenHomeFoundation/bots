@@ -25,7 +25,9 @@ Before we dive in, please make sure this isn't a duplicate by searching through 
 Things to address:
 {{/hasFailures}}
 {{^hasFailures}}
+{{^hasWaitingRows}}
 **✨ Everything's in order!**
+{{/hasWaitingRows}}
 {{/hasFailures}}
 
 {{#hasVisibleRows}}
@@ -36,6 +38,16 @@ Things to address:
 {{/visibleRows}}
 
 {{/hasVisibleRows}}
+{{#hasWaitingRows}}
+👀 Waiting on others:
+
+| Status | Check | Details |
+|--------|-------|---------|
+{{#waitingRows}}
+| {{icon}} | {{title}} | {{message}} |
+{{/waitingRows}}
+
+{{/hasWaitingRows}}
 {{#hasCollapsedRows}}
 <details>
 <summary>{{collapsedSummary}}</summary>

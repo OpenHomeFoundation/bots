@@ -31,12 +31,9 @@ Reply with `@{{commandSlug}} <command>`. Several commands can be stacked, one pe
 Things to address:
 {{/hasFailures}}
 {{^hasFailures}}
-{{#hasPending}}
-**👀 Waiting on the pending checks below before this PR can be merged.**
-{{/hasPending}}
-{{^hasPending}}
+{{^hasWaitingRows}}
 **✨ Everything's in order!**
-{{/hasPending}}
+{{/hasWaitingRows}}
 {{/hasFailures}}
 
 {{#hasVisibleRows}}
@@ -47,6 +44,16 @@ Things to address:
 {{/visibleRows}}
 
 {{/hasVisibleRows}}
+{{#hasWaitingRows}}
+👀 Waiting on others before this PR can be merged:
+
+| Status | Check | Details |
+|--------|-------|---------|
+{{#waitingRows}}
+| {{icon}} | {{title}} | {{message}} |
+{{/waitingRows}}
+
+{{/hasWaitingRows}}
 {{#hasCollapsedRows}}
 <details>
 <summary>{{collapsedSummary}}</summary>

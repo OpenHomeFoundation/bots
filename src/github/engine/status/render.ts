@@ -127,7 +127,7 @@ export function renderStatus(
   const warning = display.filter((s) => s.status === "warn");
   const failing = display.filter((s) => s.status === "fail");
   const skipped = display.filter((s) => s.status === "skip");
-  const visible = [...failing, ...warning, ...pending];
+  const visible = [...failing, ...warning];
   const collapsed = [...passing, ...skipped];
 
   // The whole persisted state (raw sections with waivers, block args, and the
@@ -152,9 +152,10 @@ export function renderStatus(
     commands: commandViews(slug, applicable),
     hasChecks: visible.length > 0 || collapsed.length > 0,
     hasFailures: failing.length > 0,
-    hasPending: pending.length > 0,
     hasVisibleRows: visible.length > 0,
     visibleRows: visible.map(rowView),
+    hasWaitingRows: pending.length > 0,
+    waitingRows: pending.map(rowView),
     hasCollapsedRows: collapsed.length > 0,
     collapsedRows: collapsed.map(rowView),
     collapsedSummary: summarizePassedSkipped(passing.length, skipped.length),

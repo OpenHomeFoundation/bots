@@ -85,7 +85,7 @@ describe("status renderer", () => {
       expect(result).not.toContain("Things to address");
     });
 
-    it("shows pending sections in the main table under a 'waiting' lead-in", () => {
+    it("shows pending sections in their own table under a 'waiting' lead-in", () => {
       const pending: StatusSection[] = [
         { id: "a", title: "A", status: "pending", message: "waiting" },
         { id: "b", title: "B", status: "pass", message: "ok" },
@@ -93,10 +93,22 @@ describe("status renderer", () => {
       const result = renderStatus(pending, REPO);
       expect(result).not.toContain("Things to address");
       expect(result).not.toContain("Everything's in order");
-      expect(result).toContain(
-        "**👀 Waiting on the pending checks below before this PR can be merged.**",
+      const waiting = result.split("👀 Waiting on others before this PR can be merged:")[1];
+      expect(waiting.split("<details>")[0]).toContain("| :eyes: | A | waiting |");
+    });
+
+    it("keeps pending sections out of the 'Things to address' table", () => {
+      const mixed: StatusSection[] = [
+        { id: "a", title: "A", status: "pending", message: "waiting" },
+        { id: "b", title: "B", status: "fail", message: "broken" },
+      ];
+      const [toAddress, waiting] = renderStatus(mixed, REPO).split(
+        "👀 Waiting on others before this PR can be merged:",
       );
-      expect(result).toContain("| :eyes: | A | waiting |");
+      expect(toAddress).toContain("Things to address:");
+      expect(toAddress).toContain("| :x: | B | broken |");
+      expect(toAddress).not.toContain(":eyes:");
+      expect(waiting).toContain("| :eyes: | A | waiting |");
     });
 
     it("renders failing checks in the main table", () => {
