@@ -49,6 +49,11 @@ export async function withItemLock<T>(key: string, run: () => Promise<T>): Promi
   }
 }
 
+/** Whether a dispatch for `key` is already waiting behind the running one. */
+export function hasQueued(key: string): boolean {
+  return (depth.get(key) ?? 0) > 1;
+}
+
 /** Test hook: drop every queue so cases don't wait on each other's. */
 export function resetItemLocks(): void {
   tails.clear();
