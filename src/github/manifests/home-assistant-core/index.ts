@@ -25,6 +25,7 @@ import { coreForbiddenFiles } from "./forbidden-files.js";
 import { itemIntegrationDomains } from "./helpers/integration-domains.js";
 import { coreIssueContext } from "./issue-context.js";
 import { changeType } from "./rules/change-type.js";
+import { configFlowTests } from "./rules/config-flow-tests.js";
 import { dependencyBump } from "./rules/dependency-bump.js";
 import { docsPrPresent } from "./rules/docs-pr-present.js";
 import { fileShape } from "./rules/file-shape.js";
@@ -60,6 +61,7 @@ export const homeAssistantCore: RepoManifest = {
     qualityScale,
     newIntegrationValidation,
     singleNewPlatform,
+    configFlowTests,
     forbiddenFiles({ base: "dev", files: coreForbiddenFiles }),
     integrationTransport,
     mentionCodeOwners({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),

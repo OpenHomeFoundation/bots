@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: New-integration PRs are checked by new integration validation.
+  - id: config-flow-tests
+    title: Config flow tests
+    status: pass
+    message: New config flows come with config flow tests.
   - id: forbidden-files
     title: Forbidden files
     status: pass

@@ -7,6 +7,10 @@ statuses:
     title: Single new platform
     status: skip
     message: No new platforms added.
+  - id: config-flow-tests
+    title: Config flow tests
+    status: skip
+    message: No new config flows added.
   - id: forbidden-files
     title: Forbidden files
     status: pass
