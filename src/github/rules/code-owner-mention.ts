@@ -5,6 +5,8 @@ import { EventType } from "../engine/event.js";
 import { matchCodeOwners, parseCodeOwners } from "../engine/model/codeowners.js";
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { on } from "../engine/rule.js";
+import type { BlockArgsMap } from "../engine/status/blocks.js";
+import { isStatusComment } from "../engine/status/render.js";
 import type { Effect, Rule, RuleOutput } from "../engine/types.js";
 import { isNonIntegrationLabelEvent } from "../helpers/integration-domains.js";
 
@@ -18,14 +20,20 @@ type HandledEvent =
   | EventType.ISSUES_ON_DEMAND
   | EventType.ON_DEMAND;
 
-// One mention comment per item: a comment carrying this marker means owners
-// were already mentioned. Assignment can fail silently (owners without repo
-// access), so comment presence is the only reliable state.
+type MentionEntry = BlockArgsMap["code-owners"]["integrations"][number];
+
+// One mention per item: a bot comment carrying this marker means owners were
+// already mentioned. Assignment can fail silently (owners without repo
+// access), so the marker is the only reliable state. The dashboard's
+// `code-owners` block writes it (see the dashboard templates), or the
+// separate mention comment on targets without a dashboard (and on every
+// target in earlier deploys).
 export const MENTION_MARKER = "<!-- ha-bot-mention -->";
 
-// The integrations a mention comment covers, so a later dispatch can tell
-// whether the list changed and edit the comment instead of posting another.
-// Comments without it (legacy bot, older deploys) cover nothing, so they get rewritten.
+// The integrations a code-owner mention covers (separate comment or dashboard
+// block), so a later dispatch can tell whether the list changed and edit the
+// mention instead of posting another. Comments without it (legacy bot, older
+// deploys) cover nothing, so they get rewritten.
 const COVERED_PATTERN = /<!-- ha-bot-mention-integrations: ([a-z0-9_,]*) -->/;
 
 function coveredIntegrations(body: string | null | undefined): Set<string> | undefined {
@@ -36,19 +44,22 @@ function coveredIntegrations(body: string | null | undefined): Set<string> | und
 
 // The legacy bot's CodeOwnersMention comments carry no marker, so they're
 // recognized by their template prose instead — the raw markdown including the
-// link opener, which no human types verbatim. The current template (and thus
-// every new mention comment) contains the same phrase, so this alone would
-// suffice; the marker stays as the primary, prose-independent signal.
+// link opener, which no human types verbatim.
 export const LEGACY_MENTION_SENTINEL = "you are listed as a [code owner](";
 
-/** Whether this comment is a code-owner mention (current or legacy deploy). */
+/**
+ * Whether this comment carries a code-owner mention: the dashboard showing the
+ * `code-owners` block, or a separate mention comment (targets without a
+ * dashboard or listed in `commentOn`, and earlier or legacy deploys).
+ */
 export function isMentionComment(body: string | null | undefined): boolean {
   return !!body && (body.includes(MENTION_MARKER) || body.includes(LEGACY_MENTION_SENTINEL));
 }
 
-// Layout and prose live in the template; this rule only builds the view.
-// The marker is written literally there but grepped for here — fail at load
-// if a template edit breaks the pair (one-ping detection depends on it).
+// The separate comment's layout and prose live in the template; this rule
+// only builds the view. The marker is written literally there but grepped for
+// here — fail at load if a template edit breaks the pair (detecting an earlier
+// mention depends on it).
 const MENTION_TEMPLATE = readFileSync(new URL("./code-owner-mention.md", import.meta.url), "utf-8");
 if (!MENTION_TEMPLATE.includes(MENTION_MARKER)) {
   throw new Error("code-owner-mention template lost its marker comment");
@@ -83,6 +94,11 @@ function ownedIntegration(
   };
 }
 
+/**
+ * Assigns the code owners and mentions them in the dashboard's `code-owners`
+ * block, or in one separate comment on repos without a dashboard and on the
+ * target kinds listed in `commentOn`.
+ */
 export function mentionCodeOwners(config: {
   pathPattern: (integration: string) => string;
   /**
@@ -91,6 +107,12 @@ export function mentionCodeOwners(config: {
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
   itemLabel?: string;
+  /**
+   * Target kinds that get the mention as a separate comment instead of the
+   * dashboard block — for targets whose dashboard would otherwise exist only
+   * for the mention (e.g. home-assistant.io issues).
+   */
+  commentOn?: readonly ("pull_request" | "issue")[];
 }): Rule {
   async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
     if (isNonIntegrationLabelEvent(ctx)) return;
@@ -156,14 +178,23 @@ export function mentionCodeOwners(config: {
     if (toAssign.size > 0) {
       effects.push({ type: "addAssignees", assignees: [...toAssign] });
     }
-    if (mentioned.length > 0) {
+    if (mentioned.length === 0) return effects.length > 0 ? { effects } : undefined;
+
+    const covers = owned.map((o) => o.integrationName).join(",");
+
+    // An existing mention is edited where it lives: an earlier separate comment
+    // stays one even where the dashboard would carry the mention now.
+    const asComment = existing
+      ? !isStatusComment(existing.body ?? "")
+      : !ctx.repoConfig.dashboard || !!config.commentOn?.includes(ctx.target.kind);
+    if (asComment) {
       const applicable = commandsForTarget(ctx.repoConfig.commands, ctx.target.kind);
       // Escaping disabled: the output is markdown, not HTML.
       const body = Mustache.render(
         MENTION_TEMPLATE,
         {
           itemLabel,
-          covered: owned.map((o) => o.integrationName).join(","),
+          covered: covers,
           single: mentioned.length === 1 ? mentioned[0] : null,
           integrations: mentioned,
           codeownersUrl: `https://github.com/${ctx.repo.fullName}/blob/HEAD/CODEOWNERS`,
@@ -179,9 +210,18 @@ export function mentionCodeOwners(config: {
           ? { type: "updateComment", commentId: existing.id, body }
           : { type: "comment", body },
       );
+      return { effects };
     }
 
-    return effects.length > 0 ? { effects } : undefined;
+    const integrations: MentionEntry[] = mentioned.map((m) => ({
+      mentions: m.mentions,
+      integration: m.integrationName,
+      codeownersLine: m.codeownersLine,
+    }));
+    return {
+      effects,
+      blocks: [{ block: "code-owners", args: { itemLabel, covered: covers, integrations } }],
+    };
   }
 
   return {
