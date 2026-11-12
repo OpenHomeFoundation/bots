@@ -85,12 +85,17 @@ describe("status renderer", () => {
       expect(result).not.toContain("Things to address");
     });
 
-    it("shows pending sections in the main table without the 'Things to address' lead-in", () => {
+    it("shows pending sections in the main table under a 'waiting' lead-in", () => {
       const pending: StatusSection[] = [
         { id: "a", title: "A", status: "pending", message: "waiting" },
+        { id: "b", title: "B", status: "pass", message: "ok" },
       ];
       const result = renderStatus(pending, REPO);
       expect(result).not.toContain("Things to address");
+      expect(result).not.toContain("Everything's in order");
+      expect(result).toContain(
+        "**⏳ Waiting on the pending checks below before this PR can be merged.**",
+      );
       expect(result).toContain("| :hourglass: | A | waiting |");
     });
 

@@ -152,6 +152,7 @@ export function renderStatus(
     commands: commandViews(slug, applicable),
     hasChecks: visible.length > 0 || collapsed.length > 0,
     hasFailures: failing.length > 0,
+    hasPending: pending.length > 0,
     hasVisibleRows: visible.length > 0,
     visibleRows: visible.map(rowView),
     hasCollapsedRows: collapsed.length > 0,
