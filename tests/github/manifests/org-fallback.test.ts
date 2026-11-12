@@ -41,6 +41,7 @@ describe("org fallback", () => {
     "home-assistant/installer",
     "home-assistant/os-agent",
     "home-assistant/cli",
+    "home-assistant/contributors.home-assistant.io",
   ])("runs the home-assistant org rules on %s, without a dashboard", (repo) => {
     const { repoConfig } = contextFor(repo);
 
