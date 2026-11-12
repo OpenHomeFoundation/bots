@@ -1,7 +1,6 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
-import { MAX_INTEGRATION_LABELS } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
 import { CODE_QUALITY_LABEL, pickedTypeLabels } from "../helpers/change-type.js";
 import { domainsFromFiles } from "../helpers/integration-domains.js";
@@ -78,20 +77,18 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     };
   }
 
-  // A member's tree-wide code-quality change (past the cap at which code
-  // owners aren't mentioned either) only warns. Otherwise reviewer-actionable,
+  // A member's code-quality change only warns. Otherwise reviewer-actionable,
   // not author-actionable: `pending` blocks the merge without drafting the PR,
   // which would hide it from the review queue and make the approval it's
   // waiting for impossible.
-  const treeWide =
-    domains.length > MAX_INTEGRATION_LABELS &&
+  const relaxed =
     pickedTypeLabels(await ctx.target.body()).includes(CODE_QUALITY_LABEL) &&
     (await ctx.hasMember(author));
   return {
-    status: treeWide ? "warn" : "pending",
+    status: relaxed ? "warn" : "pending",
     message: `Platinum ${missing.join(", ")} — ${
-      treeWide
-        ? `no code-owner approval; not required for a member's code-quality change across more than ${MAX_INTEGRATION_LABELS} integrations.`
+      relaxed
+        ? "no code-owner approval; not required for a member's code-quality change."
         : "needs approval from a code owner before merging."
     }`,
     ...((await ctx.target.labels()).includes(APPROVED_LABEL)

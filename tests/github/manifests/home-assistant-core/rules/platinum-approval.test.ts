@@ -149,35 +149,28 @@ describe("platinum-approval", () => {
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("enforces on a non-member's tree-wide change past the integration-label cap", async () => {
-    const result = await setup({ files: touching("hue", "a", "b", "c", "d", "e", "f") });
+  it("enforces on a non-member's code-quality change", async () => {
+    const result = await setup({ files: touching("hue"), body: CODE_QUALITY });
     expect(result?.section?.status).toBe("pending");
   });
 
-  it("only warns on a member's tree-wide code-quality change past the cap", async () => {
+  it("only warns on a member's code-quality change", async () => {
     const result = await setup({
-      files: touching("hue", "a", "b", "c", "d", "e"),
+      files: touching("hue"),
       member: true,
       body: CODE_QUALITY,
       labels: ["code-owner-approved"],
     });
     expect(result?.section?.status).toBe("warn");
-    expect(result?.section?.message).toContain("`hue`");
+    expect(result?.section?.message).toBe(
+      "Platinum `hue` — no code-owner approval; not required for a member's code-quality change.",
+    );
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
 
-  it("enforces on a member's code-quality change within the integration-label cap", async () => {
+  it("enforces on a member's change not marked as code quality", async () => {
     const result = await setup({
-      files: touching("hue", "a", "b", "c", "d"),
-      member: true,
-      body: CODE_QUALITY,
-    });
-    expect(result?.section?.status).toBe("pending");
-  });
-
-  it("enforces on a member's tree-wide change not marked as code quality", async () => {
-    const result = await setup({
-      files: touching("hue", "a", "b", "c", "d", "e"),
+      files: touching("hue"),
       member: true,
       body: "- [x] New feature (which adds functionality to an existing integration)",
     });
