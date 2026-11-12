@@ -18,6 +18,7 @@ export type IssueComments = RestEndpointMethodTypes["issues"]["listComments"]["r
  * settled value, so it always comes from hydration.
  */
 export interface PullRequestSeed {
+  title?: string;
   labels?: string[];
   body?: string | null;
   authorLogin?: string;
@@ -87,6 +88,10 @@ export class PullRequest {
   ): Promise<T> {
     if (seeded !== undefined) return seeded;
     return pick(await this.hydrate());
+  }
+
+  title(): Promise<string> {
+    return this.coreField(this.seed.title, (pr) => pr.title);
   }
 
   labels(): Promise<string[]> {
