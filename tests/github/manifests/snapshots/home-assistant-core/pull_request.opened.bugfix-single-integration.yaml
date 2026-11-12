@@ -30,7 +30,7 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: pending
-    message: Platinum `hue` — needs approval from a code owner before merging.
+    message: Waiting for Philips Hue code owner approval.
   - id: type-of-change
     title: Type of change
     status: pass
