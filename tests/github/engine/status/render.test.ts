@@ -85,13 +85,41 @@ describe("status renderer", () => {
       expect(result).not.toContain("Things to address");
     });
 
-    it("shows pending sections in the main table without the 'Things to address' lead-in", () => {
+    it("shows a 'Things to look out for' lead-in when only warnings are left", () => {
+      const warned: StatusSection[] = [
+        { id: "a", title: "A", status: "warn", message: "careful" },
+        { id: "b", title: "B", status: "pass", message: "ok" },
+      ];
+      const result = renderStatus(warned, REPO);
+      expect(result).toContain("Things to look out for:");
+      expect(result).not.toContain("Things to address");
+      expect(result).not.toContain("Everything's in order");
+    });
+
+    it("shows pending sections in their own table under a 'waiting' lead-in", () => {
       const pending: StatusSection[] = [
         { id: "a", title: "A", status: "pending", message: "waiting" },
+        { id: "b", title: "B", status: "pass", message: "ok" },
       ];
       const result = renderStatus(pending, REPO);
       expect(result).not.toContain("Things to address");
-      expect(result).toContain("| :hourglass: | A | waiting |");
+      expect(result).not.toContain("Everything's in order");
+      const waiting = result.split("👀 Waiting on others before this PR can be merged:")[1];
+      expect(waiting.split("<details>")[0]).toContain("| :eyes: | A | waiting |");
+    });
+
+    it("keeps pending sections out of the 'Things to address' table", () => {
+      const mixed: StatusSection[] = [
+        { id: "a", title: "A", status: "pending", message: "waiting" },
+        { id: "b", title: "B", status: "fail", message: "broken" },
+      ];
+      const [toAddress, waiting] = renderStatus(mixed, REPO).split(
+        "👀 Waiting on others before this PR can be merged:",
+      );
+      expect(toAddress).toContain("Things to address:");
+      expect(toAddress).toContain("| :x: | B | broken |");
+      expect(toAddress).not.toContain(":eyes:");
+      expect(waiting).toContain("| :eyes: | A | waiting |");
     });
 
     it("renders failing checks in the main table", () => {
@@ -219,7 +247,7 @@ describe("status renderer", () => {
       // Both rows live in the visible (non-collapsed) top section under ## Checks.
       const checks = checksSection(result);
       const beforeDetails = checks.split("<details>")[0];
-      expect(beforeDetails).toContain(":hourglass:");
+      expect(beforeDetails).toContain(":eyes:");
       expect(beforeDetails).toContain(":warning:");
 
       // No combined "passed/skipped" block because nothing actually passed or skipped.

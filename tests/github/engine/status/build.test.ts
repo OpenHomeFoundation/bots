@@ -177,7 +177,7 @@ describe("buildStatus", () => {
       );
       expect(result.aggregate).toEqual({
         state: "failure",
-        description: "1 check pending",
+        description: "1 check waiting",
       });
     });
 
