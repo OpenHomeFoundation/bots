@@ -14,10 +14,17 @@ import {
   runRule,
 } from "../../../helpers/mock-context.js";
 
-/** Manifests served from dev: hue and zha are platinum, mqtt is gold. */
+/** Manifests served from dev: hue, zha, knx and shelly are platinum, mqtt is gold. */
 const MANIFESTS: Record<string, Record<string, unknown>> = {
   hue: { domain: "hue", name: "Hue", codeowners: ["@balloob"], quality_scale: "platinum" },
   zha: { domain: "zha", name: "ZHA", codeowners: ["@zhaowner"], quality_scale: "platinum" },
+  knx: { domain: "knx", name: "KNX", codeowners: ["@knxowner"], quality_scale: "platinum" },
+  shelly: {
+    domain: "shelly",
+    name: "Shelly",
+    codeowners: ["@shellyowner"],
+    quality_scale: "platinum",
+  },
   mqtt: { domain: "mqtt", name: "MQTT", codeowners: ["@mqttowner"], quality_scale: "gold" },
 };
 
@@ -87,9 +94,7 @@ describe("platinum-approval", () => {
   it("is pending when a platinum integration has no code owner approval", async () => {
     const result = await setup({ files: touching("hue") });
     expect(result?.section?.status).toBe("pending");
-    expect(result?.section?.message).toBe(
-      "Platinum `hue` — needs approval from a code owner before merging.",
-    );
+    expect(result?.section?.message).toBe("Waiting for Hue code owner approval.");
   });
 
   it("is pending for a PR by an org member too", async () => {
@@ -126,7 +131,7 @@ describe("platinum-approval", () => {
   it("still requires approval when a second integration is touched", async () => {
     const result = await setup({ files: touching("hue", "mqtt") });
     expect(result?.section?.status).toBe("pending");
-    expect(result?.section?.message).toContain("`hue`");
+    expect(result?.section?.message).toBe("Waiting for Hue code owner approval.");
   });
 
   it("requires an approval for every platinum integration touched", async () => {
@@ -135,8 +140,18 @@ describe("platinum-approval", () => {
       reviews: [review("balloob", "APPROVED")],
     });
     expect(result?.section?.status).toBe("pending");
+    expect(result?.section?.message).toBe("Waiting for ZHA code owner approval.");
+  });
+
+  it("names every platinum integration still waiting for approval", async () => {
+    const result = await setup({ files: touching("hue", "zha") });
+    expect(result?.section?.message).toBe("Waiting for Hue and ZHA code owner approvals.");
+  });
+
+  it("caps the named integrations at three", async () => {
+    const result = await setup({ files: touching("hue", "zha", "knx", "shelly") });
     expect(result?.section?.message).toBe(
-      "Platinum `zha` — needs approval from a code owner before merging.",
+      "Waiting for Hue, ZHA, KNX, and 1 more code owner approvals.",
     );
   });
 
@@ -163,7 +178,7 @@ describe("platinum-approval", () => {
     });
     expect(result?.section?.status).toBe("warn");
     expect(result?.section?.message).toBe(
-      "Platinum `hue` — no code-owner approval; not required for a member's code-quality change.",
+      "Code owner approval not required for Hue: member's code-quality change.",
     );
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
