@@ -35,6 +35,7 @@ import { issueLinks } from "./rules/issue-links.js";
 import { newIntegrationValidation } from "./rules/new-integration-validation.js";
 import { platinumApproval } from "./rules/platinum-approval.js";
 import { qualityScale } from "./rules/quality-scale.js";
+import { repoTooling } from "./rules/repo-tooling.js";
 import { singleNewPlatform } from "./rules/single-new-platform.js";
 
 const componentCodeowners = (domain: string) => `homeassistant/components/${domain}/*`;
@@ -84,6 +85,7 @@ export const homeAssistantCore: RepoManifest = {
     changeType,
     fileShape,
     dependencyBump,
+    repoTooling,
     blockingLabels({
       "awaiting-frontend": { message: "This PR is awaiting changes to the frontend" },
     }),

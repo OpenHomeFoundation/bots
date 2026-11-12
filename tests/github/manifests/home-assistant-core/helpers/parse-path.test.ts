@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseCodeOwners } from "../../../../../src/github/engine/model/codeowners.js";
 import { ParsedPath } from "../../../../../src/github/manifests/home-assistant-core/helpers/parse-path.js";
+import { log } from "../../../../../src/log.js";
 
 const ENTITY_PLATFORMS = new Set([
   "light",
@@ -162,6 +163,27 @@ describe("ParsedPath", () => {
       expect(p.type).toBeNull();
       expect(p.component).toBeNull();
       expect(p.core).toBe(false);
+    });
+
+    it.each([
+      "tests/pylint/test_enforce_type_hints.py",
+      "tests/mypy_plugins/test_enum_identity_compare.py",
+    ])("returns null type for tooling tests without warning (%s)", (filename) => {
+      // The log guard fails the test on an unexpected warning.
+      const p = makeParsed(filename);
+      expect(p.type).toBeNull();
+      expect(p.component).toBeNull();
+    });
+
+    it("warns about an unrecognized top-level subfolder", () => {
+      const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
+      const p = makeParsed("homeassistant/brand_new_folder/thing.py");
+      expect(p.type).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        "parse-path: unrecognized top-level subfolder; FileType set to null",
+        expect.objectContaining({ subfolder: "brand_new_folder" }),
+      );
+      warn.mockRestore();
     });
 
     it("returns null type for shallow homeassistant paths", () => {
