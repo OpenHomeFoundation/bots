@@ -36,6 +36,7 @@ const AWESOME_MANIFEST = {
 };
 
 const ANALYTICS = { integrations: { hue: 150000, mqtt: 90000 } };
+const INTEGRATIONS = { hue: { integration_type: "hub" }, mqtt: { integration_type: "hub" } };
 
 const HUE_CODEOWNERS = "homeassistant/components/hue/* @balloob\n";
 
@@ -82,6 +83,7 @@ const HUE_STATE = {
   remote: {
     "components/hue/manifest.json": HUE_MANIFEST,
     "analytics.home-assistant.io": ANALYTICS,
+    "www.home-assistant.io/integrations.json": INTEGRATIONS,
   },
 };
 
@@ -234,6 +236,7 @@ const scenarios: Record<string, Scenario> = {
       remote: {
         "components/hue/manifest.json": HUE_MANIFEST,
         "analytics.home-assistant.io": ANALYTICS,
+        "www.home-assistant.io/integrations.json": INTEGRATIONS,
       },
     },
   },
@@ -270,6 +273,7 @@ const scenarios: Record<string, Scenario> = {
       remote: {
         "components/hue/manifest.json": HUE_MANIFEST,
         "analytics.home-assistant.io": ANALYTICS,
+        "www.home-assistant.io/integrations.json": INTEGRATIONS,
       },
     },
   },
@@ -309,6 +313,7 @@ const scenarios: Record<string, Scenario> = {
       remote: {
         "components/hue/manifest.json": HUE_MANIFEST,
         "analytics.home-assistant.io": ANALYTICS,
+        "www.home-assistant.io/integrations.json": INTEGRATIONS,
       },
     },
   },
