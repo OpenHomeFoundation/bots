@@ -27,6 +27,10 @@ statuses:
     title: Code owner approval
     status: pending
     message: Waiting for Philips Hue code owner approval.
+  - id: pr-template
+    title: PR description
+    status: pass
+    message: The PR description follows the template.
   - id: type-of-change
     title: Type of change
     status: pass
