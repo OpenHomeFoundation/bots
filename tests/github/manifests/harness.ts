@@ -76,7 +76,11 @@ export const TYPE_OF_CHANGE: Record<string, string> = {
   "new-feature": "New feature (which adds functionality to an existing integration)",
   deprecation: "Deprecation (breaking change to happen in the future)",
   "breaking-change": "Breaking change (fix/feature causing existing functionality to break)",
-  "code-quality": "Code quality improvements to existing code or addition of tests",
+  "code-quality":
+    "Code quality improvements to existing code (refactoring, typing, performance, etc.)",
+  tests: "Tests (adding or improving tests only)",
+  "developer-tooling":
+    "Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
 };
 
 const PR_TEMPLATE = loadPRTemplate("home-assistant-core");

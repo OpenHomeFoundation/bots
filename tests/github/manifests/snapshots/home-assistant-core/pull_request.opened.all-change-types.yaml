@@ -34,7 +34,7 @@ statuses:
   - id: type-of-change
     title: Type of change
     status: pass
-    message: "Type of change: `bugfix`, `dependency`, `new-integration`, `new-feature`, `deprecation`, `breaking-change`, `code-quality`"
+    message: "Type of change: `bugfix`, `dependency`, `new-integration`, `new-feature`, `deprecation`, `breaking-change`, `code-quality`, `tests`, `developer-tooling`"
 effects:
   - type: addLabels
     labels:
@@ -51,6 +51,8 @@ effects:
       - deprecation
       - breaking-change
       - code-quality
+      - tests
+      - developer-tooling
   - type: addLabels
     labels:
       - has-tests

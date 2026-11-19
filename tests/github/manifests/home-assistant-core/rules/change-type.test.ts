@@ -36,6 +36,34 @@ describe("change-type", () => {
       expect(result?.labels).toContain("bugfix");
     });
 
+    it.each([
+      [
+        "code-quality",
+        "Code quality improvements to existing code (refactoring, typing, performance, etc.)",
+      ],
+      ["code-quality", "Code quality improvements to existing code or addition of tests"],
+      ["tests", "Tests (adding or improving tests only)"],
+      [
+        "developer-tooling",
+        "Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
+      ],
+    ])("adds %s for the checked box %s", async (label, description) => {
+      const context = createMockContext({
+        eventType: EventType.PULL_REQUEST_OPENED,
+        payload: {
+          pull_request: {
+            body: `- [x] ${description}`,
+            base: { ref: "dev" },
+            head: { sha: "abc123" },
+          },
+        },
+      });
+      mockPRFiles(context, [makeFile("tests/components/hue/test_init.py")]);
+
+      const result = await runRule(changeType, context);
+      expect(result?.labels).toEqual([label]);
+    });
+
     it("adds all picked labels when multiple boxes are checked", async () => {
       const context = createMockContext({
         eventType: EventType.PULL_REQUEST_OPENED,
@@ -137,6 +165,8 @@ describe("change-type", () => {
         "deprecation",
         "breaking-change",
         "code-quality",
+        "tests",
+        "developer-tooling",
       ]) {
         expect(result?.labels ?? []).not.toContain(label);
       }
