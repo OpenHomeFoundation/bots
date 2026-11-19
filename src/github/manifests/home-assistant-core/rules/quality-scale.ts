@@ -4,7 +4,6 @@ import { on } from "../../../engine/rule.js";
 import type { Effect, Rule, RuleOutput } from "../../../engine/types.js";
 import { isNonIntegrationLabelEvent } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
-import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
@@ -31,7 +30,12 @@ function highestScale(scales: QualityScale[]): QualityScale {
   );
 }
 
-async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+type Domains = (ctx: RuleContext<EventType>) => Promise<string[]>;
+
+async function evaluate(
+  ctx: RuleContext<HandledEvent>,
+  domainsOf: Domains,
+): Promise<RuleOutput | undefined> {
   if (isNonIntegrationLabelEvent(ctx)) return;
 
   const effects: Effect[] = [];
@@ -45,7 +49,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
     effects.push({ type: "addLabels", labels: ["quality-scale"] });
   }
 
-  const domains = await itemIntegrationDomains(ctx);
+  const domains = await domainsOf(ctx);
 
   const scales: QualityScale[] = [];
   for (const domain of domains) {
@@ -70,17 +74,22 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
   return effects.length > 0 ? { effects } : undefined;
 }
 
-export const qualityScale: Rule = {
-  name: "quality-scale",
-  description: "Labels PRs with the highest quality scale among the integrations they touch.",
-  events: on(
-    [
-      EventType.PULL_REQUEST_OPENED,
-      EventType.PULL_REQUEST_REOPENED,
-      EventType.PULL_REQUEST_SYNCHRONIZE,
-      EventType.PULL_REQUEST_LABELED,
-      EventType.ON_DEMAND,
-    ],
-    evaluate,
-  ),
-};
+export function qualityScale(config: {
+  /** Integration domains the item is about — repo policy, injected by the manifest. */
+  domains: Domains;
+}): Rule {
+  return {
+    name: "quality-scale",
+    description: "Labels PRs with the highest quality scale among the integrations they touch.",
+    events: on(
+      [
+        EventType.PULL_REQUEST_OPENED,
+        EventType.PULL_REQUEST_REOPENED,
+        EventType.PULL_REQUEST_SYNCHRONIZE,
+        EventType.PULL_REQUEST_LABELED,
+        EventType.ON_DEMAND,
+      ],
+      (ctx) => evaluate(ctx, config.domains),
+    ),
+  };
+}

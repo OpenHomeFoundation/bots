@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
-import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { byCodeOwner } from "../../../src/github/rules/by-code-owner.js";
 import { createFakeGitHub, createMockIssueContext, runRule } from "../helpers/mock-context.js";
 
+const domains = integrationDomains(domainsFromFiles);
+
 const rule = byCodeOwner({
   pathPattern: (name) => `homeassistant/components/${name}/*`,
-  domains: itemIntegrationDomains,
+  domains,
 });
 
 describe("by-code-owner", () => {

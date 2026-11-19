@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../../../src/github/engine/types.js";
-import { itemIntegrationDomains } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { platinumApproval } from "../../../../../src/github/manifests/home-assistant-core/rules/platinum-approval.js";
 import { qualityScale } from "../../../../../src/github/manifests/home-assistant-core/rules/quality-scale.js";
 import { setIntegration } from "../../../../../src/github/rules/set-integration.js";
@@ -13,6 +14,8 @@ import {
   mockPRFiles,
   runRule,
 } from "../../../helpers/mock-context.js";
+
+const domains = integrationDomains(domainsFromFiles);
 
 /** Manifests served from dev: hue, zha, knx and shelly are platinum, mqtt is gold. */
 const MANIFESTS: Record<string, Record<string, unknown>> = {
@@ -234,11 +237,7 @@ describe("platinum-approval", () => {
     const config: RegistryConfig = {
       repositories: {
         "home-assistant/core": {
-          rules: [
-            setIntegration({ domains: itemIntegrationDomains }),
-            qualityScale,
-            platinumApproval,
-          ],
+          rules: [setIntegration({ domains }), qualityScale({ domains }), platinumApproval],
           commands: [],
           dashboard: true,
         },

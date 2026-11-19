@@ -1,4 +1,5 @@
 import type { EventType } from "../engine/event.js";
+import type { ListPullRequestFiles } from "../engine/model/pull-request.js";
 import type { RuleContext } from "../engine/model/rule-context.js";
 import { extractIntegrationDocumentationLinks } from "./ha-links.js";
 import { fetchIntegrationManifest } from "./integration-manifest.js";
@@ -42,6 +43,35 @@ export async function domainsFromIssueBody(body: string | null): Promise<string[
   );
 
   return domainsOnDev(candidates);
+}
+
+/**
+ * Every integration domain an item is about, derived from the item itself:
+ * for PRs what `fromFiles` reads off the changed files (integrations already
+ * on dev only; none when they span more than MAX_INTEGRATION_LABELS
+ * integrations, a tree-wide change), documentation links in the body for
+ * issues — unioned with any `integration:` labels already present
+ * (maintainer adds, earlier dispatches). Where a repo keeps an integration's
+ * files is repo policy, so each manifest supplies `fromFiles`.
+ */
+export function integrationDomains(
+  fromFiles: (files: ListPullRequestFiles) => string[],
+): (ctx: RuleContext<EventType>) => Promise<string[]> {
+  return async (ctx) => {
+    const labeled = domainsFromLabels(await ctx.target.labels());
+
+    let derived: string[];
+    if (ctx.target.kind === "pull_request") {
+      // Adding a label creates it, and any path is a candidate: a PR must not
+      // mint labels.
+      const candidates = fromFiles(await ctx.target.files());
+      derived = candidates.length > MAX_INTEGRATION_LABELS ? [] : await domainsOnDev(candidates);
+    } else {
+      derived = await domainsFromIssueBody(await ctx.target.body());
+    }
+
+    return [...new Set([...labeled, ...derived])];
+  };
 }
 
 /** The given domains that are integrations on core's dev branch. */
