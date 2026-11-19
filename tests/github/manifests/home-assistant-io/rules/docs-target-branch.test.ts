@@ -6,7 +6,7 @@ import { createFakeGitHub, createMockContext, runRule } from "../../../helpers/m
 const LINE = "- This PR belongs together with:";
 
 /** A docs PR on home-assistant.io; `prs` are the listed numbers that are PRs (others 404, like issues). */
-function docsContext(baseRef: string, body = "", prs: string[] = []) {
+function docsContext(baseRef: string, body = "", prs: string[] = [], author = "contributor") {
   const github = createFakeGitHub();
   github.pulls.get.mockImplementation(async (params: unknown) => {
     const { owner, repo, pull_number } = params as {
@@ -27,7 +27,7 @@ function docsContext(baseRef: string, body = "", prs: string[] = []) {
         name: "home-assistant.io",
         owner: { login: "home-assistant" },
       },
-      pull_request: { base: { ref: baseRef }, body },
+      pull_request: { base: { ref: baseRef }, body, user: { login: author } },
     },
   });
 }
@@ -80,6 +80,14 @@ describe("docs-target-branch", () => {
 
   it("exempts the `new` branch", async () => {
     const result = await runRule(docsTargetBranch, docsContext("new"));
+    expect(result?.section?.status).toBe("skip");
+  });
+
+  it("exempts the integration metadata sync", async () => {
+    const result = await runRule(
+      docsTargetBranch,
+      docsContext("next", "", [], "github-actions[bot]"),
+    );
     expect(result?.section?.status).toBe("skip");
   });
 });

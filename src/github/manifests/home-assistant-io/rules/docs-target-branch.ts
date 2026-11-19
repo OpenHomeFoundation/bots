@@ -7,6 +7,10 @@ import { homeAssistantPrLinks } from "../../home-assistant-org.js";
 // Integration scaffolds live on `new` and follow neither current nor next.
 const EXEMPT_BRANCHES = new Set(["new"]);
 
+// Only `sync-integration-metadata.yml` opens PRs as GitHub Actions, one per
+// docs branch on purpose.
+const METADATA_SYNC_AUTHOR = "github-actions[bot]";
+
 type HandledEvent =
   | EventType.PULL_REQUEST_OPENED
   | EventType.PULL_REQUEST_EDITED
@@ -16,6 +20,9 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
   const baseRef = await ctx.target.baseRef();
   if (EXEMPT_BRANCHES.has(baseRef)) {
     return { status: "skip", message: `PRs targeting \`${baseRef}\` are exempt.` };
+  }
+  if ((await ctx.target.authorLogin()) === METADATA_SYNC_AUTHOR) {
+    return { status: "skip", message: "Integration metadata syncs are exempt." };
   }
 
   // Documenting a code PR, listed back or not, is documenting an upcoming release.
