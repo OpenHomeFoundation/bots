@@ -37,7 +37,12 @@ export const homeAssistantIo: RepoManifest = {
   rules: [
     // Integrations
     setIntegration({ domains }),
-    mentionCodeOwners({ pathPattern: integrationDocPath, domains, issueLabel: "feedback" }),
+    mentionCodeOwners({
+      pathPattern: integrationDocPath,
+      domains,
+      issueLabel: "feedback",
+      assignPullRequests: false,
+    }),
     byCodeOwner({ pathPattern: integrationDocPath, domains }),
     qualityScale({ domains }),
     integrationType({ domains }),

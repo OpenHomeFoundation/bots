@@ -11,9 +11,6 @@ effects:
   - type: addLabels
     labels:
       - "integration: hue"
-  - type: addAssignees
-    assignees:
-      - balloob
   - type: comment
     body: |-
       <!-- ha-bot-mention -->
