@@ -500,6 +500,39 @@ describe("mention-code-owners", () => {
       );
     });
 
+    it("mentions but does not assign owners when PR assignment is off", async () => {
+      const github = createFakeGitHub();
+      const codeowners = `homeassistant/components/hue/* @balloob @frenck`;
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.issues.listComments.mockResolvedValue({ data: [] });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      const context = createMockContext({
+        eventType: EventType.PULL_REQUEST_OPENED,
+        github,
+        payload: {
+          pull_request: {
+            user: { login: "contributor" },
+            assignees: [],
+            body: "",
+            labels: [{ name: "integration: hue" }],
+          },
+        },
+      });
+      mockPRFiles(context, [
+        { filename: "homeassistant/components/hue/light.py", status: "modified" },
+      ]);
+
+      const noAssign = mentionCodeOwners({
+        domains,
+        pathPattern: (name) => `homeassistant/components/${name}/*`,
+        assignPullRequests: false,
+      });
+      const result = await runRule(noAssign, context);
+      expect(result?.assignees).toBeUndefined();
+      expect(result?.comment).toContain("@balloob, @frenck");
+    });
+
     it("does nothing on opened when the PR touches no integration files", async () => {
       const github = createFakeGitHub();
       github.repos.getContent.mockResolvedValue({ data: { content: btoa("") } });
