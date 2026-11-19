@@ -1,3 +1,4 @@
+import { extractAllLinks } from "../../../../util/pr-body.js";
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
@@ -12,15 +13,41 @@ type HandledEvent =
   | EventType.PULL_REQUEST_EDITED
   | EventType.ON_DEMAND;
 
+// Each named PR costs a read; a description names its parent near the top.
+const MAX_NAMED = 3;
+
+/**
+ * Whether the PR documents a code PR: one listed on the template line, linked
+ * back or not, or one named anywhere else in the description. An issue
+ * doesn't count.
+ */
+async function documentsCodePR(ctx: RuleContext<HandledEvent>): Promise<boolean> {
+  if ((await linkedPRs(ctx, homeAssistantPrLinks)).some((l) => l.relation === "parent"))
+    return true;
+
+  const self = { owner: ctx.repo.owner, repo: ctx.repo.name };
+  const named = extractAllLinks(await ctx.target.body())
+    .filter((ref) => homeAssistantPrLinks.relationOf(self, ref) === "parent")
+    .slice(0, MAX_NAMED);
+  for (const ref of named) {
+    try {
+      await ctx.pullRequest(ref).baseRepo();
+      return true;
+    } catch (err) {
+      if ((err as { status?: number }).status !== 404) throw err;
+    }
+  }
+  return false;
+}
+
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
   const baseRef = await ctx.target.baseRef();
   if (EXEMPT_BRANCHES.has(baseRef)) {
     return { status: "skip", message: `PRs targeting \`${baseRef}\` are exempt.` };
   }
 
-  // Documenting a code PR, listed back or not, is documenting an upcoming release.
-  const linked = await linkedPRs(ctx, homeAssistantPrLinks);
-  const expected = linked.some((l) => l.relation === "parent") ? "next" : "current";
+  // Documenting a code PR is documenting an upcoming release.
+  const expected = (await documentsCodePR(ctx)) ? "next" : "current";
   if (baseRef === expected) {
     return { status: "pass", message: `This PR targets \`${expected}\`.` };
   }
