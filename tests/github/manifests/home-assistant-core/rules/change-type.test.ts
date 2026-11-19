@@ -39,10 +39,9 @@ describe("change-type", () => {
     it.each([
       [
         "code-quality",
-        "Code quality improvements to existing code (refactoring, typing, performance, etc.)",
+        "Code quality improvements to existing code or addition of tests (refactoring, typing, performance, etc.)",
       ],
       ["code-quality", "Code quality improvements to existing code or addition of tests"],
-      ["tests", "Tests (adding or improving tests only)"],
       [
         "developer-tooling",
         "Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
@@ -165,7 +164,6 @@ describe("change-type", () => {
         "deprecation",
         "breaking-change",
         "code-quality",
-        "tests",
         "developer-tooling",
       ]) {
         expect(result?.labels ?? []).not.toContain(label);

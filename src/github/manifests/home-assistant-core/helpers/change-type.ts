@@ -2,7 +2,6 @@ import { extractTasks } from "../../../../util/pr-body.js";
 
 export const NEW_INTEGRATION_LABEL = "new-integration";
 export const CODE_QUALITY_LABEL = "code-quality";
-export const TESTS_LABEL = "tests";
 export const DEVELOPER_TOOLING_LABEL = "developer-tooling";
 
 const BODY_MATCHES: { description: string; labels: string[] }[] = [
@@ -23,7 +22,7 @@ const BODY_MATCHES: { description: string; labels: string[] }[] = [
   },
   {
     description:
-      "Code quality improvements to existing code (refactoring, typing, performance, etc.)",
+      "Code quality improvements to existing code or addition of tests (refactoring, typing, performance, etc.)",
     labels: [CODE_QUALITY_LABEL],
   },
   // Open PRs keep the checkbox text they were created with.
@@ -31,7 +30,6 @@ const BODY_MATCHES: { description: string; labels: string[] }[] = [
     description: "Code quality improvements to existing code or addition of tests",
     labels: [CODE_QUALITY_LABEL],
   },
-  { description: "Tests (adding or improving tests only)", labels: [TESTS_LABEL] },
   {
     description:
       "Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
