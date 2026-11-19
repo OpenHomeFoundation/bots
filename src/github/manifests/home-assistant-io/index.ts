@@ -8,6 +8,7 @@ import { reopen } from "../../commands/reopen.js";
 import { unassign } from "../../commands/unassign.js";
 import { update } from "../../commands/update.js";
 import { updateBranch } from "../../commands/update-branch.js";
+import { integrationDomains } from "../../helpers/integration-domains.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { setIntegration } from "../../rules/set-integration.js";
@@ -17,12 +18,13 @@ import {
   homeAssistantOrgRules,
 } from "../home-assistant-org.js";
 import type { RepoManifest } from "../types.js";
-import { itemIntegrationDomains } from "./helpers/integration-domains.js";
+import { domainsFromFiles } from "./integration-domains.js";
 import { branchLabels } from "./rules/branch-labels.js";
 import { docsTargetBranch } from "./rules/docs-target-branch.js";
 import { setDocumentationSection } from "./rules/set-documentation-section.js";
 
 const integrationDocPath = (domain: string) => `source/_integrations/${domain}.markdown`;
+const domains = integrationDomains(domainsFromFiles);
 
 const MANAGEABLE_LABELS = ["needs-more-information"];
 
@@ -32,13 +34,9 @@ export const homeAssistantIo: RepoManifest = {
   integrationPath: integrationDocPath,
   rules: [
     // Integrations
-    setIntegration({ domains: itemIntegrationDomains }),
-    mentionCodeOwners({
-      pathPattern: integrationDocPath,
-      domains: itemIntegrationDomains,
-      itemLabel: "feedback",
-    }),
-    byCodeOwner({ pathPattern: integrationDocPath, domains: itemIntegrationDomains }),
+    setIntegration({ domains }),
+    mentionCodeOwners({ pathPattern: integrationDocPath, domains, issueLabel: "feedback" }),
+    byCodeOwner({ pathPattern: integrationDocPath, domains }),
 
     // Branches
     branchLabels,

@@ -544,11 +544,11 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("uses custom itemLabel in comment", async () => {
+  it("uses custom issueLabel in comment", async () => {
     const docsRule = mentionCodeOwners({
       domains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
-      itemLabel: "feedback",
+      issueLabel: "feedback",
     });
 
     const github = createFakeGitHub();
