@@ -35,7 +35,8 @@ function touching(...domains: string[]) {
   return domains.map((d) => ({ filename: `homeassistant/components/${d}/light.py` }));
 }
 
-const CODE_QUALITY = "- [x] Code quality improvements to existing code or addition of tests";
+const CODE_QUALITY =
+  "- [x] Code quality improvements to existing code (refactoring, typing, performance, etc.)";
 
 function review(login: string, state: string) {
   return { state, user: { login, type: "User" } };
@@ -186,12 +187,22 @@ describe("platinum-approval", () => {
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
 
-  it("enforces on a member's change not marked as code quality", async () => {
-    const result = await setup({
-      files: touching("hue"),
-      member: true,
-      body: "- [x] New feature (which adds functionality to an existing integration)",
-    });
+  it.each([
+    ["tests", "- [x] Tests (adding or improving tests only)"],
+    ["code-quality", "- [x] Code quality improvements to existing code or addition of tests"],
+  ])("only warns on a member's %s change", async (label, body) => {
+    const result = await setup({ files: touching("hue"), member: true, body });
+    expect(result?.section?.status).toBe("warn");
+    expect(result?.section?.message).toBe(
+      `Code owner approval not required for Hue: member's ${label} change.`,
+    );
+  });
+
+  it.each([
+    "- [x] New feature (which adds functionality to an existing integration)",
+    "- [x] Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
+  ])("enforces on a member's change marked %s", async (body) => {
+    const result = await setup({ files: touching("hue"), member: true, body });
     expect(result?.section?.status).toBe("pending");
   });
 

@@ -2,7 +2,7 @@ import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
-import { CODE_QUALITY_LABEL, pickedTypeLabels } from "../helpers/change-type.js";
+import { CODE_QUALITY_LABEL, pickedTypeLabels, TESTS_LABEL } from "../helpers/change-type.js";
 import { domainsFromFiles } from "../helpers/integration-domains.js";
 
 type HandledEvent =
@@ -15,6 +15,7 @@ type HandledEvent =
   | EventType.ON_DEMAND;
 
 const APPROVED_LABEL = "code-owner-approved";
+const RELAXED_TYPES = new Set([CODE_QUALITY_LABEL, TESTS_LABEL]);
 
 const LIST = new Intl.ListFormat("en", { type: "conjunction" });
 const MAX_NAMED = 3;
@@ -90,17 +91,16 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     };
   }
 
-  // A member's code-quality change only warns. Otherwise reviewer-actionable,
-  // not author-actionable: `pending` blocks the merge without drafting the PR,
-  // which would hide it from the review queue and make the approval it's
-  // waiting for impossible.
-  const relaxed =
-    pickedTypeLabels(await ctx.target.body()).includes(CODE_QUALITY_LABEL) &&
-    (await ctx.hasMember(author));
+  // A member's code-quality or tests change only warns. Otherwise
+  // reviewer-actionable, not author-actionable: `pending` blocks the merge
+  // without drafting the PR, which would hide it from the review queue and
+  // make the approval it's waiting for impossible.
+  const relaxedType = pickedTypeLabels(await ctx.target.body()).find((l) => RELAXED_TYPES.has(l));
+  const relaxed = relaxedType !== undefined && (await ctx.hasMember(author));
   return {
     status: relaxed ? "warn" : "pending",
     message: relaxed
-      ? `Code owner approval not required for ${nameList(missing)}: member's code-quality change.`
+      ? `Code owner approval not required for ${nameList(missing)}: member's ${relaxedType} change.`
       : `Waiting for ${nameList(missing)} code owner approval${missing.length > 1 ? "s" : ""}.`,
     ...((await ctx.target.labels()).includes(APPROVED_LABEL)
       ? { effects: [{ type: "removeLabels", labels: [APPROVED_LABEL] }] }
