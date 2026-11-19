@@ -19,6 +19,15 @@ type HandledEvent =
 /** Matches a module-level `async_migrate_entry` definition. */
 const MIGRATE_ENTRY_PATTERN = /^\s*async\s+def\s+async_migrate_entry\b/m;
 
+const REVIEW_PROCESS =
+  "[review process](https://developers.home-assistant.io/docs/review-process/#home-assistant-core)";
+
+const LIST = new Intl.ListFormat("en", { type: "conjunction" });
+
+function isAddedInit(p: ParsedPath): boolean {
+  return p.type === "component" && p.filename === "__init__.py" && p.status === "added";
+}
+
 /**
  * Whether an integration `__init__.py` the PR adds defines `async_migrate_entry`.
  * The patch of an added file is the whole file; when GitHub omits it (large
@@ -28,10 +37,7 @@ async function definesMigrateEntry(
   ctx: RuleContext<HandledEvent>,
   parsed: ParsedPath[],
 ): Promise<boolean> {
-  const inits = parsed.filter(
-    (p) => p.type === "component" && p.filename === "__init__.py" && p.status === "added",
-  );
-  for (const init of inits) {
+  for (const init of parsed.filter(isAddedInit)) {
     const content = init.file.patch ? addedLines(init.file.patch) : await ctx.repoFile(init.path);
     if (content && MIGRATE_ENTRY_PATTERN.test(content)) return true;
   }
@@ -53,22 +59,22 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
 
   const issues: string[] = [];
 
-  const hasMultiplePlatforms = parsed.filter((p) => p.type === "platform").length > 1;
-  if (hasMultiplePlatforms) {
+  // Changes to existing integrations in the same PR are not the new one's.
+  const added = new Set(parsed.filter(isAddedInit).map((p) => p.component));
+  const own = parsed.filter((p) => added.has(p.component));
+
+  const platforms = own.flatMap((p) => (p.type === "platform" ? [`\`${p.platform}\``] : []));
+  if (platforms.length > 1) {
     issues.push(
-      "Limit included platforms to a single platform. See the " +
-        "[review process](https://developers.home-assistant.io/docs/review-process/#home-assistant-core).",
+      `A new integration starts with a single platform, but this PR adds ${LIST.format(platforms.sort())}. ` +
+        `Move all but one to follow-up PRs. See the ${REVIEW_PROCESS}.`,
     );
   }
 
-  const hasDiagnostics = parsed.some(
-    (p) => p.type === "component" && p.filename === "diagnostics.py",
-  );
-  if (hasDiagnostics) {
+  if (own.some((p) => p.type === "component" && p.filename === "diagnostics.py")) {
     issues.push(
       "Remove `diagnostics.py` — diagnostics should be added in a follow-up PR once the " +
-        "integration is merged. See the " +
-        "[review process](https://developers.home-assistant.io/docs/review-process/#home-assistant-core).",
+        `integration is merged. See the ${REVIEW_PROCESS}.`,
     );
   }
 
@@ -83,7 +89,7 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
   if (issues.length === 0) {
     return { status: "pass", message: "Validation passed." };
   }
-  return { status: "fail", message: issues.map((i) => `- ${i}`).join("\n") };
+  return { status: "fail", message: issues.join("\n") };
 }
 
 export const newIntegrationValidation = check({
