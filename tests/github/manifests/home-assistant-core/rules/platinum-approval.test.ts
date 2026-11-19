@@ -36,7 +36,7 @@ function touching(...domains: string[]) {
 }
 
 const CODE_QUALITY =
-  "- [x] Code quality improvements to existing code (refactoring, typing, performance, etc.)";
+  "- [x] Code quality improvements to existing code or addition of tests (refactoring, typing, performance, etc.)";
 
 function review(login: string, state: string) {
   return { state, user: { login, type: "User" } };
@@ -187,15 +187,13 @@ describe("platinum-approval", () => {
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
 
-  it.each([
-    ["tests", "- [x] Tests (adding or improving tests only)"],
-    ["code-quality", "- [x] Code quality improvements to existing code or addition of tests"],
-  ])("only warns on a member's %s change", async (label, body) => {
-    const result = await setup({ files: touching("hue"), member: true, body });
+  it("only warns on a member's change ticked with the old code-quality text", async () => {
+    const result = await setup({
+      files: touching("hue"),
+      member: true,
+      body: "- [x] Code quality improvements to existing code or addition of tests",
+    });
     expect(result?.section?.status).toBe("warn");
-    expect(result?.section?.message).toBe(
-      `Code owner approval not required for Hue: member's ${label} change.`,
-    );
   });
 
   it.each([

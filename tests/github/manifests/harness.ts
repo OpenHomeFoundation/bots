@@ -77,8 +77,7 @@ export const TYPE_OF_CHANGE: Record<string, string> = {
   deprecation: "Deprecation (breaking change to happen in the future)",
   "breaking-change": "Breaking change (fix/feature causing existing functionality to break)",
   "code-quality":
-    "Code quality improvements to existing code (refactoring, typing, performance, etc.)",
-  tests: "Tests (adding or improving tests only)",
+    "Code quality improvements to existing code or addition of tests (refactoring, typing, performance, etc.)",
   "developer-tooling":
     "Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
 };
