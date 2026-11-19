@@ -78,9 +78,18 @@ describe("docs-target-branch", () => {
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("exempts the `new` branch", async () => {
-    const result = await runRule(docsTargetBranch, docsContext("new"));
+  it("exempts the `rc` branch", async () => {
+    const result = await runRule(docsTargetBranch, docsContext("rc"));
     expect(result?.section?.status).toBe("skip");
+  });
+
+  it("warns a new integration's docs targeting the stale `new` branch", async () => {
+    const result = await runRule(
+      docsTargetBranch,
+      docsContext("new", `${LINE} home-assistant/core#12345`, ["core#12345"]),
+    );
+    expect(result?.section?.status).toBe("warn");
+    expect(result?.section?.message).toContain("`next`");
   });
 
   it("exempts the integration metadata sync", async () => {

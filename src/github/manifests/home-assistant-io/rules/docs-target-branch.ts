@@ -4,9 +4,6 @@ import { type CheckOutcome, check } from "../../../engine/rule.js";
 import { linkedPRs } from "../../../rules/linked-prs.js";
 import { homeAssistantPrLinks } from "../../home-assistant-org.js";
 
-// Integration scaffolds live on `new` and follow neither current nor next.
-const EXEMPT_BRANCHES = new Set(["new"]);
-
 // Only `sync-integration-metadata.yml` opens PRs as GitHub Actions, one per
 // docs branch on purpose.
 const METADATA_SYNC_AUTHOR = "github-actions[bot]";
@@ -18,8 +15,10 @@ type HandledEvent =
 
 async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | undefined> {
   const baseRef = await ctx.target.baseRef();
-  if (EXEMPT_BRANCHES.has(baseRef)) {
-    return { status: "skip", message: `PRs targeting \`${baseRef}\` are exempt.` };
+  // `rc` only takes beta-week work (release notes, docs for beta fixes), which
+  // links no parent but belongs there.
+  if (baseRef === "rc") {
+    return { status: "skip", message: "PRs targeting `rc` are exempt." };
   }
   if ((await ctx.target.authorLogin()) === METADATA_SYNC_AUTHOR) {
     return { status: "skip", message: "Integration metadata syncs are exempt." };
