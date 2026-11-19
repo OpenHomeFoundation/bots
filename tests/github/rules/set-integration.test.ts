@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
-import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { setIntegration } from "../../../src/github/rules/set-integration.js";
 import { createMockContext, mockPRFiles, runRule } from "../helpers/mock-context.js";
 
-const rule = setIntegration({ domains: itemIntegrationDomains });
+const domains = integrationDomains(domainsFromFiles);
+
+const rule = setIntegration({ domains });
 const BOT = { login: "renovate[bot]", type: "Bot" };
 
 // Integrations with a manifest on dev; every other domain 404s.

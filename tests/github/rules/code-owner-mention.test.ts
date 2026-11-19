@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../src/github/engine/types.js";
-import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { MENTION_MARKER, mentionCodeOwners } from "../../../src/github/rules/code-owner-mention.js";
 import { setIntegration } from "../../../src/github/rules/set-integration.js";
 import {
@@ -14,8 +15,10 @@ import {
   runRule,
 } from "../helpers/mock-context.js";
 
+const domains = integrationDomains(domainsFromFiles);
+
 const rule = mentionCodeOwners({
-  domains: itemIntegrationDomains,
+  domains,
   pathPattern: (name) => `homeassistant/components/${name}/*`,
 });
 
@@ -462,7 +465,7 @@ describe("mention-code-owners", () => {
       const config: RegistryConfig = {
         repositories: {
           "home-assistant/core": {
-            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            rules: [setIntegration({ domains }), rule],
             commands: [],
           },
         },
@@ -504,7 +507,7 @@ describe("mention-code-owners", () => {
       const config: RegistryConfig = {
         repositories: {
           "home-assistant/core": {
-            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            rules: [setIntegration({ domains }), rule],
             commands: [],
           },
         },
@@ -541,11 +544,11 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("uses custom itemLabel in comment", async () => {
+  it("uses custom issueLabel in comment", async () => {
     const docsRule = mentionCodeOwners({
-      domains: itemIntegrationDomains,
+      domains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
-      itemLabel: "feedback",
+      issueLabel: "feedback",
     });
 
     const github = createFakeGitHub();

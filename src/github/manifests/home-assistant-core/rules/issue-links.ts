@@ -3,16 +3,20 @@ import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { on } from "../../../engine/rule.js";
 import type { Rule, RuleOutput } from "../../../engine/types.js";
 import { isNonIntegrationLabelEvent } from "../../../helpers/integration-domains.js";
-import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
 type HandledEvent = EventType.ISSUES_OPENED | EventType.ISSUES_LABELED | EventType.ISSUES_ON_DEMAND;
 
-async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+type Domains = (ctx: RuleContext<EventType>) => Promise<string[]>;
+
+async function evaluate(
+  ctx: RuleContext<HandledEvent>,
+  domainsOf: Domains,
+): Promise<RuleOutput | undefined> {
   if (isNonIntegrationLabelEvent(ctx)) return;
   // Plain rule (blocks, not check()): guard closed issues itself.
   if ((await ctx.target.state()) !== "open") return;
 
-  const domains = await itemIntegrationDomains(ctx);
+  const domains = await domainsOf(ctx);
 
   return {
     blocks: [
@@ -34,11 +38,16 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | un
   };
 }
 
-export const issueLinks: Rule = {
-  name: "issue-links",
-  description: "Shows documentation, source, and issue-search links for labeled integrations",
-  events: on(
-    [EventType.ISSUES_OPENED, EventType.ISSUES_LABELED, EventType.ISSUES_ON_DEMAND],
-    evaluate,
-  ),
-};
+export function issueLinks(config: {
+  /** Integration domains the item is about — repo policy, injected by the manifest. */
+  domains: Domains;
+}): Rule {
+  return {
+    name: "issue-links",
+    description: "Shows documentation, source, and issue-search links for labeled integrations",
+    events: on(
+      [EventType.ISSUES_OPENED, EventType.ISSUES_LABELED, EventType.ISSUES_ON_DEMAND],
+      (ctx) => evaluate(ctx, config.domains),
+    ),
+  };
+}
