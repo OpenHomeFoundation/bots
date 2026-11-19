@@ -79,7 +79,22 @@ describe("new-integration-validation", () => {
 
     const result = await runRule(newIntegrationValidation, context);
     expect(result?.section?.status).toBe("fail");
-    expect(result?.section?.message).toContain("single platform");
+    expect(result?.section?.message).toMatch(
+      /^A new integration starts with a single platform, but this PR adds `light` and `sensor`\./,
+    );
+  });
+
+  it("ignores platforms and diagnostics of existing integrations the PR touches", async () => {
+    const context = newIntegrationContext();
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/device_type/__init__.py"),
+      makeFile("homeassistant/components/kitchen_sink/sensor.py", "modified"),
+      makeFile("homeassistant/components/kitchen_sink/switch.py", "modified"),
+      makeFile("homeassistant/components/kitchen_sink/diagnostics.py", "modified"),
+    ]);
+
+    const result = await runRule(newIntegrationValidation, context);
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "pass" });
   });
 
   it("fails when diagnostics are included", async () => {
