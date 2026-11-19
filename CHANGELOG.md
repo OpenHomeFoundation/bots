@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/OpenHomeFoundation/bots/compare/v0.9.0...v0.10.0) (2026-11-19)
+
+
+### ✨ New features
+
+* **github:** stop assigning code owners on io pull requests ([#172](https://github.com/OpenHomeFoundation/bots/issues/172)) ([648238a](https://github.com/OpenHomeFoundation/bots/commit/648238a4e7bd2a42390919985f250189c4ea8588))
+
+
+### 🐛 Bug fixes
+
+* **cla:** skip the CLA check on contributors.home-assistant.io ([#170](https://github.com/OpenHomeFoundation/bots/issues/170)) ([8030584](https://github.com/OpenHomeFoundation/bots/commit/8030584b3070f04ec48d3ff0ffb7d59f8cbacac0))
+* **core:** match the merged core type-of-change boxes ([#173](https://github.com/OpenHomeFoundation/bots/issues/173)) ([769538f](https://github.com/OpenHomeFoundation/bots/commit/769538f0175368873fb731caff11429ba0b8464b))
+
 ## [0.9.0](https://github.com/OpenHomeFoundation/bots/compare/v0.8.0...v0.9.0) (2026-11-19)
 
 
