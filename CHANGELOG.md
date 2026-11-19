@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/OpenHomeFoundation/bots/compare/v0.7.0...v0.8.0) (2026-11-19)
+
+
+### ✨ New features
+
+* **core:** add the Tuya issue context ([#130](https://github.com/OpenHomeFoundation/bots/issues/130)) ([39e3339](https://github.com/OpenHomeFoundation/bots/commit/39e333923e5dd05a63b310e921d57fd0d00b6614))
+* **github:** label docs PRs for internal integrations ([#165](https://github.com/OpenHomeFoundation/bots/issues/165)) ([7ec6b3e](https://github.com/OpenHomeFoundation/bots/commit/7ec6b3ecad4b5b08e3215c8d0093b1a0817aa6a3))
+* **github:** label docs PRs for virtual integrations ([#166](https://github.com/OpenHomeFoundation/bots/issues/166)) ([65f2c3a](https://github.com/OpenHomeFoundation/bots/commit/65f2c3a87c7c8d97d2bfd515e92fcef68693cfeb))
+
+
+### 🐛 Bug fixes
+
+* **github:** derive docs PR integrations from changed pages ([#162](https://github.com/OpenHomeFoundation/bots/issues/162)) ([bcf68f9](https://github.com/OpenHomeFoundation/bots/commit/bcf68f9461d0c9909a9675ff7644975d6a05394d))
+* **github:** exempt rc and metadata syncs from docs merge-target ([#163](https://github.com/OpenHomeFoundation/bots/issues/163)) ([f3d60ad](https://github.com/OpenHomeFoundation/bots/commit/f3d60adcf7984af956e8337a732845cedd2ec8a1))
+* **github:** limit by-code-owner to single-integration items ([#164](https://github.com/OpenHomeFoundation/bots/issues/164)) ([9919cfe](https://github.com/OpenHomeFoundation/bots/commit/9919cfe29f846a377f0e72d2cdc6c7aaeb36e71d))
+
 ## [0.7.0](https://github.com/OpenHomeFoundation/bots/compare/v0.6.0...v0.7.0) (2026-11-12)
 
 
