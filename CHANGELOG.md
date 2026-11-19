@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/OpenHomeFoundation/bots/compare/v0.8.0...v0.9.0) (2026-11-19)
+
+
+### ✨ New features
+
+* **core:** add the tests and developer-tooling change types ([#167](https://github.com/OpenHomeFoundation/bots/issues/167)) ([228f05b](https://github.com/OpenHomeFoundation/bots/commit/228f05b5ad9399fba36dbb1515e38e302b3c9728))
+
+
+### 🐛 Bug fixes
+
+* **core:** count only the new integration's own platforms ([#168](https://github.com/OpenHomeFoundation/bots/issues/168)) ([e5692be](https://github.com/OpenHomeFoundation/bots/commit/e5692bef38a30753851a5adfbe0b63c935984be2))
+
 ## [0.8.0](https://github.com/OpenHomeFoundation/bots/compare/v0.7.0...v0.8.0) (2026-11-19)
 
 
