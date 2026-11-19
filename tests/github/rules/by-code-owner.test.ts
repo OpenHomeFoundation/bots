@@ -12,54 +12,46 @@ const rule = byCodeOwner({
   domains,
 });
 
+const CODEOWNERS =
+  "homeassistant/components/hue/* @reporter\nhomeassistant/components/zha/* @balloob";
+
+/** An issue by `reporter`, who owns hue but not zha, just labeled with `labels`. */
+function issueLabeled(labels: string[]) {
+  const github = createFakeGitHub();
+  github.repos.getContent.mockResolvedValue({ data: { content: btoa(CODEOWNERS) } });
+  github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+  return createMockIssueContext({
+    eventType: EventType.ISSUES_LABELED,
+    github,
+    payload: {
+      label: { name: labels.find((l) => l.startsWith("integration: ")) },
+      issue: { user: { login: "reporter" }, labels: labels.map((name) => ({ name })) },
+    },
+  });
+}
+
 describe("by-code-owner", () => {
   it("labels items authored by a code owner", async () => {
-    const github = createFakeGitHub();
-    const codeowners = `homeassistant/components/hue/* @reporter`;
-
-    github.repos.getContent.mockResolvedValue({
-      data: { content: btoa(codeowners) },
-    });
-    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
-
-    const context = createMockIssueContext({
-      eventType: EventType.ISSUES_LABELED,
-      github,
-      payload: {
-        label: { name: "integration: hue" },
-        issue: {
-          user: { login: "reporter" },
-          labels: [{ name: "integration: hue" }],
-        },
-      },
-    });
-
-    const result = await runRule(rule, context);
-    expect(result?.labels).toContain("by-code-owner");
+    const result = await runRule(rule, issueLabeled(["integration: hue"]));
+    expect(result?.labels).toEqual(["by-code-owner"]);
   });
 
   it("does nothing when the author is not a code owner", async () => {
-    const github = createFakeGitHub();
-    const codeowners = `homeassistant/components/hue/* @balloob`;
-
-    github.repos.getContent.mockResolvedValue({
-      data: { content: btoa(codeowners) },
-    });
-    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
-
-    const context = createMockIssueContext({
-      eventType: EventType.ISSUES_LABELED,
-      github,
-      payload: {
-        label: { name: "integration: hue" },
-        issue: {
-          user: { login: "reporter" },
-          labels: [{ name: "integration: hue" }],
-        },
-      },
-    });
-
-    const result = await runRule(rule, context);
+    const result = await runRule(rule, issueLabeled(["integration: zha"]));
     expect(result).toBeUndefined();
+  });
+
+  it("does not label an item about several integrations", async () => {
+    const result = await runRule(rule, issueLabeled(["integration: hue", "integration: zha"]));
+    expect(result).toBeUndefined();
+  });
+
+  it("removes the label once the item is about several integrations", async () => {
+    const result = await runRule(
+      rule,
+      issueLabeled(["by-code-owner", "integration: hue", "integration: zha"]),
+    );
+    expect(result?.removeLabels).toEqual(["by-code-owner"]);
   });
 });

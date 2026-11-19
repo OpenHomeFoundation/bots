@@ -22,6 +22,7 @@ import { domainsFromFiles } from "./integration-domains.js";
 import { branchLabels } from "./rules/branch-labels.js";
 import { docsTargetBranch } from "./rules/docs-target-branch.js";
 import { integrationType } from "./rules/integration-type.js";
+import { qualityScale } from "./rules/quality-scale.js";
 import { setDocumentationSection } from "./rules/set-documentation-section.js";
 
 const integrationDocPath = (domain: string) => `source/_integrations/${domain}.markdown`;
@@ -38,6 +39,7 @@ export const homeAssistantIo: RepoManifest = {
     setIntegration({ domains }),
     mentionCodeOwners({ pathPattern: integrationDocPath, domains, issueLabel: "feedback" }),
     byCodeOwner({ pathPattern: integrationDocPath, domains }),
+    qualityScale({ domains }),
     integrationType({ domains }),
 
     // Branches
