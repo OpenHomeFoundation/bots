@@ -75,6 +75,24 @@ const scenarios: Record<string, Scenario> = {
     state: { ...HUE_STATE, files: [{ filename: "source/_integrations/light.hue.markdown" }] },
   },
 
+  // Internal integrations need less documentation.
+  "pull_request.opened.internal-page": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("contributor"),
+    state: {
+      codeowners: "# Pages\n",
+      files: [{ filename: "source/_integrations/sensor.markdown" }],
+      remote: {
+        "components/sensor/manifest.json": {
+          domain: "sensor",
+          name: "Sensor",
+          integration_type: "entity",
+          quality_scale: "internal",
+        },
+      },
+    },
+  },
+
   "issues.opened.integration-feedback": {
     eventType: EventType.ISSUES_OPENED,
     payload: issuePayload("opened", HUE_FEEDBACK, { repository: REPOSITORY }),
