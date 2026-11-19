@@ -93,6 +93,23 @@ const scenarios: Record<string, Scenario> = {
     },
   },
 
+  // Virtual integrations need less documentation.
+  "pull_request.opened.virtual-page": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("contributor"),
+    state: {
+      codeowners: "# Pages\n",
+      files: [{ filename: "source/_integrations/quadrafire.markdown" }],
+      remote: {
+        "components/quadrafire/manifest.json": {
+          domain: "quadrafire",
+          name: "Quadra-Fire",
+          integration_type: "virtual",
+        },
+      },
+    },
+  },
+
   "issues.opened.integration-feedback": {
     eventType: EventType.ISSUES_OPENED,
     payload: issuePayload("opened", HUE_FEEDBACK, { repository: REPOSITORY }),

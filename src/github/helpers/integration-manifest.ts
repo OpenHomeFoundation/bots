@@ -17,6 +17,7 @@ const IntegrationManifestSchema = z.object({
   domain: z.string(),
   name: z.string(),
   quality_scale: z.nativeEnum(QualityScale).optional(),
+  integration_type: z.string().optional(),
   config_flow: z.boolean().default(false),
   dependencies: z.array(z.string()).default([]),
   after_dependencies: z.array(z.string()).default([]),
