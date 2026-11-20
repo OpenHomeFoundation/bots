@@ -256,6 +256,7 @@ export type WebhookEventPayload =
 interface PullRequestLike {
   number: number;
   node_id?: string;
+  title?: string;
   labels?: { name: string }[];
   body?: string | null;
   user?: { login: string } | null;
@@ -270,6 +271,7 @@ interface PullRequestLike {
 
 function seedFromPullRequestLike(pr: PullRequestLike): PullRequestSeed {
   return {
+    ...(typeof pr.title === "string" ? { title: pr.title } : {}),
     ...(pr.labels ? { labels: pr.labels.map((l) => l.name) } : {}),
     ...(pr.body !== undefined ? { body: pr.body } : {}),
     ...(pr.user?.login ? { authorLogin: pr.user.login } : {}),
