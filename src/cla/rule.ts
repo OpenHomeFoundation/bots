@@ -33,6 +33,7 @@ const IGNORED_REPOSITORIES = new Set([
   "home-assistant/bthome.io",
   "home-assistant/buildroot",
   "home-assistant/companion.home-assistant",
+  "home-assistant/contributors.home-assistant.io",
   "home-assistant/data.home-assistant",
   "home-assistant/developers.home-assistant",
   "home-assistant/home-assistant.io",

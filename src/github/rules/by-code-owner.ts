@@ -15,6 +15,8 @@ type HandledEvent =
   | EventType.PULL_REQUEST_LABELED
   | EventType.ON_DEMAND;
 
+const LABEL = "by-code-owner";
+
 export function byCodeOwner(config: {
   pathPattern: (integration: string) => string;
   /**
@@ -23,12 +25,7 @@ export function byCodeOwner(config: {
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
 }): Rule {
-  async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
-    if (isNonIntegrationLabelEvent(ctx)) return;
-
-    const integrationNames = await config.domains(ctx);
-    if (integrationNames.length === 0) return;
-
+  async function authorOwns(ctx: RuleContext<HandledEvent>, domain: string): Promise<boolean> {
     // The rule is only registered on repos that have a CODEOWNERS file, so a
     // missing one is a misconfiguration — surface it instead of no-opping.
     const codeownersContent = await ctx.codeownersContent();
@@ -36,22 +33,31 @@ export function byCodeOwner(config: {
       throw new Error(`No CODEOWNERS file in ${ctx.repo.fullName}`);
     }
 
-    const entries = parseCodeOwners(codeownersContent);
+    const match = matchCodeOwners(config.pathPattern(domain), parseCodeOwners(codeownersContent));
+    if (!match) return false;
+    const owners = match.owners.map((o) => o.substring(1).toLowerCase());
     const authorLogin = (await ctx.target.authorLogin()).toLowerCase();
+    return (await ctx.expandTeams(owners)).includes(authorLogin);
+  }
 
-    for (const integrationName of integrationNames) {
-      const match = matchCodeOwners(config.pathPattern(integrationName), entries);
-      if (!match) continue;
-      const owners = match.owners.map((o) => o.substring(1).toLowerCase());
-      if ((await ctx.expandTeams(owners)).includes(authorLogin)) {
-        return { effects: [{ type: "addLabels", labels: ["by-code-owner"] }] };
-      }
+  async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
+    if (isNonIntegrationLabelEvent(ctx)) return;
+
+    // Owning one of several integrations says nothing about the others.
+    const domains = await config.domains(ctx);
+    if (domains.length === 1 && (await authorOwns(ctx, domains[0]))) {
+      return { effects: [{ type: "addLabels", labels: [LABEL] }] };
+    }
+    if ((await ctx.target.labels()).includes(LABEL)) {
+      return { effects: [{ type: "removeLabels", labels: [LABEL] }] };
     }
   }
 
   return {
     name: "by-code-owner",
-    description: "Labels PRs/issues authored by a code owner of a touched integration",
+    description:
+      "Labels PRs/issues about a single integration authored by its code owner, and removes " +
+      "the label once that no longer holds",
     events: on(
       [
         EventType.PULL_REQUEST_OPENED,

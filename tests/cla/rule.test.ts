@@ -181,14 +181,17 @@ describe("cla", () => {
     expect(result).toBeUndefined();
   });
 
-  it("skips repositories without code", async () => {
-    const rule = claCheck(() => fakeStore([]));
-    const result = await runRule(
-      rule,
-      claContext({ commits: [userCommit("a1", "alice")], repository: "home-assistant/brands" }),
-    );
-    expect(result).toBeUndefined();
-  });
+  it.each(["home-assistant/brands", "home-assistant/contributors.home-assistant.io"])(
+    "skips %s, a repository without code",
+    async (repository) => {
+      const rule = claCheck(() => fakeStore([]));
+      const result = await runRule(
+        rule,
+        claContext({ commits: [userCommit("a1", "alice")], repository }),
+      );
+      expect(result).toBeUndefined();
+    },
+  );
 
   it("does nothing when the store is not configured", async () => {
     const rule = claCheck(() => undefined);

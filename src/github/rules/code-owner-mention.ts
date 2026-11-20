@@ -90,7 +90,10 @@ export function mentionCodeOwners(config: {
    * links), injected by the manifest.
    */
   domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
-  itemLabel?: string;
+  /** What the comment calls an issue; PRs are always "pull request". */
+  issueLabel?: string;
+  /** Off where GitHub already requests the owners' review from CODEOWNERS. */
+  assignPullRequests?: boolean;
 }): Rule {
   async function handle(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
     if (isNonIntegrationLabelEvent(ctx)) return;
@@ -132,12 +135,13 @@ export function mentionCodeOwners(config: {
     // Owners the comment already names stay in it; they've been pinged.
     const alreadyMentioned = new Set(existing?.body?.toLowerCase().match(/@[\w/-]+/g));
 
-    const itemLabel = config.itemLabel ?? (ctx.target.kind === "issue" ? "issue" : "pull request");
+    const itemLabel = ctx.target.kind === "issue" ? (config.issueLabel ?? "issue") : "pull request";
 
+    const assign = ctx.target.kind === "issue" || (config.assignPullRequests ?? true);
     const toAssign = new Set<string>();
     const mentioned: { integrationName: string; codeownersLine: string; mentions: string }[] = [];
     for (const o of owned) {
-      if (!covered.has(o.integrationName)) {
+      if (assign && !covered.has(o.integrationName)) {
         for (const usr of o.owners) if (!assignees.includes(usr)) toAssign.add(usr);
       }
       const mentions = o.owners

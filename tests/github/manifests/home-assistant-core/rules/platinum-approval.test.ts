@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../../../src/github/engine/types.js";
-import { itemIntegrationDomains } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { platinumApproval } from "../../../../../src/github/manifests/home-assistant-core/rules/platinum-approval.js";
 import { qualityScale } from "../../../../../src/github/manifests/home-assistant-core/rules/quality-scale.js";
 import { setIntegration } from "../../../../../src/github/rules/set-integration.js";
@@ -14,10 +15,19 @@ import {
   runRule,
 } from "../../../helpers/mock-context.js";
 
-/** Manifests served from dev: hue and zha are platinum, mqtt is gold. */
+const domains = integrationDomains(domainsFromFiles);
+
+/** Manifests served from dev: hue, zha, knx and shelly are platinum, mqtt is gold. */
 const MANIFESTS: Record<string, Record<string, unknown>> = {
   hue: { domain: "hue", name: "Hue", codeowners: ["@balloob"], quality_scale: "platinum" },
   zha: { domain: "zha", name: "ZHA", codeowners: ["@zhaowner"], quality_scale: "platinum" },
+  knx: { domain: "knx", name: "KNX", codeowners: ["@knxowner"], quality_scale: "platinum" },
+  shelly: {
+    domain: "shelly",
+    name: "Shelly",
+    codeowners: ["@shellyowner"],
+    quality_scale: "platinum",
+  },
   mqtt: { domain: "mqtt", name: "MQTT", codeowners: ["@mqttowner"], quality_scale: "gold" },
 };
 
@@ -25,7 +35,8 @@ function touching(...domains: string[]) {
   return domains.map((d) => ({ filename: `homeassistant/components/${d}/light.py` }));
 }
 
-const CODE_QUALITY = "- [x] Code quality improvements to existing code or addition of tests";
+const CODE_QUALITY =
+  "- [x] Code quality improvements to existing code or addition of tests (refactoring, typing, performance, etc.)";
 
 function review(login: string, state: string) {
   return { state, user: { login, type: "User" } };
@@ -87,9 +98,7 @@ describe("platinum-approval", () => {
   it("is pending when a platinum integration has no code owner approval", async () => {
     const result = await setup({ files: touching("hue") });
     expect(result?.section?.status).toBe("pending");
-    expect(result?.section?.message).toBe(
-      "Platinum `hue` — needs approval from a code owner before merging.",
-    );
+    expect(result?.section?.message).toBe("Waiting for Hue code owner approval.");
   });
 
   it("is pending for a PR by an org member too", async () => {
@@ -126,7 +135,7 @@ describe("platinum-approval", () => {
   it("still requires approval when a second integration is touched", async () => {
     const result = await setup({ files: touching("hue", "mqtt") });
     expect(result?.section?.status).toBe("pending");
-    expect(result?.section?.message).toContain("`hue`");
+    expect(result?.section?.message).toBe("Waiting for Hue code owner approval.");
   });
 
   it("requires an approval for every platinum integration touched", async () => {
@@ -135,8 +144,18 @@ describe("platinum-approval", () => {
       reviews: [review("balloob", "APPROVED")],
     });
     expect(result?.section?.status).toBe("pending");
+    expect(result?.section?.message).toBe("Waiting for ZHA code owner approval.");
+  });
+
+  it("names every platinum integration still waiting for approval", async () => {
+    const result = await setup({ files: touching("hue", "zha") });
+    expect(result?.section?.message).toBe("Waiting for Hue and ZHA code owner approvals.");
+  });
+
+  it("caps the named integrations at three", async () => {
+    const result = await setup({ files: touching("hue", "zha", "knx", "shelly") });
     expect(result?.section?.message).toBe(
-      "Platinum `zha` — needs approval from a code owner before merging.",
+      "Waiting for Hue, ZHA, KNX, and 1 more code owner approvals.",
     );
   });
 
@@ -149,38 +168,39 @@ describe("platinum-approval", () => {
     expect(result?.section?.status).toBe("pass");
   });
 
-  it("enforces on a non-member's tree-wide change past the integration-label cap", async () => {
-    const result = await setup({ files: touching("hue", "a", "b", "c", "d", "e", "f") });
+  it("enforces on a non-member's code-quality change", async () => {
+    const result = await setup({ files: touching("hue"), body: CODE_QUALITY });
     expect(result?.section?.status).toBe("pending");
   });
 
-  it("only warns on a member's tree-wide code-quality change past the cap", async () => {
+  it("only warns on a member's code-quality change", async () => {
     const result = await setup({
-      files: touching("hue", "a", "b", "c", "d", "e"),
+      files: touching("hue"),
       member: true,
       body: CODE_QUALITY,
       labels: ["code-owner-approved"],
     });
     expect(result?.section?.status).toBe("warn");
-    expect(result?.section?.message).toContain("`hue`");
+    expect(result?.section?.message).toBe(
+      "Code owner approval not required for Hue: member's code-quality change.",
+    );
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
 
-  it("enforces on a member's code-quality change within the integration-label cap", async () => {
+  it("only warns on a member's change ticked with the old code-quality text", async () => {
     const result = await setup({
-      files: touching("hue", "a", "b", "c", "d"),
+      files: touching("hue"),
       member: true,
-      body: CODE_QUALITY,
+      body: "- [x] Code quality improvements to existing code or addition of tests",
     });
-    expect(result?.section?.status).toBe("pending");
+    expect(result?.section?.status).toBe("warn");
   });
 
-  it("enforces on a member's tree-wide change not marked as code quality", async () => {
-    const result = await setup({
-      files: touching("hue", "a", "b", "c", "d", "e"),
-      member: true,
-      body: "- [x] New feature (which adds functionality to an existing integration)",
-    });
+  it.each([
+    "- [x] New feature (which adds functionality to an existing integration)",
+    "- [x] Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
+  ])("enforces on a member's change marked %s", async (body) => {
+    const result = await setup({ files: touching("hue"), member: true, body });
     expect(result?.section?.status).toBe("pending");
   });
 
@@ -226,11 +246,7 @@ describe("platinum-approval", () => {
     const config: RegistryConfig = {
       repositories: {
         "home-assistant/core": {
-          rules: [
-            setIntegration({ domains: itemIntegrationDomains }),
-            qualityScale,
-            platinumApproval,
-          ],
+          rules: [setIntegration({ domains }), qualityScale({ domains }), platinumApproval],
           commands: [],
           dashboard: true,
         },

@@ -6,7 +6,6 @@ import { on } from "../../../engine/rule.js";
 import type { Rule, RuleOutput } from "../../../engine/types.js";
 import { devComponentFile } from "../../../helpers/dev-file.js";
 import { INTEGRATION_LABEL_PREFIX } from "../../../helpers/integration-domains.js";
-import { itemIntegrationDomains } from "../helpers/integration-domains.js";
 
 type HandledEvent = EventType.ISSUES_OPENED | EventType.ISSUES_LABELED | EventType.ISSUES_ON_DEMAND;
 
@@ -35,7 +34,13 @@ const fetchIssueContext = devComponentFile("issue_context.md", async (res, domai
  * in the dashboard's issue intro; this rule only carries extras and fills the
  * `reporting-guidance` template block.
  */
-export function issueContext(labels: Record<string, string>): Rule {
+export function issueContext(config: {
+  labels: Record<string, string>;
+  /** Integration domains the item is about — repo policy, injected by the manifest. */
+  domains: (ctx: RuleContext<EventType>) => Promise<string[]>;
+}): Rule {
+  const { labels } = config;
+
   async function evaluate(ctx: RuleContext<HandledEvent>): Promise<RuleOutput | undefined> {
     if (
       "label" in ctx.event &&
@@ -48,7 +53,7 @@ export function issueContext(labels: Record<string, string>): Rule {
 
     // Labels on the issue plus the integrations it's about, so guidance shows
     // up on opened without waiting for set-integration.
-    const domains = await itemIntegrationDomains(ctx);
+    const domains = await config.domains(ctx);
     const texts = await Promise.all(domains.map((domain) => fetchIssueContext(domain)));
     const fromCore = new Map(
       domains.map((domain, i) => [`${INTEGRATION_LABEL_PREFIX}${domain}`, texts[i]]),

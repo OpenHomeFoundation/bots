@@ -508,7 +508,7 @@ describe("aggregate ha-bot status check from status sections", () => {
       expect.objectContaining({
         context: "ha-bot",
         state: "failure",
-        description: expect.stringContaining("1 check pending"),
+        description: expect.stringContaining("1 check waiting"),
       }),
     );
   });

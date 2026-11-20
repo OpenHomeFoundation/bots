@@ -1,7 +1,6 @@
 import { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
 import { type CheckOutcome, check } from "../../../engine/rule.js";
-import { MAX_INTEGRATION_LABELS } from "../../../helpers/integration-domains.js";
 import { fetchIntegrationManifest, QualityScale } from "../../../helpers/integration-manifest.js";
 import { CODE_QUALITY_LABEL, pickedTypeLabels } from "../helpers/change-type.js";
 import { domainsFromFiles } from "../helpers/integration-domains.js";
@@ -17,21 +16,34 @@ type HandledEvent =
 
 const APPROVED_LABEL = "code-owner-approved";
 
+const LIST = new Intl.ListFormat("en", { type: "conjunction" });
+const MAX_NAMED = 3;
+
+/** Integration names for a table cell, capped so a tree-wide change stays one line. */
+function nameList(names: string[]): string {
+  if (names.length <= MAX_NAMED) return LIST.format(names);
+  return LIST.format([...names.slice(0, MAX_NAMED), `${names.length - MAX_NAMED} more`]);
+}
+
 /**
- * Every platinum integration the diff touches, with its expanded code owners.
+ * Every platinum integration the diff touches, with its display name and
+ * expanded code owners.
  * Uncapped and never from labels: touching a second integration, or a label
  * left over from an earlier push, must not switch the gate off.
  */
 async function platinumOwners(
   ctx: RuleContext<HandledEvent>,
   domains: string[],
-): Promise<Map<string, string[]>> {
+): Promise<Map<string, { name: string; logins: string[] }>> {
   const manifests = await Promise.all(domains.map((d) => fetchIntegrationManifest(d)));
-  const owners = new Map<string, string[]>();
+  const owners = new Map<string, { name: string; logins: string[] }>();
   for (const [i, domain] of domains.entries()) {
     const manifest = manifests[i];
     if (manifest?.quality_scale !== QualityScale.PLATINUM || !manifest.codeowners?.length) continue;
-    owners.set(domain, await ctx.expandTeams(manifest.codeowners));
+    owners.set(domain, {
+      name: manifest.name,
+      logins: await ctx.expandTeams(manifest.codeowners),
+    });
   }
   return owners;
 }
@@ -63,13 +75,13 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
   }
 
   const author = (await ctx.target.authorLogin()).toLowerCase();
-  const needReview = [...owners].filter(([, logins]) => !logins.includes(author));
+  const needReview = [...owners].filter(([, { logins }]) => !logins.includes(author));
   if (needReview.length === 0) return { status: "pass", message: "Authored by a code owner." };
 
   const approved = await approvers(ctx);
   const missing = needReview
-    .filter(([, logins]) => !logins.some((login) => approved.has(login)))
-    .map(([domain]) => `\`${domain}\``);
+    .filter(([, { logins }]) => !logins.some((login) => approved.has(login)))
+    .map(([, { name }]) => name);
   if (missing.length === 0) {
     return {
       status: "pass",
@@ -78,22 +90,18 @@ async function evaluate(ctx: RuleContext<HandledEvent>): Promise<CheckOutcome | 
     };
   }
 
-  // A member's tree-wide code-quality change (past the cap at which code
-  // owners aren't mentioned either) only warns. Otherwise reviewer-actionable,
+  // A member's code-quality change only warns. Otherwise reviewer-actionable,
   // not author-actionable: `pending` blocks the merge without drafting the PR,
   // which would hide it from the review queue and make the approval it's
   // waiting for impossible.
-  const treeWide =
-    domains.length > MAX_INTEGRATION_LABELS &&
+  const relaxed =
     pickedTypeLabels(await ctx.target.body()).includes(CODE_QUALITY_LABEL) &&
     (await ctx.hasMember(author));
   return {
-    status: treeWide ? "warn" : "pending",
-    message: `Platinum ${missing.join(", ")} — ${
-      treeWide
-        ? `no code-owner approval; not required for a member's code-quality change across more than ${MAX_INTEGRATION_LABELS} integrations.`
-        : "needs approval from a code owner before merging."
-    }`,
+    status: relaxed ? "warn" : "pending",
+    message: relaxed
+      ? `Code owner approval not required for ${nameList(missing)}: member's code-quality change.`
+      : `Waiting for ${nameList(missing)} code owner approval${missing.length > 1 ? "s" : ""}.`,
     ...((await ctx.target.labels()).includes(APPROVED_LABEL)
       ? { effects: [{ type: "removeLabels", labels: [APPROVED_LABEL] }] }
       : {}),

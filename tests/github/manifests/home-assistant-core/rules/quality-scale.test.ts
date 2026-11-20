@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "../../../../../src/github/engine/event.js";
+import { integrationDomains } from "../../../../../src/github/helpers/integration-domains.js";
 import { QualityScale } from "../../../../../src/github/helpers/integration-manifest.js";
+import { domainsFromFiles } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { qualityScale } from "../../../../../src/github/manifests/home-assistant-core/rules/quality-scale.js";
 import { createMockContext, mockPRFiles, runRule } from "../../../helpers/mock-context.js";
+
+const domains = integrationDomains(domainsFromFiles);
+const rule = qualityScale({ domains });
 
 describe("quality-scale", () => {
   const fetchMock = vi.fn();
@@ -42,7 +47,7 @@ describe("quality-scale", () => {
       },
     ]);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("quality-scale");
   });
 
@@ -70,7 +75,7 @@ describe("quality-scale", () => {
     });
     mockPRFiles(context, []);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("Quality Scale: platinum");
   });
 
@@ -100,7 +105,7 @@ describe("quality-scale", () => {
     });
     mockPRFiles(context, []);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("Quality Scale: No score");
   });
 
@@ -126,7 +131,7 @@ describe("quality-scale", () => {
       },
     ]);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result).toBeUndefined();
   });
 
@@ -166,7 +171,7 @@ describe("quality-scale", () => {
       },
     ]);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("quality-scale");
     expect(result?.labels).toContain("Quality Scale: gold");
   });
@@ -210,7 +215,7 @@ describe("quality-scale", () => {
     });
     mockPRFiles(context, []);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("Quality Scale: platinum");
     expect(result?.labels).not.toContain("Quality Scale: silver");
     expect(result?.labels).not.toContain("Quality Scale: gold");
@@ -247,7 +252,7 @@ describe("quality-scale", () => {
     });
     mockPRFiles(context, []);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("Quality Scale: platinum");
     expect(result?.removeLabels).toEqual(
       expect.arrayContaining(["Quality Scale: silver", "Quality Scale: gold"]),
@@ -281,7 +286,7 @@ describe("quality-scale", () => {
     });
     mockPRFiles(context, []);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain(`Quality Scale: ${scale}`);
   });
 
@@ -310,15 +315,15 @@ describe("quality-scale", () => {
       { filename: "homeassistant/components/hue/light.py", status: "modified" },
     ]);
 
-    const result = await runRule(qualityScale, context);
+    const result = await runRule(rule, context);
     expect(result?.labels).toContain("Quality Scale: platinum");
   });
 
   it("subscribes to opened, reopened, synchronize, labeled, and on_demand", () => {
-    expect(Object.keys(qualityScale.events)).toContain(EventType.PULL_REQUEST_OPENED);
-    expect(Object.keys(qualityScale.events)).toContain(EventType.PULL_REQUEST_REOPENED);
-    expect(Object.keys(qualityScale.events)).toContain(EventType.PULL_REQUEST_SYNCHRONIZE);
-    expect(Object.keys(qualityScale.events)).toContain(EventType.PULL_REQUEST_LABELED);
-    expect(Object.keys(qualityScale.events)).toContain(EventType.ON_DEMAND);
+    expect(Object.keys(rule.events)).toContain(EventType.PULL_REQUEST_OPENED);
+    expect(Object.keys(rule.events)).toContain(EventType.PULL_REQUEST_REOPENED);
+    expect(Object.keys(rule.events)).toContain(EventType.PULL_REQUEST_SYNCHRONIZE);
+    expect(Object.keys(rule.events)).toContain(EventType.PULL_REQUEST_LABELED);
+    expect(Object.keys(rule.events)).toContain(EventType.ON_DEMAND);
   });
 });

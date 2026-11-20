@@ -22,14 +22,20 @@ Before we dive in, please make sure this isn't a duplicate by searching through 
 {{#hasChecks}}
 ## Checks
 
+{{^hasVisibleRows}}
+{{^hasWaitingRows}}
+**✨ Everything's in order!**
+
+{{/hasWaitingRows}}
+{{/hasVisibleRows}}
+{{#hasVisibleRows}}
 {{#hasFailures}}
 Things to address:
 {{/hasFailures}}
 {{^hasFailures}}
-**✨ Everything's in order!**
+Things to look out for:
 {{/hasFailures}}
 
-{{#hasVisibleRows}}
 | Status | Check | Details |
 |--------|-------|---------|
 {{#visibleRows}}
@@ -37,6 +43,16 @@ Things to address:
 {{/visibleRows}}
 
 {{/hasVisibleRows}}
+{{#hasWaitingRows}}
+👀 Waiting on others:
+
+| Status | Check | Details |
+|--------|-------|---------|
+{{#waitingRows}}
+| {{icon}} | {{title}} | {{message}} |
+{{/waitingRows}}
+
+{{/hasWaitingRows}}
 {{#hasCollapsedRows}}
 <details>
 <summary>{{collapsedSummary}}</summary>

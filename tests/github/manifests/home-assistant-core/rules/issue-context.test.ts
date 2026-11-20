@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "../../../../../src/github/engine/event.js";
+import { integrationDomains } from "../../../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { issueContext } from "../../../../../src/github/manifests/home-assistant-core/rules/issue-context.js";
 import { expectLoggedErrors } from "../../../../helpers/log-guard.js";
 import { createMockIssueContext, runRule } from "../../../helpers/mock-context.js";
 
 const rule = issueContext({
-  "custom integration": "Report it upstream.",
-  "integration: shelly": "Shelly guidance from the bot.",
-  "integration: zha": "ZHA guidance from the bot.",
+  labels: {
+    "custom integration": "Report it upstream.",
+    "integration: shelly": "Shelly guidance from the bot.",
+    "integration: zha": "ZHA guidance from the bot.",
+  },
+  domains: integrationDomains(domainsFromFiles),
 });
 
 const ZHA = { domain: "zha", name: "Zigbee Home Automation" };
