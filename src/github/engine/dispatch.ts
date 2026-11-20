@@ -20,18 +20,32 @@ import {
 import type { Command, Effect, Rule, RuleOutput } from "./types.js";
 import { UsageError } from "./usage-error.js";
 
-export function matchRules(context: RuleContext): Rule[] {
-  return context.repoConfig.rules.filter(
-    (rule) =>
-      (rule.allowBots !== false || !context.senderIsBot) &&
-      Object.hasOwn(rule.events, context.eventType),
-  );
+/**
+ * Automation that opens items with no contributor behind them. Every other
+ * account, AI agents included, works for a person and follows the guidelines.
+ */
+const BOT_AUTHORS = new Set([
+  "renovate[bot]",
+  "dependabot[bot]",
+  "github-actions[bot]",
+  "homeassistant",
+]);
+
+/** The repo's rules that can run on this item. */
+async function itemRules(context: RuleContext): Promise<Rule[]> {
+  const { rules } = context.repoConfig;
+  if (!BOT_AUTHORS.has(await context.target.authorLogin())) return rules;
+  return rules.filter((rule) => rule.allowBots !== false);
 }
 
-/** Collect every statusSection ID claimed by some rule in this repo's registry. */
-function collectKnownStatusSectionIds(context: RuleContext): Set<string> {
+export async function matchRules(context: RuleContext): Promise<Rule[]> {
+  return (await itemRules(context)).filter((rule) => Object.hasOwn(rule.events, context.eventType));
+}
+
+/** Every statusSection ID claimed by a rule that can run on this item; other rows are stale. */
+async function collectKnownStatusSectionIds(context: RuleContext): Promise<Set<string>> {
   const ids = new Set<string>();
-  for (const rule of context.repoConfig.rules) {
+  for (const rule of await itemRules(context)) {
     if (rule.statusSections) for (const { id } of rule.statusSections) ids.add(id);
   }
   return ids;
@@ -387,7 +401,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
     log.info("dispatch: skipped, item is locked");
     return { statuses: [], effects: [] };
   }
-  const knownSectionIds = collectKnownStatusSectionIds(context);
+  const knownSectionIds = await collectKnownStatusSectionIds(context);
   const dashboardEnabled = context.repoConfig.dashboard ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;
 
@@ -418,7 +432,7 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   const ruleNames = new Set(context.repoConfig.rules.map((rule) => rule.name));
   const { data, swept } = pruneData(previous?.data ?? {}, ruleNames);
 
-  const matched = matchRules(context);
+  const matched = await matchRules(context);
   const output = await runMatchedRules(context, matched, data);
   output.dataChanged ||= swept;
 
@@ -649,7 +663,7 @@ export async function dispatchCommand(
   }
 
   if (anyOutputs) {
-    const knownSectionIds = collectKnownStatusSectionIds(context);
+    const knownSectionIds = await collectKnownStatusSectionIds(context);
     const dashboardEnabled = context.repoConfig.dashboard ?? false;
 
     if (!dashboardEnabled && collected.statuses.size > 0) {

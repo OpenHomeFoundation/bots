@@ -35,7 +35,7 @@ const noBotRule: Rule = {
 };
 
 describe("matchRules", () => {
-  it("matches repo rule with correct event type", () => {
+  it("matches repo rule with correct event type", async () => {
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
@@ -43,12 +43,12 @@ describe("matchRules", () => {
       registry: config,
       eventType: EventType.PULL_REQUEST_OPENED,
     });
-    const matched = matchRules(context);
+    const matched = await matchRules(context);
     expect(matched).toHaveLength(1);
     expect(matched[0].name).toBe("test-rule");
   });
 
-  it("does not match rule with wrong event type", () => {
+  it("does not match rule with wrong event type", async () => {
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
@@ -56,11 +56,11 @@ describe("matchRules", () => {
       registry: config,
       eventType: EventType.PULL_REQUEST_CLOSED,
     });
-    const matched = matchRules(context);
+    const matched = await matchRules(context);
     expect(matched).toHaveLength(0);
   });
 
-  it("does not match rule for different repo", () => {
+  it("does not match rule for different repo", async () => {
     const config: RegistryConfig = {
       repositories: { "home-assistant/frontend": { rules: [testRule], commands: [] } },
     };
@@ -68,11 +68,24 @@ describe("matchRules", () => {
       registry: config,
       eventType: EventType.PULL_REQUEST_OPENED,
     });
-    const matched = matchRules(context);
+    const matched = await matchRules(context);
     expect(matched).toHaveLength(0);
   });
 
-  it("filters out bots when allowBots is false", () => {
+  it("skips bot-opened PRs when allowBots is false, even on a human's event", async () => {
+    const config: RegistryConfig = {
+      repositories: { "home-assistant/core": { rules: [noBotRule], commands: [] } },
+    };
+    const context = createMockContext({
+      registry: config,
+      eventType: EventType.PULL_REQUEST_OPENED,
+      payload: { pull_request: { user: { login: "renovate[bot]", type: "Bot" } } },
+    });
+    const matched = await matchRules(context);
+    expect(matched).toHaveLength(0);
+  });
+
+  it("runs allowBots: false rules on a bot's event on a human's PR", async () => {
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": { rules: [noBotRule], commands: [] } },
     };
@@ -81,24 +94,43 @@ describe("matchRules", () => {
       eventType: EventType.PULL_REQUEST_OPENED,
       payload: { sender: { login: "dependabot[bot]", type: "Bot" } },
     });
-    const matched = matchRules(context);
-    expect(matched).toHaveLength(0);
+    const matched = await matchRules(context);
+    expect(matched).toHaveLength(1);
   });
 
-  it("allows bots by default", () => {
+  it("runs allowBots: false rules on PRs an AI agent opened for a person", async () => {
+    const config: RegistryConfig = {
+      repositories: { "home-assistant/core": { rules: [noBotRule], commands: [] } },
+    };
+    const context = createMockContext({
+      registry: config,
+      eventType: EventType.PULL_REQUEST_OPENED,
+      payload: {
+        sender: { login: "claude[bot]", type: "Bot" },
+        pull_request: { user: { login: "claude[bot]", type: "Bot" } },
+      },
+    });
+    const matched = await matchRules(context);
+    expect(matched).toHaveLength(1);
+  });
+
+  it("runs on bot-opened PRs by default", async () => {
     const config: RegistryConfig = {
       repositories: { "home-assistant/core": { rules: [testRule], commands: [] } },
     };
     const context = createMockContext({
       registry: config,
       eventType: EventType.PULL_REQUEST_OPENED,
-      payload: { sender: { login: "dependabot[bot]", type: "Bot" } },
+      payload: {
+        sender: { login: "renovate[bot]", type: "Bot" },
+        pull_request: { user: { login: "renovate[bot]", type: "Bot" } },
+      },
     });
-    const matched = matchRules(context);
+    const matched = await matchRules(context);
     expect(matched).toHaveLength(1);
   });
 
-  it("returns empty for unknown repo/org", () => {
+  it("returns empty for unknown repo/org", async () => {
     const config: RegistryConfig = {
       repositories: {},
     };
@@ -106,7 +138,7 @@ describe("matchRules", () => {
       registry: config,
       eventType: EventType.PULL_REQUEST_OPENED,
     });
-    const matched = matchRules(context);
+    const matched = await matchRules(context);
     expect(matched).toHaveLength(0);
   });
 });
@@ -556,6 +588,37 @@ describe("dispatch", () => {
         eventType: EventType.PULL_REQUEST_READY_FOR_REVIEW,
         github,
         payload: { pull_request: { draft: false, node_id: "PR_NODE_READY" } },
+      });
+
+      await dispatch(context);
+
+      expect(github.graphql).not.toHaveBeenCalled();
+    });
+
+    it("on a bot-opened PR, a failing section of an allowBots: false rule does not re-draft", async () => {
+      const github = createFakeGitHub();
+      github.issues.listComments.mockResolvedValue({ data: [dashboardComment("fail")] });
+
+      const config: RegistryConfig = {
+        repositories: {
+          "home-assistant/core": {
+            rules: [{ ...claimsX, allowBots: false }],
+            commands: [],
+            dashboard: true,
+          },
+        },
+      };
+      const context = createMockContext({
+        registry: config,
+        eventType: EventType.PULL_REQUEST_READY_FOR_REVIEW,
+        github,
+        payload: {
+          pull_request: {
+            draft: false,
+            node_id: "PR_NODE_READY",
+            user: { login: "renovate[bot]", type: "Bot" },
+          },
+        },
       });
 
       await dispatch(context);
