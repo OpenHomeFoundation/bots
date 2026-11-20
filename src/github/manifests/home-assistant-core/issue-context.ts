@@ -1,7 +1,9 @@
 /**
  * Per-label reporting guidance shown on the issue dashboard, ported from the
- * legacy bot's `data/github/issue_context.yaml`. The generic duplicate-check
- * message lives in the dashboard's issue intro, not here.
+ * legacy bot's `data/github/issue_context.yaml`. An integration's
+ * `issue_context.md` in core takes precedence over its entry here. The
+ * generic duplicate-check message lives in the dashboard's issue intro, not
+ * here.
  */
 export const coreIssueContext: Record<string, string> = {
   "custom integration":

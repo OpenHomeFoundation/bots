@@ -16,3 +16,8 @@ export function codeSpan(text: string): string {
 export function neutraliseMentions(text: string): string {
   return text.replace(/@(?=\w)/g, "@\u200B");
 }
+
+/** `text` with HTML comment openers defused, so it cannot hide or forge the bot's markers. */
+export function defuseHtmlComments(text: string): string {
+  return text.replaceAll("<!--", "&lt;!--");
+}
