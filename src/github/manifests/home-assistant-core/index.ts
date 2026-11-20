@@ -36,6 +36,7 @@ import { issueLinks } from "./rules/issue-links.js";
 import { newIntegrationValidation } from "./rules/new-integration-validation.js";
 import { platinumApproval } from "./rules/platinum-approval.js";
 import { qualityScale } from "./rules/quality-scale.js";
+import { singleNewIntegration } from "./rules/single-new-integration.js";
 import { singleNewPlatform } from "./rules/single-new-platform.js";
 
 const componentCodeowners = (domain: string) => `homeassistant/components/${domain}/*`;
@@ -62,6 +63,7 @@ export const homeAssistantCore: RepoManifest = {
     qualityScale({ domains }),
     newIntegrationValidation,
     singleNewPlatform,
+    singleNewIntegration,
     forbiddenFiles({ base: "dev", files: coreForbiddenFiles }),
     integrationTransport,
     mentionCodeOwners({ pathPattern: componentCodeowners, domains }),
