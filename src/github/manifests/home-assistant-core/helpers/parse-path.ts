@@ -36,6 +36,13 @@ export type FileType = (typeof FILE_TYPES)[number] | null;
 
 const FILE_TYPE_SET: Set<string> = new Set(FILE_TYPES);
 
+/**
+ * Folders under `tests/` that test the repo's own tooling (the pylint and mypy
+ * plugins). They have no file type of their own, but they're expected, so
+ * they don't warrant the unrecognized-subfolder warning.
+ */
+const TOOLING_TEST_FOLDERS: Set<string> = new Set(["pylint", "mypy_plugins"]);
+
 function asFileType(value: string): FileType {
   return FILE_TYPE_SET.has(value) ? (value as FileType) : null;
 }
@@ -79,7 +86,10 @@ export class ParsedPath {
         this.type = asFileType(subfolder) ?? "test";
       } else {
         const validated = asFileType(subfolder);
-        if (validated === null) {
+        if (
+          validated === null &&
+          !(rootFolder === "tests" && TOOLING_TEST_FOLDERS.has(subfolder))
+        ) {
           log.warn("parse-path: unrecognized top-level subfolder; FileType set to null", {
             subfolder,
             file: file.filename,
