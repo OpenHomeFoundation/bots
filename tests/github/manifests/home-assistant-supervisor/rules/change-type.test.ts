@@ -55,6 +55,10 @@ describe("supervisor change-type", () => {
     expect(result?.removeLabels).toEqual(["new-feature"]);
   });
 
+  it("is excluded from bot senders by the dispatcher", () => {
+    expect(changeType.allowBots).toBe(false);
+  });
+
   it("skips label events for labels that don't feed the check", async () => {
     const result = await runRule(
       changeType,
