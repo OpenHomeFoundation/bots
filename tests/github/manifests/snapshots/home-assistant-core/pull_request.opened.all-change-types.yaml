@@ -15,6 +15,10 @@ statuses:
     title: Documentation
     status: fail
     message: Missing documentation PR
+  - id: belongs-together
+    title: Belongs together
+    status: skip
+    message: No pull requests listed.
   - id: merge-conflict
     title: Merge conflicts
     status: pass
@@ -26,11 +30,11 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: skip
-    message: Not a platinum integration — no code-owner approval required.
+    message: Touches no platinum integration — no code-owner approval required.
   - id: type-of-change
     title: Type of change
     status: pass
-    message: "Type of change: `bugfix`, `dependency`, `new-integration`, `new-feature`, `deprecation`, `breaking-change`, `code-quality`"
+    message: "Type of change: `bugfix`, `dependency`, `new-integration`, `new-feature`, `deprecation`, `breaking-change`, `code-quality`, `developer-tooling`"
 effects:
   - type: addLabels
     labels:
@@ -47,6 +51,7 @@ effects:
       - deprecation
       - breaking-change
       - code-quality
+      - developer-tooling
   - type: addLabels
     labels:
       - has-tests

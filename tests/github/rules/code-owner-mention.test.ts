@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../src/github/engine/types.js";
-import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { MENTION_MARKER, mentionCodeOwners } from "../../../src/github/rules/code-owner-mention.js";
 import { setIntegration } from "../../../src/github/rules/set-integration.js";
 import {
@@ -14,6 +15,8 @@ import {
   type RuleSummary,
   runRule,
 } from "../helpers/mock-context.js";
+
+const domains = integrationDomains(domainsFromFiles);
 
 /** The `code-owners` block args a rule run emitted, if any. */
 function codeOwnersBlock(result: RuleSummary | undefined) {
@@ -36,9 +39,22 @@ const IO_REPOSITORY = {
 };
 
 const rule = mentionCodeOwners({
-  domains: itemIntegrationDomains,
+  domains,
   pathPattern: (name) => `homeassistant/components/${name}/*`,
 });
+
+// PR-derived domains are checked against dev; every directory here is an integration.
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      const domain = String(input).match(/components\/([^/]+)\/manifest\.json/)?.[1] ?? "";
+      return { ok: true, status: 200, json: async () => ({ domain, name: domain }) } as Response;
+    }),
+  );
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("mention-code-owners", () => {
   it("returns undefined for non-integration labels", async () => {
@@ -549,7 +565,7 @@ describe("mention-code-owners", () => {
       const config: RegistryConfig = {
         repositories: {
           "home-assistant/core": {
-            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            rules: [setIntegration({ domains }), rule],
             commands: [],
             dashboard: true,
           },
@@ -590,6 +606,39 @@ describe("mention-code-owners", () => {
       expect(created.some((b) => b.includes("@balloob"))).toBe(false);
     });
 
+    it("mentions but does not assign owners when PR assignment is off", async () => {
+      const github = createFakeGitHub();
+      const codeowners = `homeassistant/components/hue/* @balloob @frenck`;
+      github.repos.getContent.mockResolvedValue({ data: { content: btoa(codeowners) } });
+      github.issues.listComments.mockResolvedValue({ data: [] });
+      github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+
+      const context = createMockContext({
+        eventType: EventType.PULL_REQUEST_OPENED,
+        github,
+        payload: {
+          pull_request: {
+            user: { login: "contributor" },
+            assignees: [],
+            body: "",
+            labels: [{ name: "integration: hue" }],
+          },
+        },
+      });
+      mockPRFiles(context, [
+        { filename: "homeassistant/components/hue/light.py", status: "modified" },
+      ]);
+
+      const noAssign = mentionCodeOwners({
+        domains,
+        pathPattern: (name) => `homeassistant/components/${name}/*`,
+        assignPullRequests: false,
+      });
+      const result = await runRule(noAssign, context);
+      expect(result?.assignees).toBeUndefined();
+      expect(result?.comment).toContain("@balloob, @frenck");
+    });
+
     it("does nothing on opened when the PR touches no integration files", async () => {
       const github = createFakeGitHub();
       github.repos.getContent.mockResolvedValue({ data: { content: btoa("") } });
@@ -597,7 +646,7 @@ describe("mention-code-owners", () => {
       const config: RegistryConfig = {
         repositories: {
           "home-assistant/core": {
-            rules: [setIntegration({ domains: itemIntegrationDomains }), rule],
+            rules: [setIntegration({ domains }), rule],
             commands: [],
             dashboard: true,
           },
@@ -637,11 +686,11 @@ describe("mention-code-owners", () => {
     });
   });
 
-  it("uses custom itemLabel in the mention", async () => {
+  it("uses custom issueLabel in the mention", async () => {
     const docsRule = mentionCodeOwners({
-      domains: itemIntegrationDomains,
+      domains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
-      itemLabel: "feedback",
+      issueLabel: "feedback",
     });
 
     const github = createFakeGitHub();
@@ -718,9 +767,9 @@ describe("mention-code-owners", () => {
 
   describe("separate comment instead of the dashboard block", () => {
     const docsRule = mentionCodeOwners({
-      domains: itemIntegrationDomains,
+      domains,
       pathPattern: (name) => `source/_integrations/${name}.markdown`,
-      itemLabel: "feedback",
+      issueLabel: "feedback",
       commentOn: ["issue"],
     });
 
@@ -788,7 +837,7 @@ describe("mention-code-owners", () => {
 
       const result = await runRule(
         mentionCodeOwners({
-          domains: itemIntegrationDomains,
+          domains,
           pathPattern: (name) => `source/_integrations/${name}.markdown`,
         }),
         context,

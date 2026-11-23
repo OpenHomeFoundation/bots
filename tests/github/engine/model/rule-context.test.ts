@@ -68,7 +68,6 @@ describe("contextFromWebhook", () => {
     expect(await pr.headSha()).toBe("abc123");
     expect(await pr.baseRef()).toBe("dev");
     expect(await pr.merged()).toBe(false);
-    expect(await pr.authorAssociation()).toBe("CONTRIBUTOR");
     expect(github.pulls.get).not.toHaveBeenCalled();
   });
 

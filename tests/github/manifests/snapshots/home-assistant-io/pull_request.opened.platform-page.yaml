@@ -1,0 +1,20 @@
+statuses:
+  - id: merge-target
+    title: Merge target
+    status: pass
+    message: This PR targets `current`.
+  - id: belongs-together
+    title: Belongs together
+    status: skip
+    message: No pull requests listed.
+effects:
+  - type: addLabels
+    labels:
+      - "integration: hue"
+  - type: addLabels
+    labels:
+      - current
+  - type: removeLabels
+    labels:
+      - rc
+      - next

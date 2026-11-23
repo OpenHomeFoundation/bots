@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 import { EventType } from "../../../src/github/engine/event.js";
-import { issuePayload, runScenario, type Scenario } from "./harness.js";
+import { issuePayload, prPayload, runScenario, type Scenario } from "./harness.js";
 
 /**
  * Full-pipeline snapshots for the home-assistant/home-assistant.io manifest,
@@ -36,7 +36,80 @@ const HUE_STATE = {
   remote: { "components/hue/manifest.json": HUE_MANIFEST },
 };
 
+/** A docs PR editing the hue page, opened against `current` by `author`. */
+function hueDocsPr(author: string): Record<string, unknown> {
+  return prPayload(
+    "opened",
+    {
+      title: "Explain bridge pairing on the Hue page",
+      base: { ref: "current" },
+      body: "## Proposed change\n\nThe bridge pairing steps are outdated.\n",
+      user: { login: author },
+    },
+    { repository: REPOSITORY, sender: { login: author, type: "User" } },
+  );
+}
+
+const HUE_PAGE_STATE = {
+  ...HUE_STATE,
+  files: [{ filename: "source/_integrations/hue.markdown" }],
+};
+
 const scenarios: Record<string, Scenario> = {
+  "pull_request.opened.integration-page": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("contributor"),
+    state: HUE_PAGE_STATE,
+  },
+
+  "pull_request.opened.integration-page-by-code-owner": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("balloob"),
+    state: HUE_PAGE_STATE,
+  },
+
+  // `sensor.mqtt`-style platform pages belong to the integration they name second.
+  "pull_request.opened.platform-page": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("contributor"),
+    state: { ...HUE_STATE, files: [{ filename: "source/_integrations/light.hue.markdown" }] },
+  },
+
+  // Internal integrations need less documentation.
+  "pull_request.opened.internal-page": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("contributor"),
+    state: {
+      codeowners: "# Pages\n",
+      files: [{ filename: "source/_integrations/sensor.markdown" }],
+      remote: {
+        "components/sensor/manifest.json": {
+          domain: "sensor",
+          name: "Sensor",
+          integration_type: "entity",
+          quality_scale: "internal",
+        },
+      },
+    },
+  },
+
+  // Virtual integrations need less documentation.
+  "pull_request.opened.virtual-page": {
+    eventType: EventType.PULL_REQUEST_OPENED,
+    payload: hueDocsPr("contributor"),
+    state: {
+      codeowners: "# Pages\n",
+      files: [{ filename: "source/_integrations/quadrafire.markdown" }],
+      remote: {
+        "components/quadrafire/manifest.json": {
+          domain: "quadrafire",
+          name: "Quadra-Fire",
+          integration_type: "virtual",
+        },
+      },
+    },
+  },
+
   "issues.opened.integration-feedback": {
     eventType: EventType.ISSUES_OPENED,
     payload: issuePayload("opened", HUE_FEEDBACK, { repository: REPOSITORY }),

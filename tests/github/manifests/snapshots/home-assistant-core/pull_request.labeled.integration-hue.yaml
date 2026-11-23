@@ -1,8 +1,4 @@
-statuses:
-  - id: code-owner-approval
-    title: Code owner approval
-    status: pending
-    message: Platinum integration — needs approval from a code owner before merging.
+statuses: []
 effects:
   - type: addLabels
     labels:

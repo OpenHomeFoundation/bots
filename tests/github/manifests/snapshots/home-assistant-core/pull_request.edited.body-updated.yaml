@@ -15,10 +15,18 @@ statuses:
     title: Documentation
     status: skip
     message: Not a new integration or platform — no documentation PR required.
+  - id: belongs-together
+    title: Belongs together
+    status: skip
+    message: No pull requests listed.
   - id: merge-target
     title: Merge target
     status: pass
     message: This PR targets `dev`.
+  - id: code-owner-approval
+    title: Code owner approval
+    status: pending
+    message: Waiting for Philips Hue code owner approval.
   - id: type-of-change
     title: Type of change
     status: pass

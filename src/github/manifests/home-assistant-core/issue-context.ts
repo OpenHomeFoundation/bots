@@ -27,6 +27,13 @@ export const coreIssueContext: Record<string, string> = {
     "Please enable [Shelly debug logging](https://www.home-assistant.io/docs/configuration/troubleshooting/#enabling-debug-logging), let it run for 10-15 minutes, and make sure to capture whatever problem you're having in the debug log.\n" +
     "Note: it is better to drag the log file into the comment (which will add it as an attachment) and not copy paste as it is hard to read logs in GitHub.\n\n" +
     "Finally, be sure to include [diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) for the Shelly device you're having problems with.",
+  "integration: tuya":
+    "If you haven't already, please include the [diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) for the affected device. They list the data points Tuya reports for your device (under `function`, `status_range` and `status`), which shows where the fix belongs:\n\n" +
+    "- **The data point is missing from the diagnostics, or has the wrong type, unit, scale or ENUM values:** this can't be fixed in Home Assistant Core, only with a quirk. Please report it in the [Tuya quirks library](https://github.com/home-assistant-libs/tuya-device-handlers/issues).\n" +
+    "- **The data point is in the diagnostics, but no entity is created for it:** it hasn't been mapped in Home Assistant yet, so this is a new feature rather than a bug. Please open a [feature request](https://github.com/orgs/home-assistant/discussions), or a pull request against Home Assistant Core if you'd like to add it yourself ([this recipe](https://github.com/home-assistant-libs/tuya-device-handlers/blob/main/docs/unsupported-category-or-dpcode.md) explains how).\n\n" +
+    "These recipes can help you find or fix the problem yourself:\n\n" +
+    "- [Add missing ENUM values](https://github.com/home-assistant-libs/tuya-device-handlers/blob/main/docs/adding-missing-enum-values.md)\n" +
+    "- [Fix inverted covers](https://github.com/home-assistant-libs/tuya-device-handlers/blob/main/docs/inverted-covers.md)",
   "integration: unifi_access":
     "To help us troubleshoot, please include the following information in your report:\n\n" +
     "1. UniFi OS version\n" +

@@ -1,5 +1,8 @@
-import { addLogContext } from "../../correlation.js";
+import { addLogContext, logContext, withCorrelationId } from "../../correlation.js";
 import { log } from "../../log.js";
+import { type ItemRef, slugOf } from "../../util/item-ref.js";
+import { withItemLock } from "../item-lock.js";
+import { evaluatePR } from "./evaluate.js";
 import { EventType } from "./event.js";
 import type { CommandContext } from "./model/command-context.js";
 import { type RuleContext, ruleContextFromPullRequest } from "./model/rule-context.js";
@@ -101,6 +104,7 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
   const assignees = new Set<string>();
   const removeAssignees = new Set<string>();
   const comments = new Set<string>();
+  const pokes = new Map<string, ItemRef>();
   // Thunks, not started promises: awaits happen between collection and the
   // allSettled below, and a rejection during that window would be an
   // unhandled rejection (which kills the process) instead of a logged failure.
@@ -120,30 +124,6 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
         break;
       case "comment":
         comments.add(effect.body);
-        break;
-      case "addLabelsCrossRepo":
-        ops.push({
-          op: effect.type,
-          run: () =>
-            context.github.issues.addLabels({
-              owner: effect.owner,
-              repo: effect.repo,
-              issue_number: effect.issue_number,
-              labels: effect.labels,
-            }),
-        });
-        break;
-      case "updatePullRequest":
-        ops.push({
-          op: effect.type,
-          run: () =>
-            context.github.pulls.update({
-              owner: effect.owner,
-              repo: effect.repo,
-              pull_number: effect.pull_number,
-              state: effect.state,
-            }),
-        });
         break;
       case "requestReviewers":
         ops.push({
@@ -199,7 +179,14 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       case "commitStatus":
         ops.push({ op: effect.type, run: () => writeRuleCommitStatus(context, effect) });
         break;
+      case "evaluate":
+        pokes.set(`${slugOf(effect.target)}#${effect.target.number}`, effect.target);
+        break;
     }
+  }
+
+  if (context.eventType !== EventType.ON_DEMAND) {
+    for (const [key, target] of pokes) poke(context, key, target);
   }
 
   // Collapse label effects to the net diff against the item's current labels,
@@ -224,7 +211,12 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       if (!current.has(label)) continue;
       ops.push({
         op: `removeLabel:${label}`,
-        run: () => context.github.issues.removeLabel(context.issueParams({ name: label })),
+        run: () =>
+          context.github.issues.removeLabel(context.issueParams({ name: label })).catch((err) => {
+            // The payload's labels can predate a removal made while this
+            // dispatch waited for the item lock; the label is already gone.
+            if ((err as { status?: number }).status !== 404) throw err;
+          }),
       });
     }
   }
@@ -239,8 +231,7 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
   if (assignees.size > 0) {
     ops.push({
       op: "addAssignees",
-      run: () =>
-        context.github.issues.addAssignees(context.issueParams({ assignees: [...assignees] })),
+      run: () => addAssignable(context, [...assignees]),
     });
   }
 
@@ -263,6 +254,49 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
       });
     }
   });
+}
+
+/**
+ * Evaluate another PR without waiting for it: a dispatch that waits on a
+ * second item's lock while holding its own deadlocks once that item pokes
+ * back. A log context of its own keeps the target's identity off this
+ * dispatch's remaining log lines.
+ */
+function poke(context: RuleContext, key: string, target: ItemRef): void {
+  const correlationId = String(logContext()?.correlationId ?? "evaluate");
+  withCorrelationId(correlationId, () =>
+    withItemLock(key, () => evaluatePR(context.env, context.registry, context.github, target)),
+  ).catch((err) => log.exception(err, { op: "evaluate", target: key }));
+}
+
+/** GitHub's per-item assignee cap. */
+const MAX_ASSIGNEES = 10;
+
+/**
+ * GitHub rejects the whole call if any login can't be assigned (outside
+ * contributors, vendor accounts, teams) or the item would pass its cap, so
+ * only the assignable ones go out.
+ */
+async function addAssignable(context: RuleContext, logins: string[]): Promise<void> {
+  const current = new Set((await context.target.assigneeLogins()).map((a) => a.toLowerCase()));
+  const candidates = logins.filter((login) => !current.has(login.toLowerCase()));
+  const assignable = await Promise.all(
+    candidates.map((assignee) =>
+      context.github.issues.checkUserCanBeAssignedToIssue(context.issueParams({ assignee })).then(
+        () => true,
+        (err) => {
+          if ((err as { status?: number }).status === 404) return false;
+          throw err;
+        },
+      ),
+    ),
+  );
+  const toAdd = candidates
+    .filter((_, i) => assignable[i])
+    .slice(0, Math.max(0, MAX_ASSIGNEES - current.size));
+  if (toAdd.length > 0) {
+    await context.github.issues.addAssignees(context.issueParams({ assignees: toAdd }));
+  }
 }
 
 /** Post the marker-tagged comment unless the thread already carries one. */
@@ -346,6 +380,13 @@ export async function dispatch(context: RuleContext): Promise<DispatchResult> {
   // Redundant on the webhook path (webhook.service stamps it), but callers
   // like the CLA re-evaluation reach dispatch without going through there.
   addLogContext(context.logContext);
+  // GitHub rejects the bot's comments on a locked conversation, and without
+  // its dashboard there is no merge gate to keep either. An open PR is
+  // re-evaluated once unlocked (see webhook.service.ts).
+  if (await context.target.locked()) {
+    log.info("dispatch: skipped, item is locked");
+    return { statuses: [], effects: [] };
+  }
   const knownSectionIds = collectKnownStatusSectionIds(context);
   const dashboardEnabled = context.repoConfig.dashboard ?? false;
   const greeting = dashboardEnabled && context.eventType === EventType.PULL_REQUEST_OPENED;

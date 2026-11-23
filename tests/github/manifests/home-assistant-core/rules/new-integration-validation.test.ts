@@ -79,25 +79,22 @@ describe("new-integration-validation", () => {
 
     const result = await runRule(newIntegrationValidation, context);
     expect(result?.section?.status).toBe("fail");
-    expect(result?.section?.message).toContain("single platform");
+    expect(result?.section?.message).toMatch(
+      /^A new integration starts with a single platform, but this PR adds `light` and `sensor`\./,
+    );
   });
 
-  it("fails when brand folder is included", async () => {
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      payload: {
-        label: { name: "new-integration" },
-        pull_request: { head: { sha: "abc123" }, labels: [{ name: "new-integration" }] },
-      },
-    });
+  it("ignores platforms and diagnostics of existing integrations the PR touches", async () => {
+    const context = newIntegrationContext();
     mockPRFiles(context, [
-      makeFile("homeassistant/components/mydevice/__init__.py"),
-      makeFile("homeassistant/components/mydevice/brand/icon.png"),
+      makeFile("homeassistant/components/device_type/__init__.py"),
+      makeFile("homeassistant/components/kitchen_sink/sensor.py", "modified"),
+      makeFile("homeassistant/components/kitchen_sink/switch.py", "modified"),
+      makeFile("homeassistant/components/kitchen_sink/diagnostics.py", "modified"),
     ]);
 
     const result = await runRule(newIntegrationValidation, context);
-    expect(result?.section?.status).toBe("fail");
-    expect(result?.section?.message).toContain("brand");
+    expect(result?.section).toMatchObject({ id: "new-integration-validation", status: "pass" });
   });
 
   it("fails when diagnostics are included", async () => {
@@ -226,7 +223,7 @@ describe("new-integration-validation", () => {
     expect(result?.section?.message).not.toContain("async_migrate_entry");
   });
 
-  it("reports both issues when multiple platforms AND brand folder", async () => {
+  it("reports both issues when multiple platforms AND diagnostics", async () => {
     const context = createMockContext({
       eventType: EventType.ON_DEMAND,
       payload: {
@@ -238,13 +235,13 @@ describe("new-integration-validation", () => {
       makeFile("homeassistant/components/mydevice/__init__.py"),
       makeFile("homeassistant/components/mydevice/sensor.py"),
       makeFile("homeassistant/components/mydevice/light.py"),
-      makeFile("homeassistant/components/mydevice/brand/icon.png"),
+      makeFile("homeassistant/components/mydevice/diagnostics.py"),
     ]);
 
     const result = await runRule(newIntegrationValidation, context);
     expect(result?.section?.status).toBe("fail");
     expect(result?.section?.message).toContain("single platform");
-    expect(result?.section?.message).toContain("brand");
+    expect(result?.section?.message).toContain("diagnostics.py");
   });
 
   it("skips release PRs", async () => {

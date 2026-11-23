@@ -36,14 +36,20 @@ The following users are code owners of the integrations in this {{itemLabel}}:
 {{#hasChecks}}
 ## Checks
 
+{{^hasVisibleRows}}
+{{^hasWaitingRows}}
+**✨ Everything's in order!**
+
+{{/hasWaitingRows}}
+{{/hasVisibleRows}}
+{{#hasVisibleRows}}
 {{#hasFailures}}
 Things to address:
 {{/hasFailures}}
 {{^hasFailures}}
-**✨ Everything's in order!**
+Things to look out for:
 {{/hasFailures}}
 
-{{#hasVisibleRows}}
 | Status | Check | Details |
 |--------|-------|---------|
 {{#visibleRows}}
@@ -51,6 +57,16 @@ Things to address:
 {{/visibleRows}}
 
 {{/hasVisibleRows}}
+{{#hasWaitingRows}}
+👀 Waiting on others before this PR can be merged:
+
+| Status | Check | Details |
+|--------|-------|---------|
+{{#waitingRows}}
+| {{icon}} | {{title}} | {{message}} |
+{{/waitingRows}}
+
+{{/hasWaitingRows}}
 {{#hasCollapsedRows}}
 <details>
 <summary>{{collapsedSummary}}</summary>

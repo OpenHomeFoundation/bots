@@ -11,13 +11,19 @@ import { log } from "../../src/log.js";
 // vi.mock is hoisted above the imports and scoped to this file, so the mocked
 // dispatch only exists here — helpers/e2e.ts and engine/dispatch.test.ts keep
 // the real module.
-const { dispatch } = vi.hoisted(() => ({
+const { dispatch, evaluatePR } = vi.hoisted(() => ({
   dispatch: vi.fn(async () => undefined),
+  evaluatePR: vi.fn(async () => undefined),
 }));
 
 vi.mock("../../src/github/engine/dispatch.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/github/engine/dispatch.js")>()),
   dispatch,
+}));
+
+vi.mock("../../src/github/engine/evaluate.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/github/engine/evaluate.js")>()),
+  evaluatePR,
 }));
 
 // Routing tests never reach the API; an inert Octokit suffices.
@@ -134,6 +140,29 @@ describe("webhook handler", () => {
     expect(dispatch).not.toHaveBeenCalled();
   });
 
+  it.each(["closed", "reopened"])(
+    "dispatches the bot's own %s, which linked PRs follow",
+    async (action) => {
+      dispatch.mockClear();
+
+      const payload = {
+        action,
+        repository: {
+          full_name: "home-assistant/core",
+          name: "core",
+          owner: { login: "home-assistant" },
+        },
+        sender: { login: "ha-bot[bot]", type: "Bot" },
+        pull_request: { number: 1, head: { sha: "abc" }, merged: false },
+      };
+
+      const result = await service.handle(JSON.stringify(payload), "pull_request");
+
+      expect(result).toBe("OK");
+      expect(dispatch).toHaveBeenCalled();
+    },
+  );
+
   it("matches self-webhook login case-insensitively", async () => {
     dispatch.mockClear();
 
@@ -223,6 +252,42 @@ describe("webhook handler", () => {
     await service.handle(JSON.stringify(payload), "pull_request");
 
     expect(dispatch).toHaveBeenCalled();
+  });
+
+  describe("pull_request.unlocked", () => {
+    const unlocked = (state: string) =>
+      JSON.stringify({
+        action: "unlocked",
+        repository: {
+          full_name: "home-assistant/core",
+          name: "core",
+          owner: { login: "home-assistant" },
+        },
+        sender: { login: "maintainer", type: "User" },
+        pull_request: { number: 7, state, locked: false },
+      });
+
+    it("re-evaluates an open PR in full", async () => {
+      dispatch.mockClear();
+      evaluatePR.mockClear();
+
+      await service.handle(unlocked("open"), "pull_request");
+
+      expect(evaluatePR).toHaveBeenCalledWith(env, expect.anything(), octokit, {
+        owner: "home-assistant",
+        repo: "core",
+        number: 7,
+      });
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it("leaves a closed PR alone", async () => {
+      evaluatePR.mockClear();
+
+      await service.handle(unlocked("closed"), "pull_request");
+
+      expect(evaluatePR).not.toHaveBeenCalled();
+    });
   });
 
   // A burst of `labeled` webhooks for one issue: each dispatch must see the

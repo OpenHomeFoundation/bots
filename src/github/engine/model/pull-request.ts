@@ -21,15 +21,14 @@ export interface PullRequestSeed {
   labels?: string[];
   body?: string | null;
   authorLogin?: string;
-  authorAssociation?: string;
   assigneeLogins?: string[];
   draft?: boolean;
   headSha?: string;
   baseRef?: string;
   merged?: boolean;
-  mergedAt?: string | null;
   state?: "open" | "closed";
   nodeId?: string;
+  locked?: boolean;
 }
 
 /**
@@ -53,6 +52,7 @@ export class PullRequest {
     core?: Promise<GetPullRequestResponse>;
     files?: Promise<ListPullRequestFiles>;
     reviews?: Promise<PullRequestReviews>;
+    reviewDecision?: Promise<string | null>;
     commits?: Promise<PullRequestCommits>;
     issueComments?: Promise<IssueComments>;
   } = {};
@@ -101,19 +101,6 @@ export class PullRequest {
     return this.coreField(this.seed.authorLogin, (pr) => pr.user?.login ?? "");
   }
 
-  authorAssociation(): Promise<string> {
-    return this.coreField(this.seed.authorAssociation, (pr) => pr.author_association);
-  }
-
-  /**
-   * Whether the author is affiliated with the repo (owner, org member, or
-   * collaborator). `author_association` is computed server-side.
-   */
-  async authorIsMember(): Promise<boolean> {
-    const assoc = await this.authorAssociation();
-    return assoc === "OWNER" || assoc === "MEMBER" || assoc === "COLLABORATOR";
-  }
-
   assigneeLogins(): Promise<string[]> {
     return this.coreField(this.seed.assigneeLogins, (pr) =>
       (pr.assignees ?? []).flatMap((a) => (a?.login ? [a.login] : [])),
@@ -136,8 +123,10 @@ export class PullRequest {
     return this.coreField(this.seed.merged, (pr) => pr.merged);
   }
 
-  mergedAt(): Promise<string | null> {
-    return this.coreField(this.seed.mergedAt, (pr) => pr.merged_at);
+  /** Owner and name as GitHub spells them, whichever spelling found the PR. */
+  async baseRepo(): Promise<{ owner: string; repo: string }> {
+    const { repo } = (await this.hydrate()).base;
+    return { owner: repo.owner.login, repo: repo.name };
   }
 
   state(): Promise<"open" | "closed"> {
@@ -146,6 +135,10 @@ export class PullRequest {
 
   nodeId(): Promise<string> {
     return this.coreField(this.seed.nodeId, (pr) => pr.node_id);
+  }
+
+  locked(): Promise<boolean> {
+    return this.coreField(this.seed.locked, (pr) => pr.locked);
   }
 
   /**
@@ -169,6 +162,26 @@ export class PullRequest {
       this.caches.files = inflight;
     }
     return this.caches.files;
+  }
+
+  /**
+   * GitHub's verdict under the repo's branch protection (`APPROVED` once the
+   * required reviews are in); null where the repo requires none.
+   */
+  reviewDecision(): Promise<string | null> {
+    if (!this.caches.reviewDecision) {
+      const inflight = this.github
+        .graphql<{ repository: { pullRequest: { reviewDecision: string | null } | null } }>(
+          "query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewDecision } } }",
+          { owner: this.owner, repo: this.repo, number: this.number },
+        )
+        .then((data) => data.repository.pullRequest?.reviewDecision ?? null);
+      inflight.catch(() => {
+        if (this.caches.reviewDecision === inflight) this.caches.reviewDecision = undefined;
+      });
+      this.caches.reviewDecision = inflight;
+    }
+    return this.caches.reviewDecision;
   }
 
   reviews(): Promise<PullRequestReviews> {

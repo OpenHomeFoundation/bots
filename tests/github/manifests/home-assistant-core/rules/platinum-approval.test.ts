@@ -2,24 +2,56 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../../../src/github/engine/event.js";
 import type { RegistryConfig } from "../../../../../src/github/engine/types.js";
-import { itemIntegrationDomains } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { platinumApproval } from "../../../../../src/github/manifests/home-assistant-core/rules/platinum-approval.js";
 import { qualityScale } from "../../../../../src/github/manifests/home-assistant-core/rules/quality-scale.js";
 import { setIntegration } from "../../../../../src/github/rules/set-integration.js";
 import {
   createFakeGitHub,
   createMockContext,
+  type FakeGitHub,
   mockPRFiles,
   runRule,
 } from "../../../helpers/mock-context.js";
+
+const domains = integrationDomains(domainsFromFiles);
+
+/** Manifests served from dev: hue, zha, knx and shelly are platinum, mqtt is gold. */
+const MANIFESTS: Record<string, Record<string, unknown>> = {
+  hue: { domain: "hue", name: "Hue", codeowners: ["@balloob"], quality_scale: "platinum" },
+  zha: { domain: "zha", name: "ZHA", codeowners: ["@zhaowner"], quality_scale: "platinum" },
+  knx: { domain: "knx", name: "KNX", codeowners: ["@knxowner"], quality_scale: "platinum" },
+  shelly: {
+    domain: "shelly",
+    name: "Shelly",
+    codeowners: ["@shellyowner"],
+    quality_scale: "platinum",
+  },
+  mqtt: { domain: "mqtt", name: "MQTT", codeowners: ["@mqttowner"], quality_scale: "gold" },
+};
+
+function touching(...domains: string[]) {
+  return domains.map((d) => ({ filename: `homeassistant/components/${d}/light.py` }));
+}
+
+const CODE_QUALITY =
+  "- [x] Code quality improvements to existing code or addition of tests (refactoring, typing, performance, etc.)";
+
+function review(login: string, state: string) {
+  return { state, user: { login, type: "User" } };
+}
 
 describe("platinum-approval", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
-    // Default: manifest not on dev (a clean miss); tests override per case.
-    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+    fetchMock.mockImplementation(async (input: string | URL | Request) => {
+      const domain = String(input).match(/components\/([^/]+)\/manifest\.json/)?.[1] ?? "";
+      const manifest = MANIFESTS[domain];
+      return manifest ? { ok: true, json: async () => manifest } : { ok: false, status: 404 };
+    });
   });
 
   afterEach(() => {
@@ -27,233 +59,176 @@ describe("platinum-approval", () => {
     fetchMock.mockReset();
   });
 
-  it("skips when PR has no platinum label", async () => {
+  function setup(opts: {
+    files: Record<string, unknown>[];
+    reviews?: Record<string, unknown>[];
+    author?: string;
+    association?: string;
+    labels?: string[];
+    eventType?: EventType;
+    member?: boolean;
+    body?: string;
+  }) {
+    const github: FakeGitHub = createFakeGitHub();
+    if (opts.member) github.orgs.checkMembershipForUser.mockResolvedValue({ status: 204 });
+    github.pulls.listReviews.mockResolvedValue({ data: opts.reviews ?? [] });
+    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
     const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
+      eventType: opts.eventType ?? EventType.ON_DEMAND,
+      github,
       payload: {
         pull_request: {
-          labels: [{ name: "integration: hue" }, { name: "Quality Scale: gold" }],
+          labels: (opts.labels ?? []).map((name) => ({ name })),
+          body: opts.body ?? "",
+          user: { login: opts.author ?? "contributor" },
+          author_association: opts.association ?? "NONE",
           head: { sha: "abc123" },
         },
       },
     });
+    mockPRFiles(context, opts.files);
+    return runRule(platinumApproval, context);
+  }
 
-    const result = await runRule(platinumApproval, context);
+  it("skips when no touched integration is platinum", async () => {
+    const result = await setup({ files: touching("mqtt") });
     expect(result?.section?.status).toBe("skip");
   });
 
-  it("is pending when platinum integration has no code owner approval", async () => {
-    const github = createFakeGitHub();
-    github.pulls.listReviews.mockResolvedValue({ data: [] });
-
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        domain: "hue",
-        name: "Hue",
-        codeowners: ["@balloob"],
-        quality_scale: "platinum",
-        config_flow: true,
-        dependencies: [],
-        documentation: "",
-        requirements: [],
-        iot_class: "local_polling",
-      }),
-    });
-
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      github,
-      payload: {
-        pull_request: {
-          labels: [{ name: "integration: hue" }, { name: "Quality Scale: platinum" }],
-          head: { sha: "abc123" },
-        },
-      },
-    });
-
-    const result = await runRule(platinumApproval, context);
+  it("is pending when a platinum integration has no code owner approval", async () => {
+    const result = await setup({ files: touching("hue") });
     expect(result?.section?.status).toBe("pending");
-    expect(result?.section?.message).toContain("needs approval from a code owner");
+    expect(result?.section?.message).toBe("Waiting for Hue code owner approval.");
   });
 
-  it("succeeds when code owner has approved", async () => {
-    const github = createFakeGitHub();
-    github.pulls.listReviews.mockResolvedValue({
-      data: [{ state: "APPROVED", user: { login: "balloob", type: "User" } }],
-    });
-    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
+  it("is pending for a PR by an org member too", async () => {
+    const result = await setup({ files: touching("hue"), association: "MEMBER" });
+    expect(result?.section?.status).toBe("pending");
+  });
 
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        domain: "hue",
-        name: "Hue",
-        codeowners: ["@balloob"],
-        quality_scale: "platinum",
-        config_flow: true,
-        dependencies: [],
-        documentation: "",
-        requirements: [],
-        iot_class: "local_polling",
-      }),
+  it("succeeds when a code owner has approved", async () => {
+    const result = await setup({
+      files: touching("hue"),
+      reviews: [review("balloob", "APPROVED")],
     });
-
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      github,
-      payload: {
-        pull_request: {
-          labels: [{ name: "integration: hue" }, { name: "Quality Scale: platinum" }],
-          head: { sha: "abc123" },
-        },
-      },
-    });
-
-    const result = await runRule(platinumApproval, context);
     expect(result?.section?.status).toBe("pass");
     expect(result?.labels).toContain("code-owner-approved");
   });
 
   it("removes the approval label when the owner approval was dismissed", async () => {
-    const github = createFakeGitHub();
-    github.pulls.listReviews.mockResolvedValue({
-      data: [{ state: "DISMISSED", user: { login: "balloob", type: "User" } }],
-    });
-    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
-
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        domain: "hue",
-        name: "Hue",
-        codeowners: ["@balloob"],
-        quality_scale: "platinum",
-        config_flow: true,
-        dependencies: [],
-        documentation: "",
-        requirements: [],
-        iot_class: "local_polling",
-      }),
-    });
-
-    const context = createMockContext({
+    const result = await setup({
       eventType: EventType.PULL_REQUEST_REVIEW_DISMISSED,
-      github,
-      payload: {
-        pull_request: {
-          labels: [
-            { name: "integration: hue" },
-            { name: "Quality Scale: platinum" },
-            { name: "code-owner-approved" },
-          ],
-          head: { sha: "abc123" },
-        },
-      },
+      files: touching("hue"),
+      reviews: [review("balloob", "APPROVED"), review("balloob", "DISMISSED")],
+      labels: ["code-owner-approved"],
     });
-
-    const result = await runRule(platinumApproval, context);
     expect(result?.section?.status).toBe("pending");
     expect(result?.removeLabels).toContain("code-owner-approved");
   });
 
   it("succeeds when the author is a code owner", async () => {
-    const github = createFakeGitHub();
-    github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
-
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        domain: "hue",
-        name: "Hue",
-        codeowners: ["@testuser"],
-        quality_scale: "platinum",
-        config_flow: true,
-        dependencies: [],
-        documentation: "",
-        requirements: [],
-        iot_class: "local_polling",
-      }),
-    });
-
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      github,
-      payload: {
-        pull_request: {
-          labels: [{ name: "integration: hue" }],
-          user: { login: "testuser" },
-          head: { sha: "abc123" },
-        },
-      },
-    });
-
-    const result = await runRule(platinumApproval, context);
+    const result = await setup({ files: touching("hue"), author: "balloob" });
     expect(result?.section?.status).toBe("pass");
     expect(result?.section?.message).toContain("Authored by a code owner");
   });
 
-  it("skips when multiple integration labels (not single integration)", async () => {
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      payload: {
-        pull_request: {
-          labels: [
-            { name: "integration: hue" },
-            { name: "integration: zwave" },
-            { name: "Quality Scale: platinum" },
-          ],
-          head: { sha: "abc123" },
-        },
-      },
-    });
-
-    const result = await runRule(platinumApproval, context);
-    expect(result?.section?.status).toBe("skip");
+  it("still requires approval when a second integration is touched", async () => {
+    const result = await setup({ files: touching("hue", "mqtt") });
+    expect(result?.section?.status).toBe("pending");
+    expect(result?.section?.message).toBe("Waiting for Hue code owner approval.");
   });
 
-  it("skips when manifest has no codeowners", async () => {
-    const github = createFakeGitHub();
-    github.pulls.listReviews.mockResolvedValue({ data: [] });
-
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        domain: "hue",
-        name: "Hue",
-        codeowners: [],
-        quality_scale: "platinum",
-        config_flow: true,
-        dependencies: [],
-        documentation: "",
-        requirements: [],
-        iot_class: "local_polling",
-      }),
+  it("requires an approval for every platinum integration touched", async () => {
+    const result = await setup({
+      files: touching("hue", "zha"),
+      reviews: [review("balloob", "APPROVED")],
     });
-
-    const context = createMockContext({
-      eventType: EventType.ON_DEMAND,
-      github,
-      payload: {
-        pull_request: {
-          labels: [{ name: "integration: hue" }, { name: "Quality Scale: platinum" }],
-          head: { sha: "abc123" },
-        },
-      },
-    });
-
-    const result = await runRule(platinumApproval, context);
-    expect(result?.section?.status).toBe("skip");
+    expect(result?.section?.status).toBe("pending");
+    expect(result?.section?.message).toBe("Waiting for ZHA code owner approval.");
   });
 
-  it("listens to PR state, label, and review events plus on_demand", () => {
+  it("names every platinum integration still waiting for approval", async () => {
+    const result = await setup({ files: touching("hue", "zha") });
+    expect(result?.section?.message).toBe("Waiting for Hue and ZHA code owner approvals.");
+  });
+
+  it("caps the named integrations at three", async () => {
+    const result = await setup({ files: touching("hue", "zha", "knx", "shelly") });
+    expect(result?.section?.message).toBe(
+      "Waiting for Hue, ZHA, KNX, and 1 more code owner approvals.",
+    );
+  });
+
+  it("passes once each platinum integration is covered by authorship or approval", async () => {
+    const result = await setup({
+      files: touching("hue", "zha"),
+      author: "balloob",
+      reviews: [review("zhaowner", "APPROVED")],
+    });
+    expect(result?.section?.status).toBe("pass");
+  });
+
+  it("enforces on a non-member's code-quality change", async () => {
+    const result = await setup({ files: touching("hue"), body: CODE_QUALITY });
+    expect(result?.section?.status).toBe("pending");
+  });
+
+  it("only warns on a member's code-quality change", async () => {
+    const result = await setup({
+      files: touching("hue"),
+      member: true,
+      body: CODE_QUALITY,
+      labels: ["code-owner-approved"],
+    });
+    expect(result?.section?.status).toBe("warn");
+    expect(result?.section?.message).toBe(
+      "Code owner approval not required for Hue: member's code-quality change.",
+    );
+    expect(result?.removeLabels).toContain("code-owner-approved");
+  });
+
+  it("only warns on a member's change ticked with the old code-quality text", async () => {
+    const result = await setup({
+      files: touching("hue"),
+      member: true,
+      body: "- [x] Code quality improvements to existing code or addition of tests",
+    });
+    expect(result?.section?.status).toBe("warn");
+  });
+
+  it.each([
+    "- [x] New feature (which adds functionality to an existing integration)",
+    "- [x] Developer tooling (CI, GitHub workflows, linters and checkers, scripts, AI instructions, code owners)",
+  ])("enforces on a member's change marked %s", async (body) => {
+    const result = await setup({ files: touching("hue"), member: true, body });
+    expect(result?.section?.status).toBe("pending");
+  });
+
+  it("ignores integration labels the diff no longer backs", async () => {
+    const result = await setup({
+      files: touching("hue"),
+      labels: ["integration: hue", "integration: mqtt", "integration: zwave_js"],
+    });
+    expect(result?.section?.status).toBe("pending");
+  });
+
+  it("skips a platinum integration without code owners", async () => {
+    MANIFESTS.nobody = { domain: "nobody", name: "Nobody", quality_scale: "platinum" };
+    try {
+      const result = await setup({ files: touching("nobody") });
+      expect(result?.section?.status).toBe("skip");
+    } finally {
+      delete MANIFESTS.nobody;
+    }
+  });
+
+  it("listens to PR state, edit and review events plus on_demand", () => {
     expect(Object.keys(platinumApproval.events).sort()).toEqual(
       [
         EventType.PULL_REQUEST_OPENED,
         EventType.PULL_REQUEST_REOPENED,
+        EventType.PULL_REQUEST_EDITED,
         EventType.PULL_REQUEST_SYNCHRONIZE,
-        EventType.PULL_REQUEST_LABELED,
-        EventType.PULL_REQUEST_UNLABELED,
         EventType.PULL_REQUEST_REVIEW_SUBMITTED,
         EventType.PULL_REQUEST_REVIEW_DISMISSED,
         EventType.ON_DEMAND,
@@ -266,31 +241,12 @@ describe("platinum-approval", () => {
     github.pulls.listReviews.mockResolvedValue({ data: [] });
     github.teams.listMembersInOrg.mockResolvedValue({ data: [] });
 
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        domain: "hue",
-        name: "Hue",
-        codeowners: ["@balloob"],
-        quality_scale: "platinum",
-        config_flow: true,
-        dependencies: [],
-        documentation: "",
-        requirements: [],
-        iot_class: "local_polling",
-      }),
-    });
-
     // No platinum-relevant labels on the payload — the rule derives the
     // domain from the changed files and the scale from the manifest itself.
     const config: RegistryConfig = {
       repositories: {
         "home-assistant/core": {
-          rules: [
-            setIntegration({ domains: itemIntegrationDomains }),
-            qualityScale,
-            platinumApproval,
-          ],
+          rules: [setIntegration({ domains }), qualityScale({ domains }), platinumApproval],
           commands: [],
           dashboard: true,
         },
@@ -300,7 +256,7 @@ describe("platinum-approval", () => {
       registry: config,
       eventType: EventType.PULL_REQUEST_OPENED,
       github,
-      payload: { pull_request: { labels: [] } },
+      payload: { pull_request: { labels: [], author_association: "NONE" } },
     });
     mockPRFiles(context, [
       { filename: "homeassistant/components/hue/light.py", status: "modified" },

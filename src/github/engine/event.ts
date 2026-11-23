@@ -43,7 +43,11 @@ export interface RuleEventMap {
   [EventType.ISSUES_LABELED]: { type: EventType.ISSUES_LABELED; label: string };
   [EventType.ISSUES_OPENED]: { type: EventType.ISSUES_OPENED };
   [EventType.PULL_REQUEST_CLOSED]: { type: EventType.PULL_REQUEST_CLOSED; merged: boolean };
-  [EventType.PULL_REQUEST_EDITED]: { type: EventType.PULL_REQUEST_EDITED };
+  [EventType.PULL_REQUEST_EDITED]: {
+    type: EventType.PULL_REQUEST_EDITED;
+    /** The description before this edit; absent when the edit left it alone. */
+    previousBody?: string;
+  };
   [EventType.PULL_REQUEST_LABELED]: { type: EventType.PULL_REQUEST_LABELED; label: string };
   [EventType.PULL_REQUEST_OPENED]: { type: EventType.PULL_REQUEST_OPENED };
   [EventType.PULL_REQUEST_REOPENED]: { type: EventType.PULL_REQUEST_REOPENED };

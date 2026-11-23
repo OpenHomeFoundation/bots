@@ -15,6 +15,10 @@ statuses:
     title: Documentation
     status: skip
     message: Not a new integration or platform — no documentation PR required.
+  - id: belongs-together
+    title: Belongs together
+    status: skip
+    message: No pull requests listed.
   - id: merge-conflict
     title: Merge conflicts
     status: pass
@@ -22,7 +26,7 @@ statuses:
   - id: code-owner-approval
     title: Code owner approval
     status: pending
-    message: Platinum integration — needs approval from a code owner before merging.
+    message: Waiting for Philips Hue code owner approval.
 effects:
   - type: addLabels
     labels:

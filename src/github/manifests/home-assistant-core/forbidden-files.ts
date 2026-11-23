@@ -9,6 +9,13 @@ export const coreForbiddenFiles: ForbiddenFile[] = [
       "edit `strings.json` instead.",
   },
   {
+    pattern: /^homeassistant\/components\/[^/]+\/brand\//,
+    reason:
+      "brand images go to the [brands repository](https://github.com/home-assistant/brands), " +
+      "not core. See the " +
+      "[brand images docs](https://developers.home-assistant.io/docs/core/integration/brand_images).",
+  },
+  {
     pattern: /^homeassistant\/components\/[^/]+\/device_(action|condition|trigger)\.py$/,
     statuses: ["added"],
     reason:

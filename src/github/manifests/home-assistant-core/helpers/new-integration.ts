@@ -1,7 +1,7 @@
 import type { EventType } from "../../../engine/event.js";
 import type { RuleContext } from "../../../engine/model/rule-context.js";
-import { NEW_INTEGRATION_LABEL, pickedTypeLabels } from "../rules/change-type.js";
 import { addsNewIntegration } from "../rules/file-shape.js";
+import { NEW_INTEGRATION_LABEL, pickedTypeLabels } from "./change-type.js";
 import type { ParsedPath } from "./parse-path.js";
 
 /** Whether a PR is adding a new integration */

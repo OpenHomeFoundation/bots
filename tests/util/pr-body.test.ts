@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractAllLinks, extractTasks } from "../../src/util/pr-body.js";
+import { extractAllLinks, extractListedLinks, extractTasks } from "../../src/util/pr-body.js";
 import { lastSegment } from "../github/helpers/mock-context.js";
 
 describe("extractAllLinks", () => {
@@ -47,6 +47,89 @@ describe("extractAllLinks", () => {
 
   it("returns empty when no references found", () => {
     expect(extractAllLinks("just some text")).toEqual([]);
+  });
+});
+
+describe("extractListedLinks", () => {
+  const LABELS = ["This PR belongs together with", "Link to documentation pull request"];
+  const repo = { owner: "home-assistant", repo: "core" };
+  const ref = (r: string, number: number) => ({ owner: "home-assistant", repo: r, number });
+
+  it("reads refs and URLs on a labelled line", () => {
+    const body =
+      "- This PR belongs together with: home-assistant/frontend#5, https://github.com/home-assistant/home-assistant.io/pull/6";
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([
+      ref("frontend", 5),
+      ref("home-assistant.io", 6),
+    ]);
+  });
+
+  it("reads bullets indented under the line, up to the next item", () => {
+    const body = [
+      "- This PR belongs together with:",
+      "  - home-assistant/frontend#5",
+      "  * home-assistant/home-assistant.io#6",
+      "- Link to frontend pull request: home-assistant/frontend#7",
+    ].join("\r\n");
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([
+      ref("frontend", 5),
+      ref("home-assistant.io", 6),
+    ]);
+  });
+
+  it("matches a label by its visible text", () => {
+    const body =
+      "- Link to [documentation][docs-repository] pull request: home-assistant/home-assistant.io#6";
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([ref("home-assistant.io", 6)]);
+  });
+
+  it("resolves a bare #number to the given repo", () => {
+    expect(extractListedLinks("- This PR belongs together with: #12", LABELS, repo)).toEqual([
+      ref("core", 12),
+    ]);
+  });
+
+  it("counts a markdown link by where it points, not by its text", () => {
+    const body = [
+      "- This PR belongs together with: [#5](https://github.com/home-assistant/frontend/pull/5), [docs][d]",
+      "",
+      "[d]: https://github.com/home-assistant/home-assistant.io/pull/6",
+    ].join("\n");
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([
+      ref("frontend", 5),
+      ref("home-assistant.io", 6),
+    ]);
+  });
+
+  it("lowercases refs and skips HTML entities", () => {
+    const body = "- This PR belongs together with: Home-Assistant/Frontend#5, it&#39;s";
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([ref("frontend", 5)]);
+  });
+
+  it("reads only the start of a very long line", () => {
+    const body = `- This PR belongs together with: ${"x".repeat(1_000)} home-assistant/frontend#5`;
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([]);
+  });
+
+  it("parses a crafted 64 KiB body quickly", () => {
+    const crafted = [
+      `- ${"[".repeat(65_536)}: x`,
+      `- This PR belongs together with: ${"a".repeat(65_536)}`,
+      ...Array.from({ length: 64 }, () => `  - ${"a".repeat(1_000)}`),
+    ].join("\n");
+    const started = performance.now();
+    extractListedLinks(crafted, LABELS, repo);
+    extractAllLinks("a".repeat(65_536));
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it("ignores refs anywhere else in the body", () => {
+    const body = [
+      "Builds on home-assistant/core#3 and #4.",
+      "- This PR is related to issue: home-assistant/core#8",
+      "- This PR belongs together with: ",
+    ].join("\n");
+    expect(extractListedLinks(body, LABELS, repo)).toEqual([]);
   });
 });
 

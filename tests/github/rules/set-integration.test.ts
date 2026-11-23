@@ -1,11 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "../../../src/github/engine/event.js";
-import { itemIntegrationDomains } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
+import { integrationDomains } from "../../../src/github/helpers/integration-domains.js";
+import { domainsFromFiles } from "../../../src/github/manifests/home-assistant-core/helpers/integration-domains.js";
 import { setIntegration } from "../../../src/github/rules/set-integration.js";
 import { createMockContext, mockPRFiles, runRule } from "../helpers/mock-context.js";
 
-const rule = setIntegration({ domains: itemIntegrationDomains });
+const domains = integrationDomains(domainsFromFiles);
+
+const rule = setIntegration({ domains });
 const BOT = { login: "renovate[bot]", type: "Bot" };
+
+// Integrations with a manifest on dev; every other domain 404s.
+const ON_DEV = ["hue", "zha"];
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      const domain = String(input).match(/components\/([^/]+)\/manifest\.json/)?.[1];
+      return domain && ON_DEV.includes(domain)
+        ? ({ ok: true, status: 200, json: async () => ({ domain, name: domain }) } as Response)
+        : ({ ok: false, status: 404, json: async () => ({}) } as Response);
+    }),
+  );
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 function makeFile(filename: string, overrides: { status?: string; additions?: number } = {}) {
   return {
@@ -28,6 +48,27 @@ describe("set-integration", () => {
 
     const result = await runRule(rule, context);
     expect(result?.labels).toContain("integration: hue");
+  });
+
+  it("skips directories that are not integrations", async () => {
+    const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/hue/__init__.py"),
+      makeFile("homeassistant/components/not_an_integration/README.md"),
+    ]);
+
+    const result = await runRule(rule, context);
+    expect(result?.labels).toEqual(["integration: hue"]);
+  });
+
+  it("does not label a new integration, even with its manifest", async () => {
+    const context = createMockContext({ eventType: EventType.PULL_REQUEST_OPENED });
+    mockPRFiles(context, [
+      makeFile("homeassistant/components/newdevice/__init__.py", { status: "added" }),
+      makeFile("homeassistant/components/newdevice/manifest.json", { status: "added" }),
+    ]);
+
+    expect(await runRule(rule, context)).toBeUndefined();
   });
 
   it("caps integration labels at 5", async () => {

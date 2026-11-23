@@ -8,18 +8,22 @@ import { reopen } from "../../commands/reopen.js";
 import { unassign } from "../../commands/unassign.js";
 import { update } from "../../commands/update.js";
 import { updateBranch } from "../../commands/update-branch.js";
+import { integrationDomains } from "../../helpers/integration-domains.js";
 import { blockingLabels } from "../../rules/blocking-labels.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
-import { docsParenting } from "../../rules/docs-parenting.js";
 import { forbiddenFiles } from "../../rules/forbidden-files.js";
 import { mergeConflict } from "../../rules/merge-conflict.js";
 import { mergeTarget } from "../../rules/merge-target.js";
 import { setIntegration } from "../../rules/set-integration.js";
-import { HomeAssistantRepository, homeAssistantOrgRules } from "../home-assistant-org.js";
+import {
+  HomeAssistantRepository,
+  homeAssistantLinkRules,
+  homeAssistantOrgRules,
+} from "../home-assistant-org.js";
 import type { RepoManifest } from "../types.js";
 import { coreForbiddenFiles } from "./forbidden-files.js";
-import { itemIntegrationDomains } from "./helpers/integration-domains.js";
+import { domainsFromFiles } from "./helpers/integration-domains.js";
 import { coreIssueContext } from "./issue-context.js";
 import { changeType } from "./rules/change-type.js";
 import { dependencyBump } from "./rules/dependency-bump.js";
@@ -35,6 +39,7 @@ import { qualityScale } from "./rules/quality-scale.js";
 import { singleNewPlatform } from "./rules/single-new-platform.js";
 
 const componentCodeowners = (domain: string) => `homeassistant/components/${domain}/*`;
+const domains = integrationDomains(domainsFromFiles);
 
 const MANAGEABLE_LABELS = [
   "needs-more-information",
@@ -52,23 +57,23 @@ export const homeAssistantCore: RepoManifest = {
   integrationPath: componentCodeowners,
   rules: [
     // Integrations
-    setIntegration({ domains: itemIntegrationDomains }),
+    setIntegration({ domains }),
     integrationTopRank,
-    qualityScale,
+    qualityScale({ domains }),
     newIntegrationValidation,
     singleNewPlatform,
     forbiddenFiles({ base: "dev", files: coreForbiddenFiles }),
     integrationTransport,
-    mentionCodeOwners({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
-    byCodeOwner({ pathPattern: componentCodeowners, domains: itemIntegrationDomains }),
+    mentionCodeOwners({ pathPattern: componentCodeowners, domains }),
+    byCodeOwner({ pathPattern: componentCodeowners, domains }),
 
     // Issues
-    issueLinks,
-    issueContext(coreIssueContext),
+    issueLinks({ domains }),
+    issueContext({ labels: coreIssueContext, domains }),
 
     // Docs
     docsPrPresent,
-    docsParenting,
+    ...homeAssistantLinkRules,
 
     // Mergeability
     mergeConflict,

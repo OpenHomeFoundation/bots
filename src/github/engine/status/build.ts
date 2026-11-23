@@ -143,7 +143,7 @@ function aggregateStatus(sections: StatusSection[]): StatusAggregate {
   if (pending > 0) {
     return {
       state: "failure",
-      description: `${pending} check${pending === 1 ? "" : "s"} pending`,
+      description: `${pending} check${pending === 1 ? "" : "s"} waiting`,
     };
   }
   const extras = [

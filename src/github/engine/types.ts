@@ -1,3 +1,4 @@
+import type { ItemRef } from "../../util/item-ref.js";
 import type { CommandHelpEntry } from "./command-render.js";
 import type { EventType } from "./event.js";
 import type { CommandContext } from "./model/command-context.js";
@@ -15,24 +16,10 @@ export type { CommandHelpEntry, CommandPermission } from "./command-render.js";
  */
 export type Effect =
   | { type: "addLabels"; labels: string[] }
-  | {
-      type: "addLabelsCrossRepo";
-      owner: string;
-      repo: string;
-      issue_number: number;
-      labels: string[];
-    }
   | { type: "removeLabels"; labels: string[] }
   | { type: "addAssignees"; assignees: string[] }
   | { type: "comment"; body: string }
   | { type: "updateComment"; commentId: number; body: string }
-  | {
-      type: "updatePullRequest";
-      owner: string;
-      repo: string;
-      pull_number: number;
-      state: "open" | "closed";
-    }
   | {
       type: "requestReviewers";
       reviewers: string[];
@@ -45,6 +32,13 @@ export type Effect =
   // the PR to draft when its checks fail
   | { type: "convertToDraft" }
   | { type: "updateBranch" }
+  /**
+   * Run another pull request's own rules (as ON_DEMAND), so a change here
+   * reaches the repo that PR lives in: a rule never mutates another item.
+   * Dropped from ON_DEMAND dispatches, so two PRs poking each other stop
+   * after one round.
+   */
+  | { type: "evaluate"; target: ItemRef }
   /**
    * Post `body` unless a comment carrying `marker` already exists on the
    * thread. The marker (an HTML comment) is prepended to the body, so the
