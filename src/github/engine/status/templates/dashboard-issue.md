@@ -8,6 +8,7 @@ Before we dive in, please make sure this isn't a duplicate by searching through 
 **Reporting guidance**
 {{#paragraphs}}
 {{.}}
+
 {{/paragraphs}}
 
 {{/blocks.reporting-guidance}}
