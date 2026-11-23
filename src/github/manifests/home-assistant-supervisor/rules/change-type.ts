@@ -97,6 +97,8 @@ export const changeType = check({
   description:
     "Labels PRs with the change type(s) checked in the PR description and requires at " +
     "least one change-type label.",
+  // Bot PRs (Renovate) don't check a box, so syncing would strip their `dependencies` label.
+  allowBots: false,
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_EDITED,
