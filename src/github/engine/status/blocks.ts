@@ -18,6 +18,13 @@ export interface BlockArgsMap {
   "reporting-guidance": {
     paragraphs: string[];
   };
+  /** Code-owner mention, one line per labeled integration (see code-owner-mention). */
+  "code-owners": {
+    itemLabel: string;
+    /** Comma-joined integrations the mention covers (see code-owner-mention). */
+    covered: string;
+    integrations: { mentions: string; integration: string; codeownersLine: string }[];
+  };
 }
 
 export type BlockId = keyof BlockArgsMap;
@@ -33,4 +40,8 @@ export type BlockStates = Partial<BlockArgsMap>;
  */
 export type BlockUpdates = ReadonlyMap<BlockId, BlockArgsMap[BlockId] | null>;
 
-export const BLOCK_IDS: readonly BlockId[] = ["integration-links", "reporting-guidance"];
+export const BLOCK_IDS: readonly BlockId[] = [
+  "integration-links",
+  "reporting-guidance",
+  "code-owners",
+];

@@ -42,6 +42,8 @@ export const homeAssistantIo: RepoManifest = {
       domains,
       issueLabel: "feedback",
       assignPullRequests: false,
+      // Issues have no dashboard content of their own; keep the code-owner mention a comment.
+      commentOn: ["issue"],
     }),
     byCodeOwner({ pathPattern: integrationDocPath, domains }),
     qualityScale({ domains }),
