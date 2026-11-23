@@ -456,7 +456,7 @@ async function assertLabelIndependence(
       synthetic.eventType,
     );
 
-    for (const rule of matchRules(context)) {
+    for (const rule of await matchRules(context)) {
       const handler = rule.events[context.eventType];
       if (!handler) continue;
       // The dispatcher tolerates handler errors (allSettled + log); an error

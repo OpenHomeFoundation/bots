@@ -130,6 +130,11 @@ export interface StatusSectionClaim {
 export interface Rule {
   name: string;
   description: string;
+  /**
+   * `false` skips items opened by automation (Renovate, Dependabot, …, see
+   * `BOT_AUTHORS`): it fills in no template and sets its own labels. Who sent
+   * the event doesn't matter.
+   */
   allowBots?: boolean;
   /**
    * Status sections this rule may emit. The dispatcher takes the union
