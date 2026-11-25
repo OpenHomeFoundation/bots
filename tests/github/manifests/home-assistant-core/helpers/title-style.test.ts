@@ -9,6 +9,7 @@ describe("styleProblems", () => {
     "Handle the Z-Wave: Long Range case",
     "Wait for the first update...",
     "Use the new API in Hue - part 2",
+    "A".repeat(72),
   ])("accepts %s", (title) => {
     expect(styleProblems(title)).toEqual([]);
   });
@@ -24,6 +25,7 @@ describe("styleProblems", () => {
     ["add a light to Hue", "capital"],
     ["Add a light to Hue.", "dot"],
     ["Use send_command method from coordinator for switch commands in Elect…", "cut off"],
+    ["A".repeat(73), "it has 73"],
     ["Fix Hue lights #1234", "number"],
   ])("rejects %s", (title, problem) => {
     expect(styleProblems(title)).toEqual([expect.stringContaining(problem)]);
