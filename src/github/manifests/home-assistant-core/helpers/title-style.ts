@@ -1,5 +1,5 @@
-/** `domain:`, `fix(scope):`, `[domain]`, `Brand Name - `. "WTH:" marks a What-the-heck fix. */
-const PREFIX = /^(?!WTH:)(?:\[[^\]]+\]|[\w./-]+(?:\([^)]*\))?!?:(?=\s)|(?:\S+ ){1,2}[-–—] )/;
+/** `domain:`, `fix(scope):`, `[domain]`, `Brand Name - `. */
+const PREFIX = /^(?:\[[^\]]+\]|[\w./-]+(?:\([^)]*\))?!?:(?=\s)|(?:\S+ ){1,2}[-–—] )/;
 
 /** What is wrong with a title's form, whatever the PR does. */
 export function styleProblems(title: string): string[] {

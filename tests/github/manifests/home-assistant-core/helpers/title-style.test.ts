@@ -4,7 +4,6 @@ import { styleProblems } from "../../../../../src/github/manifests/home-assistan
 describe("styleProblems", () => {
   it.each([
     "Add diagnostics to Schlage",
-    "WTH: Show the unit in the more info dialog",
     "Replace `foo` with `bar`",
     "Bump aioshelly to 14.5.0",
     "Handle the Z-Wave: Long Range case",
@@ -21,6 +20,7 @@ describe("styleProblems", () => {
     ["feat!: drop YAML", "prefix"],
     ["[hue] Add a light", "prefix"],
     ["DAIKIN AC - Add a sensor", "prefix"],
+    ["WTH: Show the unit", "prefix"],
     ["add a light to Hue", "capital"],
     ["Add a light to Hue.", "dot"],
     ["Fix Hue lights #1234", "number"],
