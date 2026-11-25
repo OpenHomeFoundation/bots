@@ -1343,3 +1343,12 @@ developer:
     For support and questions about contributing to Home Assistant development, join channel <#554842238073700352> or create a thread in <#1257019582112334014>. 
 
     If you do not have access to these channels, you will need to give yourself the Developer role. Do this by selecting `Channels & Roles` in the sidebar, and selecting "I want to contribute dev skills to Home Assistant" to be granted access.
+
+ux-discussion:
+  description: "Start a UX discussion"
+  content: >-
+    **PRs stuck on UX? Or an idea that touches the UI?**
+
+    Start a [UX discussion](https://github.com/OpenHomeFoundation/ux-design/discussions).
+    More people chime in, it's faster than pinging Marcin or me, and the
+    decision doesn't get lost in Discord.
