@@ -35,7 +35,7 @@ export const title = check({
   id: "title",
   title: "PR title",
   description:
-    "Fails titles with a prefix, a lowercase first letter, a trailing dot or an issue number.",
+    "Fails cut off titles and titles with a prefix, a lowercase first letter, a trailing dot or an issue number.",
   events: [
     EventType.PULL_REQUEST_OPENED,
     EventType.PULL_REQUEST_REOPENED,

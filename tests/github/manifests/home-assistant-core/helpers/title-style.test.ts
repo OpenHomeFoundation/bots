@@ -23,6 +23,7 @@ describe("styleProblems", () => {
     ["WTH: Show the unit", "prefix"],
     ["add a light to Hue", "capital"],
     ["Add a light to Hue.", "dot"],
+    ["Use send_command method from coordinator for switch commands in Elect…", "cut off"],
     ["Fix Hue lights #1234", "number"],
   ])("rejects %s", (title, problem) => {
     expect(styleProblems(title)).toEqual([expect.stringContaining(problem)]);

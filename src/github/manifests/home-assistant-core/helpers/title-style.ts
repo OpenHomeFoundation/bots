@@ -11,6 +11,12 @@ export function styleProblems(title: string): string[] {
     problems.push("Start the title with a capital letter.");
   }
   if (/[^.]\.$/.test(text)) problems.push("Remove the dot at the end of the title.");
+  // GitHub cuts a long commit subject off with `…` and moves the rest to the description.
+  if (text.endsWith("…")) {
+    problems.push(
+      "Complete or shorten the title: it was cut off and continues in the description.",
+    );
+  }
   if (/#\d+/.test(text)) {
     problems.push("Move the issue or pull request number from the title to the description.");
   }
