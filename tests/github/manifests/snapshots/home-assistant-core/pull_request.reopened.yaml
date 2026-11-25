@@ -27,6 +27,10 @@ statuses:
     title: Code owner approval
     status: pending
     message: Waiting for Philips Hue code owner approval.
+  - id: title
+    title: PR title
+    status: pass
+    message: The title is clear.
 effects:
   - type: addLabels
     labels:

@@ -35,6 +35,10 @@ statuses:
     title: Type of change
     status: skip
     message: Not checked on release PRs.
+  - id: title
+    title: PR title
+    status: skip
+    message: Not checked on release PRs.
 effects:
   - type: addLabels
     labels:
