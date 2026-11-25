@@ -8,25 +8,26 @@ const rule = pokeLinked(testLinks);
 const BACK = `${LINE} home-assistant/core#1`;
 const poke = (repo: string, number: number) => ({ type: "evaluate", target: ref(repo, number) });
 
-// The PR is home-assistant/core#1.
+// The PR is home-assistant/core#1; frontend PRs are its siblings, io PRs follow it.
 describe("poke-linked", () => {
   it("pokes the PRs that list this one back, not the others", async () => {
     const { context } = linkedContext(
       `${LINE} home-assistant/frontend#5 home-assistant/home-assistant.io#9`,
-      {
-        "frontend#5": { body: BACK },
-        "home-assistant.io#9": { body: "" },
-      },
+      { "frontend#5": { body: BACK }, "home-assistant.io#9": { body: "" } },
+      { type: EventType.PULL_REQUEST_OPENED },
     );
 
     expect((await runRule(rule, context))?.effects).toEqual([poke("frontend", 5)]);
   });
 
-  it("pokes when this PR closes", async () => {
+  it.each([
+    ["closes", EventType.PULL_REQUEST_CLOSED, "closed" as const],
+    ["reopens", EventType.PULL_REQUEST_REOPENED, "open" as const],
+  ])("pokes only the PRs that follow this one when it %s", async (_, type, state) => {
     const { context } = linkedContext(
-      `${LINE} home-assistant/home-assistant.io#9`,
-      { "home-assistant.io#9": { body: BACK } },
-      { type: EventType.PULL_REQUEST_CLOSED, state: "closed" },
+      `${LINE} home-assistant/frontend#5 home-assistant/home-assistant.io#9`,
+      { "frontend#5": { body: BACK }, "home-assistant.io#9": { body: BACK } },
+      { type, state },
     );
 
     expect((await runRule(rule, context))?.effects).toEqual([poke("home-assistant.io", 9)]);
@@ -48,17 +49,20 @@ describe("poke-linked", () => {
     ]);
   });
 
-  it("pokes only siblings on a review, since only they wait for it", async () => {
-    const { context } = linkedContext(
-      `${LINE} home-assistant/frontend#5 home-assistant/home-assistant.io#9`,
-      { "frontend#5": { body: BACK }, "home-assistant.io#9": { body: BACK } },
-      { type: EventType.PULL_REQUEST_REVIEW_SUBMITTED },
-    );
+  it("does nothing when an edit leaves the description alone", async () => {
+    const { github, context } = linkedContext(`${LINE} home-assistant/frontend#5`, {
+      "frontend#5": { body: BACK },
+    });
 
-    expect((await runRule(rule, context))?.effects).toEqual([poke("frontend", 5)]);
+    expect(await runRule(rule, context)).toBeUndefined();
+    expect(github.pulls.get).not.toHaveBeenCalled();
   });
 
-  it("doesn't run on demand, where pokes would be dropped", () => {
-    expect(rule.events[EventType.ON_DEMAND]).toBeUndefined();
+  it.each([
+    EventType.PULL_REQUEST_REVIEW_SUBMITTED,
+    EventType.PULL_REQUEST_REVIEW_DISMISSED,
+    EventType.ON_DEMAND,
+  ])("doesn't run on %s", (type) => {
+    expect(rule.events[type]).toBeUndefined();
   });
 });

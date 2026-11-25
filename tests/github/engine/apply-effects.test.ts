@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { dispatch } from "../../../src/github/engine/dispatch.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dispatch, resetPokeLimit } from "../../../src/github/engine/dispatch.js";
 import { EventType } from "../../../src/github/engine/event.js";
 import { renderStatus } from "../../../src/github/engine/status/render.js";
 import type {
@@ -8,6 +8,7 @@ import type {
   RuleOutput,
   StatusSectionClaim,
 } from "../../../src/github/engine/types.js";
+import { resetItemLocks, withItemLock } from "../../../src/github/item-lock.js";
 import {
   BOT_LOGIN,
   createFakeGitHub,
@@ -522,6 +523,12 @@ describe("aggregate ha-bot status check from status sections", () => {
 
 describe("evaluate effect", () => {
   const target = { owner: "home-assistant", repo: "home-assistant.io", number: 9 };
+  const targetKey = "home-assistant/home-assistant.io#9";
+
+  beforeEach(() => {
+    resetPokeLimit();
+    resetItemLocks();
+  });
 
   function setup(eventType: EventType) {
     const github = createFakeGitHub();
@@ -562,6 +569,30 @@ describe("evaluate effect", () => {
     });
     const [ctx] = targetRule.mock.calls[0] as unknown as [{ repo: { fullName: string } }];
     expect(ctx.repo.fullName).toBe("home-assistant/home-assistant.io");
+  });
+
+  it("skips a poke while a run for the target is already waiting", async () => {
+    const { targetRule, run } = setup(EventType.PULL_REQUEST_EDITED);
+    let release = () => {};
+    const running = withItemLock(targetKey, () => new Promise<void>((r) => (release = r)));
+    const waiting = withItemLock(targetKey, async () => {});
+    await run();
+    release();
+    await Promise.all([running, waiting]);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(targetRule).not.toHaveBeenCalled();
+  });
+
+  it("caps the pokes one PR takes", async () => {
+    const { targetRule, run } = setup(EventType.PULL_REQUEST_EDITED);
+    for (let i = 0; i < 11; i++) {
+      await run();
+      await vi.waitFor(() => expect(targetRule).toHaveBeenCalledTimes(Math.min(i + 1, 10)));
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(targetRule).toHaveBeenCalledTimes(10);
   });
 
   it("is dropped from an on-demand dispatch", async () => {
