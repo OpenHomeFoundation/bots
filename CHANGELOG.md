@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/OpenHomeFoundation/bots/compare/v0.10.0...v0.10.1) (2026-11-25)
+
+
+### 🧰 Maintenance
+
+* **deps:** pin dependencies ([#176](https://github.com/OpenHomeFoundation/bots/issues/176)) ([67cfe2a](https://github.com/OpenHomeFoundation/bots/commit/67cfe2a1ded0a5c72583ca861385af6f4d8eba56))
+* **deps:** pin node.js to 6bd9ab4 ([#175](https://github.com/OpenHomeFoundation/bots/issues/175)) ([72b367b](https://github.com/OpenHomeFoundation/bots/commit/72b367b98e19f44f474a2d19c1b052dd2efb132e))
+
 ## [0.10.0](https://github.com/OpenHomeFoundation/bots/compare/v0.9.0...v0.10.0) (2026-11-19)
 
 
