@@ -35,6 +35,10 @@ statuses:
     title: Type of change
     status: pass
     message: "Type of change: `bugfix`, `dependency`, `new-integration`, `new-feature`, `deprecation`, `breaking-change`, `code-quality`, `developer-tooling`"
+  - id: title
+    title: PR title
+    status: pass
+    message: The title is clear.
 effects:
   - type: addLabels
     labels:
