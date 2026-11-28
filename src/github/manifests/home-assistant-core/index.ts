@@ -9,6 +9,7 @@ import { unassign } from "../../commands/unassign.js";
 import { update } from "../../commands/update.js";
 import { updateBranch } from "../../commands/update-branch.js";
 import { integrationDomains } from "../../helpers/integration-domains.js";
+import { betaMilestone } from "../../rules/beta-milestone.js";
 import { blockingLabels } from "../../rules/blocking-labels.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
@@ -70,6 +71,7 @@ export const homeAssistantCore: RepoManifest = {
     // Issues
     issueLinks({ domains }),
     issueContext({ labels: coreIssueContext, domains }),
+    betaMilestone(),
 
     // Docs
     docsPrPresent,

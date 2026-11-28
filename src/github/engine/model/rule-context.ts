@@ -20,6 +20,12 @@ import { type RegistryConfig, type RepoConfig, resolveRepo } from "../types.js";
 import { type CodeownersReads, createCodeownersReads, readCodeowners } from "./codeowners.js";
 import { type GetIssueResponse, Issue, type IssueSeed } from "./issue.js";
 import {
+  createMilestoneReads,
+  type MilestoneReads,
+  type OpenMilestone,
+  readOpenMilestones,
+} from "./milestones.js";
+import {
   createOrgReads,
   expandTeamRefs,
   isOrgMember,
@@ -38,6 +44,7 @@ interface ContextReads {
   codeowners: CodeownersReads;
   org: OrgReads;
   files: RepoFileReads;
+  milestones: MilestoneReads;
   /** Other pull requests, by `owner/repo#number`. */
   pullRequests: Map<string, PullRequest>;
 }
@@ -119,6 +126,7 @@ export class RuleContext<E extends EventType = EventType> {
       codeowners: createCodeownersReads(),
       org: createOrgReads(),
       files: createRepoFileReads(),
+      milestones: createMilestoneReads(),
       pullRequests: new Map(),
     };
   }
@@ -201,6 +209,11 @@ export class RuleContext<E extends EventType = EventType> {
   async repoFile(path: string, ref?: string): Promise<string | null> {
     const at = ref ?? (this.target.kind === "pull_request" ? await this.target.headSha() : "HEAD");
     return readRepoFile(this.github, this.repo, path, at, this.reads.files);
+  }
+
+  /** The repo's open milestones, fetched at most once per dispatch. */
+  openMilestones(): Promise<OpenMilestone[]> {
+    return readOpenMilestones(this.github, this.repo, this.reads.milestones);
   }
 
   /** Another pull request, fetched at most once per dispatch however many rules read it. */
@@ -301,6 +314,7 @@ interface IssueLike {
   assignees?: ({ login: string } | null)[] | null;
   state?: string;
   locked?: boolean;
+  milestone?: { number: number; title: string } | null;
 }
 
 function seedFromIssueLike(issue: IssueLike): IssueSeed {
@@ -321,6 +335,13 @@ function seedFromIssueLike(issue: IssueLike): IssueSeed {
       ? { state: issue.state as "open" | "closed" }
       : {}),
     ...(typeof issue.locked === "boolean" ? { locked: issue.locked } : {}),
+    ...(issue.milestone !== undefined
+      ? {
+          milestone: issue.milestone
+            ? { number: issue.milestone.number, title: issue.milestone.title }
+            : null,
+        }
+      : {}),
   };
 }
 

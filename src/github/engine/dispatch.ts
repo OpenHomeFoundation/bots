@@ -155,6 +155,13 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
           run: () => context.github.issues.update(context.issueParams({ state: effect.state })),
         });
         break;
+      case "setMilestone":
+        ops.push({
+          op: effect.type,
+          run: () =>
+            context.github.issues.update(context.issueParams({ milestone: effect.milestone })),
+        });
+        break;
       case "removeAssignees":
         for (const a of effect.assignees) removeAssignees.add(a);
         break;

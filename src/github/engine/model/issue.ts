@@ -12,6 +12,13 @@ export interface IssueSeed {
   assigneeLogins?: string[];
   state?: "open" | "closed";
   locked?: boolean;
+  /** `null` when the payload says the issue has no milestone. */
+  milestone?: IssueMilestone | null;
+}
+
+export interface IssueMilestone {
+  number: number;
+  title: string;
 }
 
 /**
@@ -86,6 +93,12 @@ export class Issue {
 
   locked(): Promise<boolean> {
     return this.coreField(this.seed.locked, (issue) => issue.locked);
+  }
+
+  milestone(): Promise<IssueMilestone | null> {
+    return this.coreField(this.seed.milestone, (issue) =>
+      issue.milestone ? { number: issue.milestone.number, title: issue.milestone.title } : null,
+    );
   }
 
   issueComments(): Promise<IssueComments> {
