@@ -5,10 +5,17 @@ import { createFakeGitHub, createMockContext, runRule } from "../helpers/mock-co
 
 const mergeTarget = mergeTargetFactory({ base: "dev" });
 
-function contextTargeting(baseRef: string, authorAssociation = "NONE", member = false) {
+type OpenPullRequest = { number: number; head: string; base: string };
+
+function contextTargeting(
+  baseRef: string,
+  authorAssociation = "NONE",
+  member = false,
+  openPullRequests: OpenPullRequest[] = [],
+) {
   return createMockContext({
     eventType: EventType.PULL_REQUEST_OPENED,
-    github: createFakeGitHub({ members: member ? ["contributor"] : [] }),
+    github: createFakeGitHub({ members: member ? ["contributor"] : [], openPullRequests }),
     payload: {
       pull_request: {
         body: "",
@@ -60,6 +67,58 @@ describe("merge-target", () => {
       contextTargeting("async_validate_actions_config", "CONTRIBUTOR", true),
     );
     expect(result?.section?.status).toBe("warn");
+  });
+
+  it("passes when a member's PR is stacked on an open PR into `dev`", async () => {
+    const result = await runRule(
+      mergeTarget,
+      contextTargeting("feature-a", "MEMBER", true, [
+        { number: 10, head: "feature-a", base: "dev" },
+      ]),
+    );
+    expect(result?.section?.status).toBe("pass");
+    expect(result?.section?.message).toBe("This PR is stacked on #10.");
+  });
+
+  it("passes further up a stack, naming the PR directly below", async () => {
+    const result = await runRule(
+      mergeTarget,
+      contextTargeting("feature-b", "MEMBER", true, [
+        { number: 10, head: "feature-a", base: "dev" },
+        { number: 11, head: "feature-b", base: "feature-a" },
+      ]),
+    );
+    expect(result?.section?.status).toBe("pass");
+    expect(result?.section?.message).toBe("This PR is stacked on #11.");
+  });
+
+  it("still warns for a backport onto a branch with an open release PR", async () => {
+    const result = await runRule(
+      mergeTarget,
+      contextTargeting("rc", "MEMBER", true, [{ number: 20, head: "rc", base: "master" }]),
+    );
+    expect(result?.section?.status).toBe("warn");
+  });
+
+  it("warns instead of looping when open PRs target each other", async () => {
+    const result = await runRule(
+      mergeTarget,
+      contextTargeting("feature-a", "MEMBER", true, [
+        { number: 10, head: "feature-a", base: "feature-b" },
+        { number: 11, head: "feature-b", base: "feature-a" },
+      ]),
+    );
+    expect(result?.section?.status).toBe("warn");
+  });
+
+  it("still fails a non-member targeting an open PR's branch", async () => {
+    const result = await runRule(
+      mergeTarget,
+      contextTargeting("feature-a", "NONE", false, [
+        { number: 10, head: "feature-a", base: "dev" },
+      ]),
+    );
+    expect(result?.section?.status).toBe("fail");
   });
 
   it("fails for an outside collaborator", async () => {

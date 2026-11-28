@@ -214,6 +214,17 @@ export class RuleContext<E extends EventType = EventType> {
     return pr;
   }
 
+  /**
+   * Open pull requests in this repo whose head is the given branch of this
+   * repo (not a fork's branch of the same name), with the branch each targets.
+   */
+  async openPullRequestsFrom(branch: string): Promise<{ number: number; baseRef: string }[]> {
+    const { data } = await this.github.pulls.list(
+      this.repoParams({ state: "open" as const, head: `${this.repo.owner}:${branch}` }),
+    );
+    return data.map((pr) => ({ number: pr.number, baseRef: pr.base.ref }));
+  }
+
   /** Whether the login is an organization member; false on any failure. */
   hasMember(login: string): Promise<boolean> {
     return isOrgMember(this.github, this.org.name, login, this.reads.org);
