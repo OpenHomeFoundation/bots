@@ -34,6 +34,8 @@ export interface FakeWorld {
   members?: string[];
   /** team slug → member logins. */
   teamMembers?: Record<string, string[]>;
+  /** Open pull requests (pulls.list), filtered by the request's `head`. */
+  openPullRequests?: { number: number; head: string; base: string }[];
   /** pulls.listReviews page. */
   reviews?: Record<string, unknown>[];
   /** issues.get response body. */
@@ -88,6 +90,7 @@ export interface FakeEndpoints {
     update: Endpoint;
   };
   pulls: {
+    list: Endpoint;
     get: Endpoint;
     listFiles: Endpoint;
     listReviews: Endpoint;
@@ -146,6 +149,12 @@ interface Route {
 
 const ROUTES: Route[] = [
   // --- Pull requests ---
+  {
+    method: "GET",
+    regex: /^\/repos\/([^/]+)\/([^/]+)\/pulls$/,
+    keys: ["owner", "repo"],
+    endpoint: (g) => g.pulls.list,
+  },
   {
     method: "GET",
     regex: /^\/repos\/([^/]+)\/([^/]+)\/pulls\/(\d+)$/,
@@ -359,6 +368,14 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
       update: endpointFn(async () => ({ data: {} })),
     },
     pulls: {
+      list: endpointFn(async (params) => {
+        const p = params as { owner: string; head?: string };
+        return {
+          data: (world.openPullRequests ?? [])
+            .filter((pr) => p.head === `${p.owner}:${pr.head}`)
+            .map((pr) => ({ number: pr.number, base: { ref: pr.base } })),
+        };
+      }),
       get: endpointFn(async (params) => {
         // GitHub always serves the number and base repo; ON_DEMAND contexts are built from them.
         const p = params as { owner: string; repo: string; pull_number: number };
