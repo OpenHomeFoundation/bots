@@ -189,6 +189,16 @@ describe("effect → GitHub API mapping", () => {
     });
   });
 
+  it("setMilestone → issues.update", async () => {
+    const github = await apply({ effects: [{ type: "setMilestone", milestone: 851 }] });
+
+    expect(github.issues.update).toHaveBeenCalledWith({
+      ...REPO,
+      issue_number: 1,
+      milestone: 851,
+    });
+  });
+
   it("requestReviewers → pulls.requestReviewers", async () => {
     const github = await apply({ effects: [{ type: "requestReviewers", reviewers: ["frenck"] }] });
 

@@ -27,6 +27,8 @@ export type Effect =
   | { type: "dismissReview"; reviewId: number; message: string }
   | { type: "setTitle"; title: string }
   | { type: "setState"; state: "open" | "closed" }
+  /** Set the item's milestone, by milestone number. */
+  | { type: "setMilestone"; milestone: number }
   | { type: "removeAssignees"; assignees: string[] }
   // Most rules should not require this: The engine already converts
   // the PR to draft when its checks fail

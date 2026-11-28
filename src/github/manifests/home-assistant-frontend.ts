@@ -1,5 +1,6 @@
 import { ignore, unignore } from "../commands/ignore.js";
 import { update } from "../commands/update.js";
+import { betaMilestone } from "../rules/beta-milestone.js";
 import { blockingLabels } from "../rules/blocking-labels.js";
 import {
   HomeAssistantRepository,
@@ -12,6 +13,9 @@ export const homeAssistantFrontend: RepoManifest = {
   slug: HomeAssistantRepository.FRONTEND,
   dashboard: true,
   rules: [
+    // Issues
+    betaMilestone(),
+
     // Related PRs
     ...homeAssistantLinkRules,
 

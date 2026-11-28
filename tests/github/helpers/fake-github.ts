@@ -38,6 +38,8 @@ export interface FakeWorld {
   reviews?: Record<string, unknown>[];
   /** issues.get response body. */
   issue?: Record<string, unknown>;
+  /** issues.listMilestones page (open milestones). */
+  milestones?: { number: number; title: string }[];
   /** Logins GitHub refuses to assign; everyone else can be. */
   unassignable?: string[];
 }
@@ -86,6 +88,7 @@ export interface FakeEndpoints {
     removeAssignees: Endpoint;
     checkUserCanBeAssignedToIssue: Endpoint;
     update: Endpoint;
+    listMilestones: Endpoint;
   };
   pulls: {
     get: Endpoint;
@@ -258,6 +261,12 @@ const ROUTES: Route[] = [
   },
   {
     method: "GET",
+    regex: /^\/repos\/([^/]+)\/([^/]+)\/milestones$/,
+    keys: ["owner", "repo"],
+    endpoint: (g) => g.issues.listMilestones,
+  },
+  {
+    method: "GET",
     regex: /^\/repos\/([^/]+)\/([^/]+)\/labels\/([^/]+)$/,
     keys: ["owner", "repo", "name"],
     endpoint: (g) => g.issues.getLabel,
@@ -357,6 +366,7 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
         return { status: 204 };
       }),
       update: endpointFn(async () => ({ data: {} })),
+      listMilestones: endpointFn(async () => ({ data: world.milestones ?? [] })),
     },
     pulls: {
       get: endpointFn(async (params) => {
