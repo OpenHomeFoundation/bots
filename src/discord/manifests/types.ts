@@ -1,3 +1,4 @@
+import type { NotificationRoutes } from "../engine/notify.js";
 import type { Listener, SlashCommand } from "../engine/types.js";
 
 /**
@@ -15,4 +16,6 @@ export interface GuildManifest {
   messageFile: string;
   commands: SlashCommand[];
   listeners: Listener[];
+  /** Notification topic → channel snowflake that hears about it. */
+  notifications?: NotificationRoutes;
 }

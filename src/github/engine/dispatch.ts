@@ -1,5 +1,6 @@
 import { addLogContext, logContext, withCorrelationId } from "../../correlation.js";
 import { log } from "../../log.js";
+import { notificationBus } from "../../notifications/bus.js";
 import { type ItemRef, slugOf } from "../../util/item-ref.js";
 import { withItemLock } from "../item-lock.js";
 import { evaluatePR } from "./evaluate.js";
@@ -185,6 +186,9 @@ async function applyEffects(context: RuleContext, effects: Effect[]): Promise<vo
         break;
       case "commitStatus":
         ops.push({ op: effect.type, run: () => writeRuleCommitStatus(context, effect) });
+        break;
+      case "notify":
+        ops.push({ op: effect.type, run: () => notificationBus.publish(effect.notification) });
         break;
       case "evaluate":
         pokes.set(`${slugOf(effect.target)}#${effect.target.number}`, effect.target);

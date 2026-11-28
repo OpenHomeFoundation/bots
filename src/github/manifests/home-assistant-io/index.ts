@@ -9,6 +9,7 @@ import { unassign } from "../../commands/unassign.js";
 import { update } from "../../commands/update.js";
 import { updateBranch } from "../../commands/update-branch.js";
 import { integrationDomains } from "../../helpers/integration-domains.js";
+import { betaIssueNotify } from "../../rules/beta-issue-notify.js";
 import { byCodeOwner } from "../../rules/by-code-owner.js";
 import { mentionCodeOwners } from "../../rules/code-owner-mention.js";
 import { setIntegration } from "../../rules/set-integration.js";
@@ -56,6 +57,7 @@ export const homeAssistantIo: RepoManifest = {
 
     // Issues
     setDocumentationSection,
+    betaIssueNotify(),
 
     // Org-wide
     ...homeAssistantOrgRules,

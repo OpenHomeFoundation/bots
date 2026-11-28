@@ -1,5 +1,6 @@
 import { ignore, unignore } from "../commands/ignore.js";
 import { update } from "../commands/update.js";
+import { betaIssueNotify } from "../rules/beta-issue-notify.js";
 import { betaMilestone } from "../rules/beta-milestone.js";
 import { blockingLabels } from "../rules/blocking-labels.js";
 import {
@@ -15,6 +16,7 @@ export const homeAssistantFrontend: RepoManifest = {
   rules: [
     // Issues
     betaMilestone(),
+    betaIssueNotify(),
 
     // Related PRs
     ...homeAssistantLinkRules,

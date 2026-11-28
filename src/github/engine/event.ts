@@ -1,6 +1,7 @@
 export enum EventType {
   ISSUE_COMMENT_CREATED = "issue_comment.created",
   ISSUES_LABELED = "issues.labeled",
+  ISSUES_MILESTONED = "issues.milestoned",
   ISSUES_OPENED = "issues.opened",
   PULL_REQUEST_CLOSED = "pull_request.closed",
   PULL_REQUEST_EDITED = "pull_request.edited",
@@ -41,6 +42,11 @@ export interface RuleEventMap {
     commentBody: string;
   };
   [EventType.ISSUES_LABELED]: { type: EventType.ISSUES_LABELED; label: string };
+  [EventType.ISSUES_MILESTONED]: {
+    type: EventType.ISSUES_MILESTONED;
+    /** The milestone the issue was put on. */
+    milestone: { number: number; title: string; state: "open" | "closed" };
+  };
   [EventType.ISSUES_OPENED]: { type: EventType.ISSUES_OPENED };
   [EventType.PULL_REQUEST_CLOSED]: { type: EventType.PULL_REQUEST_CLOSED; merged: boolean };
   [EventType.PULL_REQUEST_EDITED]: {

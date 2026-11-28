@@ -163,6 +163,27 @@ describe("webhook handler", () => {
     },
   );
 
+  it("dispatches the bot's own milestoning, which beta announcements follow", async () => {
+    dispatch.mockClear();
+
+    const payload = {
+      action: "milestoned",
+      repository: {
+        full_name: "home-assistant/core",
+        name: "core",
+        owner: { login: "home-assistant" },
+      },
+      sender: { login: "ha-bot[bot]", type: "Bot" },
+      issue: { number: 1, title: "Broken", state: "open" },
+      milestone: { number: 851, title: "2026.12.0", state: "open" },
+    };
+
+    const result = await service.handle(JSON.stringify(payload), "issues");
+
+    expect(result).toBe("OK");
+    expect(dispatch).toHaveBeenCalled();
+  });
+
   it("matches self-webhook login case-insensitively", async () => {
     dispatch.mockClear();
 

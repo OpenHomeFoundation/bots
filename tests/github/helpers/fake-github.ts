@@ -38,6 +38,8 @@ export interface FakeWorld {
   reviews?: Record<string, unknown>[];
   /** issues.get response body. */
   issue?: Record<string, unknown>;
+  /** repos.listReleases page, newest first; served for every repo. */
+  releases?: { tag_name: string; prerelease: boolean }[];
   /** issues.listMilestones page (open milestones). */
   milestones?: { number: number; title: string }[];
   /** Logins GitHub refuses to assign; everyone else can be. */
@@ -104,6 +106,7 @@ export interface FakeEndpoints {
     createCommitStatus: Endpoint;
     getContent: Endpoint;
     listCommitStatusesForRef: Endpoint;
+    listReleases: Endpoint;
   };
   teams: {
     listMembersInOrg: Endpoint;
@@ -286,6 +289,12 @@ const ROUTES: Route[] = [
     endpoint: (g) => g.repos.getContent,
   },
   {
+    method: "GET",
+    regex: /^\/repos\/([^/]+)\/([^/]+)\/releases$/,
+    keys: ["owner", "repo"],
+    endpoint: (g) => g.repos.listReleases,
+  },
+  {
     method: "POST",
     regex: /^\/repos\/([^/]+)\/([^/]+)\/statuses\/([^/]+)$/,
     keys: ["owner", "repo", "sha"],
@@ -395,6 +404,7 @@ export function createFakeGitHub(world: FakeWorld = {}): FakeGitHub {
         return { data: { content: Buffer.from(body).toString("base64"), encoding: "base64" } };
       }),
       listCommitStatusesForRef: endpointFn(async () => ({ data: [] })),
+      listReleases: endpointFn(async () => ({ data: world.releases ?? [] })),
     },
     teams: {
       listMembersInOrg: endpointFn(async (params) => {

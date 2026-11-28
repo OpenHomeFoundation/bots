@@ -1,3 +1,4 @@
+import type { Notification } from "../../notifications/types.js";
 import type { ItemRef } from "../../util/item-ref.js";
 import type { CommandHelpEntry } from "./command-render.js";
 import type { EventType } from "./event.js";
@@ -58,13 +59,12 @@ export type Effect =
       state: "success" | "failure" | "pending";
       description: string;
       targetUrl?: string;
-    };
-// Cross-engine notification, disabled until the Discord engine goes live:
-// a GitHub rule states a fact ({ type: "notify", topic, data }) and the
-// message engine owns which channel it goes to and how it renders. To
-// enable, add the variant to the union above and hand notify effects to the
-// Discord engine in applyEffects (dispatch.ts).
-//  | { type: "notify"; topic: string; data: Record<string, unknown> }
+    }
+  /**
+   * Cross-engine notification: the rule states a fact and the message engine
+   * owns which channel it goes to and how it renders (see notifications/).
+   */
+  | { type: "notify"; notification: Notification };
 
 /** A typed update to one dashboard template block; `args: null` clears it. */
 export type BlockUpdate = {

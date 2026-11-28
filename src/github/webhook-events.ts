@@ -4,6 +4,7 @@ type Schemas = components["schemas"];
 
 export type IssueCommentCreatedEvent = Schemas["webhook-issue-comment-created"];
 export type IssuesLabeledEvent = Schemas["webhook-issues-labeled"];
+export type IssuesMilestonedEvent = Schemas["webhook-issues-milestoned"];
 export type IssuesOpenedEvent = Schemas["webhook-issues-opened"];
 export type PullRequestClosedEvent = Schemas["webhook-pull-request-closed"];
 export type PullRequestEditedEvent = Schemas["webhook-pull-request-edited"];

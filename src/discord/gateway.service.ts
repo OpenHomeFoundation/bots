@@ -7,13 +7,16 @@ import {
 import type { Client } from "discord.js";
 import { ENV, type Env } from "../env.js";
 import { log } from "../log.js";
+import { notificationBus } from "../notifications/bus.js";
 import type { GuildRegistry } from "./engine/dispatch.js";
-import { startDiscordGateway } from "./engine/gateway.js";
+import { channelPort, startDiscordGateway } from "./engine/gateway.js";
+import { createNotificationDelivery } from "./engine/notify.js";
 import { DISCORD_REGISTRY } from "./registry.provider.js";
 
 @Injectable()
 export class DiscordGatewayService implements OnApplicationBootstrap, OnApplicationShutdown {
   private client: Client | undefined;
+  private unsubscribe: (() => void) | undefined;
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -29,6 +32,9 @@ export class DiscordGatewayService implements OnApplicationBootstrap, OnApplicat
     startDiscordGateway(this.registry, { token })
       .then((client) => {
         this.client = client;
+        this.unsubscribe = notificationBus.subscribe(
+          createNotificationDelivery(this.registry, channelPort(client)),
+        );
       })
       .catch((err) => {
         log.exception(err instanceof Error ? err : new Error(String(err)));
@@ -36,6 +42,7 @@ export class DiscordGatewayService implements OnApplicationBootstrap, OnApplicat
   }
 
   async onApplicationShutdown(): Promise<void> {
+    this.unsubscribe?.();
     await this.client?.destroy();
   }
 }

@@ -66,11 +66,13 @@ export class WebhookService {
     const selfWebhook = senderLogin.toLowerCase() === ownBotLogin.toLowerCase();
 
     // Skip the bot's own writes, but not its close and reopen: PRs that belong
-    // together follow those as they follow anyone's.
-    const ownStateChange =
+    // together follow those as they follow anyone's. Nor its milestoning:
+    // an issue the bot puts on the beta milestone is announced like any other.
+    const ownWriteToFollow =
       rawEventType === EventType.PULL_REQUEST_CLOSED ||
-      rawEventType === EventType.PULL_REQUEST_REOPENED;
-    if (selfWebhook && !ownStateChange) return "OK";
+      rawEventType === EventType.PULL_REQUEST_REOPENED ||
+      rawEventType === EventType.ISSUES_MILESTONED;
+    if (selfWebhook && !ownWriteToFollow) return "OK";
 
     // Dispatches skip locked items. Re-evaluate an open PR in full once it is
     // unlocked, or its required `ha-bot` status waits for the next push.

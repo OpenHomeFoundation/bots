@@ -219,7 +219,7 @@ function interactionResponder(interaction: Interaction): ResponderPort {
   };
 }
 
-function channelPort(client: Client): ChannelPort {
+export function channelPort(client: Client): ChannelPort {
   const textChannel = async (channelId: string) => {
     const channel = await client.channels.fetch(channelId);
     if (!channel?.isTextBased() || !("send" in channel)) {
