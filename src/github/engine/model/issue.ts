@@ -6,6 +6,7 @@ export type GetIssueResponse = RestEndpointMethodTypes["issues"]["get"]["respons
 
 /** Core fields a webhook payload MAY provide; undefined → hydrate. */
 export interface IssueSeed {
+  title?: string;
   labels?: string[];
   body?: string | null;
   authorLogin?: string;
@@ -71,6 +72,10 @@ export class Issue {
     return this.coreField(this.seed.labels, (issue) =>
       issue.labels.map((l) => (typeof l === "string" ? l : (l.name ?? ""))),
     );
+  }
+
+  title(): Promise<string> {
+    return this.coreField(this.seed.title, (issue) => issue.title);
   }
 
   body(): Promise<string | null> {

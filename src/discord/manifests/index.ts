@@ -38,6 +38,7 @@ function build(): GuildRegistry {
       messageFile: manifest.messageFile,
       commands: manifest.commands,
       listeners: manifest.listeners,
+      notifications: manifest.notifications,
     };
   }
   return { guilds };

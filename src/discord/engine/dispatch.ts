@@ -8,12 +8,15 @@ import type {
 import { CommandContext, DiscordContext } from "./context.js";
 import type { DiscordEvent } from "./event.js";
 import { DiscordEventType } from "./event.js";
+import type { NotificationRoutes } from "./notify.js";
 import type { DiscordEffect, Listener, SlashCommand } from "./types.js";
 
 export interface GuildConfig {
   messageFile: string;
   commands: SlashCommand[];
   listeners: Listener[];
+  /** Which channel hears about each notification topic; none when absent. */
+  notifications?: NotificationRoutes;
 }
 
 /** Guild snowflake → what runs there. Assembled from guild manifests. */

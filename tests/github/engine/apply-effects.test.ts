@@ -8,6 +8,8 @@ import type {
   RuleOutput,
   StatusSectionClaim,
 } from "../../../src/github/engine/types.js";
+import { notificationBus } from "../../../src/notifications/bus.js";
+import type { Notification } from "../../../src/notifications/types.js";
 import {
   BOT_LOGIN,
   createFakeGitHub,
@@ -197,6 +199,30 @@ describe("effect → GitHub API mapping", () => {
       issue_number: 1,
       milestone: 851,
     });
+  });
+
+  it("notify → publishes on the notification bus", async () => {
+    const received: Notification[] = [];
+    const unsubscribe = notificationBus.subscribe(async (n) => {
+      received.push(n);
+    });
+    const notification: Notification = {
+      topic: "beta-issue",
+      repository: "home-assistant/core",
+      number: 1,
+      title: "Broken",
+      url: "https://github.com/home-assistant/core/issues/1",
+      author: "reporter",
+      milestone: "2026.12.0",
+    };
+
+    try {
+      await apply({ effects: [{ type: "notify", notification }] });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(received).toEqual([notification]);
   });
 
   it("requestReviewers → pulls.requestReviewers", async () => {

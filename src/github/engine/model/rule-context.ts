@@ -4,6 +4,7 @@ import { type ItemRef, slugOf } from "../../../util/item-ref.js";
 import type {
   IssueCommentCreatedEvent,
   IssuesLabeledEvent,
+  IssuesMilestonedEvent,
   IssuesOpenedEvent,
   PullRequestClosedEvent,
   PullRequestEditedEvent,
@@ -19,6 +20,12 @@ import { EventType, type RuleEvent, type RuleEventOf } from "../event.js";
 import { type RegistryConfig, type RepoConfig, resolveRepo } from "../types.js";
 import { type CodeownersReads, createCodeownersReads, readCodeowners } from "./codeowners.js";
 import { type GetIssueResponse, Issue, type IssueSeed } from "./issue.js";
+import {
+  createLatestReleaseReads,
+  type LatestRelease,
+  type LatestReleaseReads,
+  readLatestRelease,
+} from "./latest-release.js";
 import {
   createMilestoneReads,
   type MilestoneReads,
@@ -45,6 +52,7 @@ interface ContextReads {
   org: OrgReads;
   files: RepoFileReads;
   milestones: MilestoneReads;
+  latestReleases: LatestReleaseReads;
   /** Other pull requests, by `owner/repo#number`. */
   pullRequests: Map<string, PullRequest>;
 }
@@ -61,6 +69,7 @@ export interface Sender {
 interface TargetMap {
   [EventType.ISSUE_COMMENT_CREATED]: PullRequest | Issue;
   [EventType.ISSUES_LABELED]: Issue;
+  [EventType.ISSUES_MILESTONED]: Issue;
   [EventType.ISSUES_OPENED]: Issue;
   [EventType.PULL_REQUEST_CLOSED]: PullRequest;
   [EventType.PULL_REQUEST_EDITED]: PullRequest;
@@ -127,6 +136,7 @@ export class RuleContext<E extends EventType = EventType> {
       org: createOrgReads(),
       files: createRepoFileReads(),
       milestones: createMilestoneReads(),
+      latestReleases: createLatestReleaseReads(),
       pullRequests: new Map(),
     };
   }
@@ -216,6 +226,14 @@ export class RuleContext<E extends EventType = EventType> {
     return readOpenMilestones(this.github, this.repo, this.reads.milestones);
   }
 
+  /**
+   * The most recently published release of a repo, prereleases included —
+   * this repo unless another is named. Null when the repo has none.
+   */
+  latestRelease(repo?: { owner: string; name: string }): Promise<LatestRelease | null> {
+    return readLatestRelease(this.github, repo ?? this.repo, this.reads.latestReleases);
+  }
+
   /** Another pull request, fetched at most once per dispatch however many rules read it. */
   pullRequest(ref: ItemRef): PullRequest {
     const key = `${slugOf(ref)}#${ref.number}`;
@@ -249,6 +267,7 @@ export class RuleContext<E extends EventType = EventType> {
 export type WebhookEventPayload =
   | IssueCommentCreatedEvent
   | IssuesLabeledEvent
+  | IssuesMilestonedEvent
   | IssuesOpenedEvent
   | PullRequestClosedEvent
   | PullRequestEditedEvent
@@ -308,6 +327,7 @@ function seedFromPullRequestLike(pr: PullRequestLike): PullRequestSeed {
 interface IssueLike {
   number: number;
   pull_request?: unknown;
+  title?: string;
   labels?: ({ name?: string } | string)[] | null;
   body?: string | null;
   user?: { login: string } | null;
@@ -319,6 +339,7 @@ interface IssueLike {
 
 function seedFromIssueLike(issue: IssueLike): IssueSeed {
   return {
+    ...(typeof issue.title === "string" ? { title: issue.title } : {}),
     ...(issue.labels
       ? {
           labels: issue.labels.flatMap((l) =>
@@ -355,6 +376,17 @@ function eventFromPayload(payload: WebhookEventPayload, eventType: EventType): R
     case EventType.ISSUES_LABELED: {
       const p = payload as IssuesLabeledEvent;
       return { type: eventType, label: p.label?.name ?? "" };
+    }
+    case EventType.ISSUES_MILESTONED: {
+      const p = payload as IssuesMilestonedEvent;
+      return {
+        type: eventType,
+        milestone: {
+          number: p.milestone.number,
+          title: p.milestone.title,
+          state: p.milestone.state === "closed" ? "closed" : "open",
+        },
+      };
     }
     case EventType.PULL_REQUEST_EDITED: {
       const p = payload as PullRequestEditedEvent;
